@@ -51,7 +51,7 @@ bool RHI::Initialize() {
     VkPhysicalDevice physicalDevice = devices[0];
 
     VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties(selectedDevice, &deviceProperties);
+    vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
 
     m_Capabilities.deviceName = deviceProperties.deviceName;
 
@@ -70,7 +70,7 @@ bool RHI::Initialize() {
     features2.pNext = &meshFeatures;
     meshFeatures.pNext = &rtFeatures;
 
-    vkGetPhysicalDeviceFeatures2(selectedDevice, &features2);
+    vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
 
     m_Capabilities.SupportsMeshShaders = meshFeatures.meshShader;
     m_Capabilities.SupportsRayTracing = rtFeatures.rayTracingPipeline;
