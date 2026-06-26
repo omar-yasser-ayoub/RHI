@@ -1,15 +1,10 @@
-#include "rhi/rhi.h"
+#include "rhi/vulkan/vkrhi.h"
 #include <vulkan/vulkan.h>
 #include <iostream>
+#include <vector>
 
-RHI::RHI() {
 
-}
-
-RHI::~RHI() {
-}
-
-bool RHI::Initialize() {
+bool VulkanRHI::Initialize() {
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
     appInfo.pApplicationName = "reeka's RHI";
@@ -48,10 +43,10 @@ bool RHI::Initialize() {
         return false;
     }
 
-    VkPhysicalDevice physicalDevice = devices[0];
+    m_PhysicalDevice = devices[0];
 
     VkPhysicalDeviceProperties deviceProperties;
-    vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+    vkGetPhysicalDeviceProperties(m_PhysicalDevice, &deviceProperties);
 
     m_Capabilities.deviceName = deviceProperties.deviceName;
 
@@ -70,7 +65,7 @@ bool RHI::Initialize() {
     features2.pNext = &meshFeatures;
     meshFeatures.pNext = &rtFeatures;
 
-    vkGetPhysicalDeviceFeatures2(physicalDevice, &features2);
+    vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &features2);
 
     m_Capabilities.SupportsMeshShaders = meshFeatures.meshShader;
     m_Capabilities.SupportsRayTracing = rtFeatures.rayTracingPipeline;
@@ -78,14 +73,15 @@ bool RHI::Initialize() {
     return true;
 }
 
-void RHI::Shutdown() {
+void VulkanRHI::Shutdown() {
     if (m_Instance) {
         vkDestroyInstance(m_Instance, nullptr);
         m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
     }
 }
 
-void RHI::PrintCapabilities()
+void VulkanRHI::PrintCapabilities()
 {
     std::cout << "========== Vulkan RHI Capabilities ==========\n";
     std::cout << "Device Name        : " << m_Capabilities.deviceName << '\n';
@@ -94,8 +90,4 @@ void RHI::PrintCapabilities()
     std::cout << "Ray Tracing        : "
               << (m_Capabilities.SupportsRayTracing ? "Supported" : "Not Supported") << '\n';
     std::cout << "=============================================\n";
-}
-
-const RHICapabilities& RHI::GetCapabilities() const {
-    return m_Capabilities;
 }

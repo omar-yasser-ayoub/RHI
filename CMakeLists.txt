@@ -5,36 +5,62 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(RHI_BACKEND "VULKAN" CACHE STRING "RHI backend to use")
+set_property(CACHE RHI_BACKEND PROPERTY STRINGS VULKAN DX12 WEBGPU)
 
 set(SOURCE_FILES
     src/main.cpp
-    src/rhi/rhi.h
+)
+
+add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        src
 )
 
 if(RHI_BACKEND STREQUAL "VULKAN")
-  message(STATUS "Configuring RHI for: VULKAN")
+  message(STATUS "Configuring RHI for Vulkan")
   find_package(Vulkan REQUIRED)
-  list(APPEND SOURCE_FILES src/rhi/vulkan/VkRHI.cpp)
-
+  target_sources(${PROJECT_NAME}
+        PRIVATE
+            src/rhi/vulkan/VkRHI.cpp
+    )
+  target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            Vulkan::Vulkan
+    )
+  target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            RHI_VULKAN
+    )
 elseif(RHI_BACKEND STREQUAL "DX12")
   if(NOT WIN32)
-    message(FATAL_ERROR "DirectX 12 is only supported on Windows!")
+    message(FATAL_ERROR "DirectX 12 is only supported on Windows.")
   endif()
-  message(STATUS "Configuring RHI for: DX12")
-  list(APPEND SOURCE_FILES src/rhi/dx12/DX12RHI.cpp)
-
+  message(STATUS "Configuring RHI for DirectX 12")
+  target_sources(${PROJECT_NAME}
+        PRIVATE
+            src/rhi/dx12/DX12RHI.cpp
+    )
+  target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            d3d12
+            dxgi
+    )
+  target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            RHI_DX12
+    )
 elseif(RHI_BACKEND STREQUAL "WEBGPU")
-  message(STATUS "Configuring RHI for: WEBGPU")
-  list(APPEND SOURCE_FILES src/rhi/webgpu/WGPURHI.cpp)
-endif()
-
-add_executable(${PROJECT_NAME} ${SOURCE_FILES})
-target_include_directories(${PROJECT_NAME} PRIVATE src/)
-
-if(RHI_BACKEND STREQUAL "VULKAN")
-  target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE RHI_VULKAN)
-elseif(RHI_BACKEND STREQUAL "DX12")
-  target_link_libraries(${PROJECT_NAME} PRIVATE d3d12 dxgi)
-  target_compile_definitions(${PROJECT_NAME} PRIVATE RHI_DX12)
+  message(STATUS "Configuring RHI for WebGPU")
+  target_sources(${PROJECT_NAME}
+        PRIVATE
+            src/rhi/webgpu/WGPURHI.cpp
+    )
+  target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            RHI_WEBGPU
+    )
+else()
+  message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
