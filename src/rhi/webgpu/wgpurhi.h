@@ -7,7 +7,6 @@ class WebGPURHI : public IRHI
 public:
     bool Initialize() override;
     void Shutdown() override;
-    void PrintCapabilities() override;
 
 private:
     wgpu::Instance m_Instance;

@@ -4,6 +4,10 @@
 
 namespace rhi
 {
+    struct BufferHandle {
+        std::uint64_t id = 0xFFFFFFFF;
+    };
+
     enum class BufferUsage : std::uint32_t
     {
         None      = 0,

@@ -23,7 +23,6 @@ int main()
     if (!rhi.Initialize())
         return 1;
 
-    rhi.PrintCapabilities();
     rhi.Shutdown();
 
     std::cin.get();

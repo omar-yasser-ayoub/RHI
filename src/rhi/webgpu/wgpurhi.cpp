@@ -80,36 +80,3 @@ void WebGPURHI::Shutdown()
     m_Adapter = {};
     m_Instance = {};
 }
-
-void WebGPURHI::PrintCapabilities()
-{
-    wgpu::AdapterInfo info{};
-    m_Adapter.GetInfo(&info);
-
-    std::cout << "========== WebGPU RHI Capabilities ==========\n";
-    std::cout << "Device Name : " << std::string(info.device.data, info.device.length) << '\n';
-    std::cout << "Vendor      : " << std::string(info.vendor.data, info.vendor.length) << '\n';
-    std::cout << "Architecture: " << std::string(info.architecture.data, info.architecture.length) << '\n';
-    std::cout << "Driver      : " << std::string(info.description.data, info.description.length) << '\n';
-    std::cout << "Backend            : ";
-
-    switch (info.backendType)
-    {
-    case wgpu::BackendType::D3D11:    std::cout << "D3D11";    break;
-    case wgpu::BackendType::D3D12:    std::cout << "D3D12";    break;
-    case wgpu::BackendType::Metal:    std::cout << "Metal";    break;
-    case wgpu::BackendType::OpenGL:   std::cout << "OpenGL";   break;
-    case wgpu::BackendType::OpenGLES: std::cout << "OpenGLES"; break;
-    case wgpu::BackendType::Vulkan:   std::cout << "Vulkan";   break;
-    case wgpu::BackendType::Null:     std::cout << "Null";     break;
-    case wgpu::BackendType::WebGPU:   std::cout << "Browser";  break;
-    default:                          std::cout << "Unknown";  break;
-    }
-
-    std::cout << '\n';
-    std::cout << "Mesh Shaders       : "
-              << (m_Capabilities.SupportsMeshShaders ? "Supported" : "Not Exposed") << '\n';
-    std::cout << "Ray Tracing        : "
-              << (m_Capabilities.SupportsRayTracing  ? "Supported" : "Not Exposed") << '\n';
-    std::cout << "=============================================\n";
-}

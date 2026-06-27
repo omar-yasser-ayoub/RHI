@@ -4,6 +4,10 @@
 
 namespace rhi
 {
+    struct TextureHandle {
+        std::uint64_t id = 0xFFFFFFFF;
+    };
+
     enum class TextureDimension
     {
         Tex1D,
@@ -147,6 +151,22 @@ namespace rhi
         TextureFormat format = TextureFormat::RGBA8Unorm;
 
         TextureUsage usage = TextureUsage::None;
+    };
+
+    struct TextureWriteDesc
+    {
+        std::uint32_t mipLevel = 0;
+
+        std::uint32_t x = 0;
+        std::uint32_t y = 0;
+        std::uint32_t z = 0;
+
+        std::uint32_t width = 1;
+        std::uint32_t height = 1;
+        std::uint32_t depth = 1;
+
+        std::uint32_t bytesPerRow = 0;
+        std::uint32_t rowsPerImage = 0;
     };
 
     // struct TextureViewDesc

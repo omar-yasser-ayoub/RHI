@@ -2,7 +2,11 @@
 
 namespace rhi
 {
-        enum class Filter
+    struct SamplerHandle {
+        std::uint64_t id = 0xFFFFFFFF;
+    };
+
+    enum class Filter
     {
         Nearest,
         Linear,

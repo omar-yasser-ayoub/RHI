@@ -80,14 +80,3 @@ void VulkanRHI::Shutdown() {
         m_PhysicalDevice = VK_NULL_HANDLE;
     }
 }
-
-void VulkanRHI::PrintCapabilities()
-{
-    std::cout << "========== Vulkan RHI Capabilities ==========\n";
-    std::cout << "Device Name        : " << m_Capabilities.deviceName << '\n';
-    std::cout << "Mesh Shaders       : "
-              << (m_Capabilities.SupportsMeshShaders ? "Supported" : "Not Supported") << '\n';
-    std::cout << "Ray Tracing        : "
-              << (m_Capabilities.SupportsRayTracing ? "Supported" : "Not Supported") << '\n';
-    std::cout << "=============================================\n";
-}

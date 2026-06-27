@@ -11,7 +11,6 @@ class DX12RHI : public IRHI
 public:
     bool Initialize() override;
     void Shutdown() override;
-    void PrintCapabilities() override;
 
 private:
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;

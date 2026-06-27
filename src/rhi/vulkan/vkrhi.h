@@ -8,7 +8,6 @@ class VulkanRHI : public IRHI
 public:
     bool Initialize() override;
     void Shutdown() override;
-    void PrintCapabilities() override;
 
 private:
     VkInstance m_Instance = VK_NULL_HANDLE;
