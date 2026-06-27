@@ -52,15 +52,21 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             RHI_DX12
     )
 elseif(RHI_BACKEND STREQUAL "WEBGPU")
-  message(STATUS "Configuring RHI for WebGPU")
+  set(DAWN_SDK_ROOT "C:/Dawn/SDK" CACHE PATH "Path to Dawn SDK")
+  find_package(Threads REQUIRED)
+  find_package(Dawn REQUIRED PATHS ${DAWN_SDK_ROOT})
   target_sources(${PROJECT_NAME}
-        PRIVATE
-            src/rhi/webgpu/WGPURHI.cpp
-    )
+            PRIVATE
+                src/rhi/webgpu/WGPURHI.cpp
+        )
+  target_link_libraries(${PROJECT_NAME}
+            PRIVATE
+                dawn::webgpu_dawn
+        )
   target_compile_definitions(${PROJECT_NAME}
-        PRIVATE
-            RHI_WEBGPU
-    )
+            PRIVATE
+                RHI_WEBGPU
+        )
 else()
   message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
