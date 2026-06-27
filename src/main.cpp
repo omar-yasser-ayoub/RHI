@@ -1,11 +1,11 @@
 #include <iostream>
 
 #ifdef RHI_VULKAN
-    #include "rhi/vulkan/VkRHI.h"
+    #include "rhi/vulkan/vkrhi.h"
 #elif defined(RHI_DX12)
-    #include "rhi/dx12/DX12RHI.h"
+    #include "rhi/dx12/dx12rhi.h"
 #elif defined(RHI_WEBGPU)
-    #include "rhi/webgpu/WGPURHI.h"
+    #include "rhi/webgpu/wgpurhi.h"
 #endif
 
 int main()

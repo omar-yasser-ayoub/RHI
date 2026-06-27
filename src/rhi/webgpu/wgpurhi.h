@@ -1,5 +1,5 @@
 #pragma once
-#include "../IRHI.h"
+#include "../irhi.h"
 #include <webgpu/webgpu_cpp.h>
 
 class WebGPURHI : public IRHI

@@ -1,4 +1,4 @@
-#include "rhi/webgpu/WGPURHI.h"
+#include "rhi/webgpu/wgpurhi.h"
 #include <iostream>
 
 bool WebGPURHI::Initialize()
