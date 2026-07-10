@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../IRHI.h"
+#include "rhi/irhi.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 

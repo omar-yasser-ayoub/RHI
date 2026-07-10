@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../IRHI.h"
 #include "rhi/irhi.h"
 
 #include <d3d12.h>

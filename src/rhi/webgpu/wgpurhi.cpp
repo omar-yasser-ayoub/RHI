@@ -171,7 +171,7 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
 }
 
 rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
-
+    return rhi::BufferHandle{};
 }
 
 void WebGPURHI::DestroySampler(rhi::SamplerHandle handle) {

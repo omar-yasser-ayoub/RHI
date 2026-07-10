@@ -70,3 +70,6 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
 else()
   message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
+
+# Include tests
+add_subdirectory(tests)

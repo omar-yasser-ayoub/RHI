@@ -125,21 +125,21 @@ void VulkanRHI::Shutdown() {
     }
 }
 
-VkFilter toVk(rhi::Filter mode){
+VkFilter VulkanRHI::toVk(rhi::Filter mode){
     switch (mode) {
         case rhi::Filter::Nearest: return VK_FILTER_NEAREST;
         case rhi::Filter::Linear: return VK_FILTER_LINEAR;
     }
 }
 
-VkSamplerMipmapMode toVk(rhi::MipmapFilter mode){
+VkSamplerMipmapMode VulkanRHI::toVk(rhi::MipmapFilter mode){
     switch (mode) {
         case rhi::MipmapFilter::Nearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
         case rhi::MipmapFilter::Linear: return VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
 }
 
-VkSamplerAddressMode toVk(rhi::AddressMode mode){
+VkSamplerAddressMode VulkanRHI::toVk(rhi::AddressMode mode){
     switch (mode) {
         case rhi::AddressMode::Repeat: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
         case rhi::AddressMode::MirrorRepeat: return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
@@ -149,7 +149,7 @@ VkSamplerAddressMode toVk(rhi::AddressMode mode){
     }
 }
 
-VkCompareOp toVk(rhi::CompareOp mode){
+VkCompareOp VulkanRHI::toVk(rhi::CompareOp mode){
     switch (mode) {
         case rhi::CompareOp::Never: return VK_COMPARE_OP_NEVER;
         case rhi::CompareOp::Less: return VK_COMPARE_OP_LESS;
@@ -162,7 +162,7 @@ VkCompareOp toVk(rhi::CompareOp mode){
     }
 }
 
-VkBorderColor toVk(rhi::BorderColor mode){
+VkBorderColor VulkanRHI::toVk(rhi::BorderColor mode){
     switch (mode) {
         case rhi::BorderColor::TransparentBlack: return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
         case rhi::BorderColor::OpaqueBlack: return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
