@@ -1,3 +1,4 @@
 build/
 __cmake_systeminformation
 .cache
+compile_commands.json

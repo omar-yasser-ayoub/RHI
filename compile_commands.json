@@ -22,5 +22,71 @@
     "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DRHI_VULKAN -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src -external:IC:\\VulkanSDK\\1.4.350.0\\include -external:W0 /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD /FoCMakeFiles\\RHI.dir\\src\\rhi\\vulkan\\VkRHI.cpp.obj /FdCMakeFiles\\RHI.dir\\ /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src\\rhi\\vulkan\\VkRHI.cpp",
     "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/src/rhi/vulkan/VkRHI.cpp",
     "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/vulkan/CMakeFiles/RHI.dir/src/rhi/vulkan/VkRHI.cpp.obj"
-  }
+  },
+  {
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DRHI_DX12 -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD /FoCMakeFiles\\RHI.dir\\src\\main.cpp.obj /FdCMakeFiles\\RHI.dir\\ /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src\\main.cpp",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/src/main.cpp",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/CMakeFiles/RHI.dir/src/main.cpp.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DRHI_DX12 -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD /FoCMakeFiles\\RHI.dir\\src\\rhi\\dx12\\DX12RHI.cpp.obj /FdCMakeFiles\\RHI.dir\\ /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src\\rhi\\dx12\\DX12RHI.cpp",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/src/rhi/dx12/DX12RHI.cpp",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/CMakeFiles/RHI.dir/src/rhi/dx12/DX12RHI.cpp.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DRHI_DX12 -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest -external:W0 /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD /Fotests\\CMakeFiles\\rhi_tests.dir\\test_rhi.cpp.obj /Fdtests\\CMakeFiles\\rhi_tests.dir\\ /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\tests\\test_rhi.cpp",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/tests/test_rhi.cpp",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/tests/CMakeFiles/rhi_tests.dir/test_rhi.cpp.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -DRHI_DX12 -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest -external:W0 /DWIN32 /D_WINDOWS /EHsc /O2 /Ob2 /DNDEBUG -std:c++20 -MD /Fotests\\CMakeFiles\\rhi_tests.dir\\__\\src\\rhi\\dx12\\DX12RHI.cpp.obj /Fdtests\\CMakeFiles\\rhi_tests.dir\\ /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\src\\rhi\\dx12\\DX12RHI.cpp",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/src/rhi/dx12/DX12RHI.cpp",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/tests/CMakeFiles/rhi_tests.dir/__/src/rhi/dx12/DX12RHI.cpp.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googlemock\\CMakeFiles\\gmock.dir\\__\\googletest\\src\\gtest-all.cc.obj /Fdlib\\gmock.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\src\\gtest-all.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googletest/src/gtest-all.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/__/googletest/src/gtest-all.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googlemock\\CMakeFiles\\gmock.dir\\src\\gmock-all.cc.obj /Fdlib\\gmock.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\src\\gmock-all.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googlemock/src/gmock-all.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googlemock/CMakeFiles/gmock.dir/src/gmock-all.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googlemock\\CMakeFiles\\gmock_main.dir\\__\\googletest\\src\\gtest-all.cc.obj /Fdlib\\gmock_main.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\src\\gtest-all.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googletest/src/gtest-all.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/__/googletest/src/gtest-all.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googlemock\\CMakeFiles\\gmock_main.dir\\src\\gmock-all.cc.obj /Fdlib\\gmock_main.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\src\\gmock-all.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googlemock/src/gmock-all.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock-all.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googlemock\\CMakeFiles\\gmock_main.dir\\src\\gmock_main.cc.obj /Fdlib\\gmock_main.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googlemock\\src\\gmock_main.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googlemock/src/gmock_main.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googlemock/CMakeFiles/gmock_main.dir/src/gmock_main.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googletest\\CMakeFiles\\gtest.dir\\src\\gtest-all.cc.obj /Fdlib\\gtest.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\src\\gtest-all.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googletest/src/gtest-all.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.obj"
+},
+{
+  "directory": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12",
+  "command": "C:\\PROGRA~1\\MICROS~3\\18\\COMMUN~1\\VC\\Tools\\MSVC\\1450~1.357\\bin\\Hostx64\\x64\\cl.exe  /nologo /TP -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\include -external:IC:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest -external:W0 /DWIN32 /D_WINDOWS  /O2 /Ob2 /DNDEBUG -std:c++20 -MD -GS -W4 -WX -wd4251 -wd4275 -nologo -J -D_UNICODE -DUNICODE -DWIN32 -D_WIN32 -DSTRICT -DWIN32_LEAN_AND_MEAN -wd4702 -utf-8 -DGTEST_HAS_PTHREAD=0 -EHsc -D_HAS_EXCEPTIONS=1  /Fo_deps\\googletest-build\\googletest\\CMakeFiles\\gtest_main.dir\\src\\gtest_main.cc.obj /Fdlib\\gtest_main.pdb /FS -c C:\\Users\\reeka\\Documents\\Projects\\Personal\\RHI\\build\\dx12\\_deps\\googletest-src\\googletest\\src\\gtest_main.cc",
+  "file": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-src/googletest/src/gtest_main.cc",
+  "output": "C:/Users/reeka/Documents/Projects/Personal/RHI/build/dx12/_deps/googletest-build/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.obj"
+}
 ]

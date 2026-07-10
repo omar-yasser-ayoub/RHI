@@ -136,8 +136,9 @@ rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
     m_Device->CreateSampler(&samplerDesc, handle);
 
     rhi::SamplerHandle result;
-
     result.id = m_SamplerHeapOffset;
+
+    ++m_SamplerHeapOffset;
     return result;
 }
 

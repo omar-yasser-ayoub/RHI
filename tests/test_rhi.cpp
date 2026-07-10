@@ -25,7 +25,7 @@ protected:
 
     void TearDown() override
     {
-            rhi.Shutdown();
+        rhi.Shutdown();
     }
 
     RHIImpl rhi;
