@@ -93,7 +93,6 @@ D3D12_TEXTURE_ADDRESS_MODE DX12RHI::toD3D12(rhi::AddressMode mode) {
     }
 }
 
-
 D3D12_COMPARISON_FUNC DX12RHI::toD3D12(rhi::CompareOp mode) {
     switch (mode) {
         case rhi::CompareOp::Never: return D3D12_COMPARISON_FUNC_NEVER;
