@@ -10,5 +10,4 @@ if %ERRORLEVEL% neq 0 ( echo Configure failed. & exit /b 1 )
 cmake --build "%BUILD_DIR%" --parallel
 if %ERRORLEVEL% neq 0 ( echo Build failed. & exit /b 1 )
 
-copy /Y "%BUILD_DIR%\compile_commands.json" "%ROOT%\compile_commands.json"
 echo Built DX12 backend.

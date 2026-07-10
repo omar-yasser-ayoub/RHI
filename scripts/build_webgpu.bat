@@ -10,8 +10,6 @@ if %ERRORLEVEL% neq 0 ( echo Configure failed. & exit /b 1 )
 cmake --build "%BUILD_DIR%" --parallel
 if %ERRORLEVEL% neq 0 ( echo Build failed. & exit /b 1 )
 
-copy /Y "%BUILD_DIR%\compile_commands.json" "%ROOT%\compile_commands.json"
-
 copy /Y "C:\Dawn\SDK\bin\d3dcompiler_47.dll" "%ROOT%\build\webgpu\"
 copy /Y "C:\Dawn\SDK\bin\vulkan-1.dll" "%ROOT%\build\webgpu\"
 
