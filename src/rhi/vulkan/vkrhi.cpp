@@ -202,32 +202,33 @@ rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
 }
 
 rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
-
+    return rhi::TextureHandle{};
 }
 
 rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
-
+    return rhi::BufferHandle{};
 }
 
 void VulkanRHI::DestroySampler(rhi::SamplerHandle handle) {
     if (handle.id < m_Samplers.size()) {
         vkDestroySampler(m_Device, m_Samplers[handle.id], nullptr);
         m_Samplers[handle.id] = VK_NULL_HANDLE;
+        return;
     }
 }
 
 void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
-
+    return;
 }
 
 void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
-
+    return;
 }
 
 void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
-
+    return;
 }
 
 void VulkanRHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-
+    return;
 }

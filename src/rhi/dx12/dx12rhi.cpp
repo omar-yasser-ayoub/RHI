@@ -142,29 +142,29 @@ rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
 }
 
 rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
-
+    return rhi::TextureHandle{};
 }
 
 rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
-
+    return rhi::BufferHandle{};
 }
 
 void DX12RHI::DestroySampler(rhi::SamplerHandle handle) {
-// not needed for now
+    return;
 }
 
 void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
-
+    return;
 }
 
 void DX12RHI::DestroyBuffer(rhi::BufferHandle handle) {
-
+    return;
 }
 
 void DX12RHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
-
+    return;
 }
 
 void DX12RHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-
+    return;
 }
