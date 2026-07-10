@@ -89,7 +89,7 @@ rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc) {
 
 }
 
-rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr) {
+rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
 
 }
 
@@ -105,7 +105,7 @@ void DestroyBuffer(rhi::BufferHandle handle) {
 
 }
 
-void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0) {
+void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
 
 }
 
