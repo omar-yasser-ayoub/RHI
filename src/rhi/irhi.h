@@ -13,21 +13,21 @@ struct RHICapabilities {
 class IRHI
 {
 public:
-    virtual ~IRHI() = default;
+    ~IRHI() = default;
 
-    virtual bool Initialize() = 0;
-    virtual void Shutdown() = 0;
+    bool Initialize();
+    void Shutdown();
 
-    virtual rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc) = 0;
-    virtual rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc) = 0;
-    virtual rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr) = 0;
+    rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
+    rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
+    rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr);
 
-    virtual void DestroySampler(rhi::SamplerHandle handle) = 0;
-    virtual void DestroyTexture(rhi::TextureHandle handle) = 0;
-    virtual void DestroyBuffer(rhi::BufferHandle handle) = 0;
+    void DestroySampler(rhi::SamplerHandle handle);
+    void DestroyTexture(rhi::TextureHandle handle);
+    void DestroyBuffer(rhi::BufferHandle handle);
 
-    virtual void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0) = 0;
-    virtual void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) = 0;
+    void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
+    void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
 
     const RHICapabilities& GetCapabilities() const
     {
