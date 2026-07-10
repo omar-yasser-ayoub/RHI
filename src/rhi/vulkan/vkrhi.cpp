@@ -80,3 +80,35 @@ void VulkanRHI::Shutdown() {
         m_PhysicalDevice = VK_NULL_HANDLE;
     }
 }
+
+rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc) {
+
+}
+
+rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc) {
+
+}
+
+rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr) {
+
+}
+
+void DestroySampler(rhi::SamplerHandle handle) {
+
+}
+
+void DestroyTexture(rhi::TextureHandle handle) {
+
+}
+
+void DestroyBuffer(rhi::BufferHandle handle) {
+
+}
+
+void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0) {
+
+}
+
+void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
+
+}

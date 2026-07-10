@@ -3,7 +3,7 @@
 namespace rhi
 {
     struct SamplerHandle {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
     };
 
     enum class Filter
@@ -24,6 +24,26 @@ namespace rhi
         MirrorRepeat,
         ClampToEdge,
         ClampToBorder,
+        MirrorClampToEdge,
+    };
+
+    enum class BorderColor
+    {
+        TransparentBlack, // (0, 0, 0, 0)
+        OpaqueBlack,      // (0, 0, 0, 1)
+        OpaqueWhite,      // (1, 1, 1, 1)
+    };
+
+    enum class CompareOp
+    {
+        Never,
+        Less,
+        Equal,
+        LessEqual,
+        Greater,
+        NotEqual,
+        GreaterEqual,
+        Always,
     };
 
     struct SamplerDesc
@@ -36,10 +56,17 @@ namespace rhi
         AddressMode addressV = AddressMode::Repeat;
         AddressMode addressW = AddressMode::Repeat;
 
+        BorderColor borderColor = BorderColor::TransparentBlack;
+
         float minLOD = 0.0f;
         float maxLOD = 32.0f;
 
+        float mipLodBias = 0.0f;
+
         bool anisotropyEnabled = false;
         uint32_t maxAnisotropy = 1;
+
+        bool compareEnabled = false;
+        CompareOp compareOp = CompareOp::Less;
     };
 }

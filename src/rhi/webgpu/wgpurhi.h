@@ -19,9 +19,15 @@ public:
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
 
+    static wgpu::FilterMode toWebGPU(rhi::Filter f);
+    static wgpu::MipmapFilterMode toWebGPU(rhi::MipmapFilter f);
+    static wgpu::AddressMode toWebGPU(rhi::AddressMode f);
+    static wgpu::CompareFunction toWebGPU(rhi::CompareOp op);
+
 private:
     wgpu::Instance m_Instance;
     wgpu::Adapter  m_Adapter;
     wgpu::Device   m_Device;
     wgpu::Queue    m_Queue;
+    std::vector<wgpu::Sampler> m_Samplers;
 };
