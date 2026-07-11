@@ -2,6 +2,7 @@
 #include "rhi/irhi.h"
 #include "rhi/resources/buffer.h"
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <webgpu/webgpu_cpp.h>
 
@@ -223,6 +224,13 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return handle;
     }
 
+    if (desc.memoryUsage == rhi::MemoryUsage::CpuToGpu &&
+        desc.usage != rhi::BufferUsage::None) {
+        printf("[RHI] Invalid WebGPU buffer description: CpuToGpu buffers "
+               "cannot be directly mapped with GPU usage flags\n");
+        return handle;
+    }
+
     wgpu::BufferDescriptor bufferDesc{};
     bufferDesc.size = desc.size;
     bufferDesc.usage = toWebGPU(desc.usage) | toWebGPU(desc.memoryUsage);
@@ -334,6 +342,39 @@ void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
     }
     if (metadata.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
         printf("[RHI] Cannot write directly to a GPU-to-CPU WebGPU buffer\n");
+        return;
+    }
+
+    if (metadata.memoryUsage == rhi::MemoryUsage::CpuToGpu) {
+        wgpu::Buffer mappedBuffer = m_Buffers[handle.id];
+        bool success = false;
+        auto future = mappedBuffer.MapAsync(
+            wgpu::MapMode::Write,
+            offset,
+            size,
+            wgpu::CallbackMode::WaitAnyOnly,
+            [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
+                if (status != wgpu::MapAsyncStatus::Success) {
+                    printf("[RHI] MapBuffer failed: %.*s\n",
+                           static_cast<int>(message.length),
+                           message.data ? message.data : "");
+                    return;
+                }
+                success = true;
+            });
+        m_Instance.WaitAny(future, UINT64_MAX);
+        if (!success) {
+            return;
+        }
+
+        void* mapped = mappedBuffer.GetMappedRange(offset, size);
+        if (!mapped) {
+            printf("[RHI] Failed to get mapped WebGPU buffer range\n");
+            mappedBuffer.Unmap();
+            return;
+        }
+        std::memcpy(mapped, data, size);
+        mappedBuffer.Unmap();
         return;
     }
 

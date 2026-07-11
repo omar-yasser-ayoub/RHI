@@ -297,8 +297,7 @@ TEST_F(RHITest, MapAndWriteCpuToGpuBuffer)
 
     auto handle = rhi.CreateBuffer(MakeBufferDesc(
         BufferSize,
-        rhi::MemoryUsage::CpuToGpu,
-        rhi::BufferUsage::Vertex | rhi::BufferUsage::CopySrc));
+        rhi::MemoryUsage::CpuToGpu));
     ASSERT_NE(handle.id, InvalidHandle);
 
     auto* mapped = static_cast<std::uint32_t*>(rhi.MapBuffer(handle));
@@ -316,6 +315,21 @@ TEST_F(RHITest, MapAndWriteCpuToGpuBuffer)
 
     EXPECT_EQ(written, Value);
     rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, RejectsCpuToGpuBufferWithGpuUsage)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        64,
+        rhi::MemoryUsage::CpuToGpu,
+        rhi::BufferUsage::Vertex | rhi::BufferUsage::CopySrc));
+
+#if defined(RHI_WEBGPU)
+    EXPECT_EQ(handle.id, InvalidHandle);
+#else
+    EXPECT_NE(handle.id, InvalidHandle);
+    rhi.DestroyBuffer(handle);
+#endif
 }
 
 TEST_F(RHITest, WriteBufferWithOffset)

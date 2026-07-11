@@ -303,6 +303,11 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
 rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     VkBufferCreateInfo bufferDesc{};
 
+    if (desc.size == 0) {
+        printf("[ERROR] Buffer size must be greater than 0\n");
+        return rhi::BufferHandle{};
+    }
+
     bufferDesc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     bufferDesc.size = desc.size;
     bufferDesc.usage = toVk(desc.usage);
