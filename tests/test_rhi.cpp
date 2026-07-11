@@ -1,5 +1,9 @@
 #include <gtest/gtest.h>
 #include "rhi/IRHI.h"
+#include <array>
+#include <cstdint>
+#include <cstring>
+#include <vector>
 
 
 #if defined(RHI_VULKAN)
@@ -228,6 +232,163 @@ TEST_F(RHITest, CreateAndDestroyMultipleSamplers)
     rhi.DestroySampler(handle3);
     rhi.DestroySampler(handle2);
     rhi.DestroySampler(handle1);
+}
+
+// ============================================================================
+// Buffer Tests
+// ============================================================================
+
+namespace
+{
+constexpr std::uint64_t InvalidHandle = 0xFFFFFFFFFFFFFFFF;
+
+rhi::BufferDesc MakeBufferDesc(
+    std::uint64_t size,
+    rhi::MemoryUsage memoryUsage,
+    rhi::BufferUsage usage = rhi::BufferUsage::CopySrc)
+{
+    rhi::BufferDesc desc;
+    desc.size = size;
+    desc.memoryUsage = memoryUsage;
+    desc.usage = usage;
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreateBuffer)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+
+    EXPECT_NE(handle.id, InvalidHandle);
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, CreateMultipleBuffers)
+{
+    std::vector<rhi::BufferHandle> handles;
+    for (int i = 0; i < 3; ++i) {
+        auto handle = rhi.CreateBuffer(MakeBufferDesc(
+            256, rhi::MemoryUsage::CpuToGpu));
+        ASSERT_NE(handle.id, InvalidHandle);
+        handles.push_back(handle);
+    }
+
+    EXPECT_NE(handles[0].id, handles[1].id);
+    EXPECT_NE(handles[1].id, handles[2].id);
+
+    for (auto handle : handles) {
+        rhi.DestroyBuffer(handle);
+    }
+}
+
+TEST_F(RHITest, RejectsZeroSizedBuffer)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        0, rhi::MemoryUsage::CpuToGpu));
+
+    EXPECT_EQ(handle.id, InvalidHandle);
+}
+
+TEST_F(RHITest, MapAndWriteCpuToGpuBuffer)
+{
+    constexpr std::size_t BufferSize = 64;
+    constexpr std::uint32_t Value = 0x12345678;
+
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        BufferSize,
+        rhi::MemoryUsage::CpuToGpu,
+        rhi::BufferUsage::Vertex | rhi::BufferUsage::CopySrc));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    auto* mapped = static_cast<std::uint32_t*>(rhi.MapBuffer(handle));
+    ASSERT_NE(mapped, nullptr);
+    mapped[0] = Value;
+    rhi.UnmapBuffer(handle);
+
+    std::uint32_t written = 0;
+    rhi.WriteBuffer(handle, &Value, sizeof(Value));
+
+    mapped = static_cast<std::uint32_t*>(rhi.MapBuffer(handle));
+    ASSERT_NE(mapped, nullptr);
+    std::memcpy(&written, mapped, sizeof(written));
+    rhi.UnmapBuffer(handle);
+
+    EXPECT_EQ(written, Value);
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, WriteBufferWithOffset)
+{
+    constexpr std::size_t BufferSize = 64;
+    constexpr std::size_t Offset = 16;
+    constexpr std::array<std::uint8_t, 4> Data = { 1, 2, 3, 4 };
+
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        BufferSize, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    rhi.WriteBuffer(handle, Data.data(), Data.size(), Offset);
+
+    auto* mapped = static_cast<std::uint8_t*>(rhi.MapBuffer(handle));
+    ASSERT_NE(mapped, nullptr);
+    EXPECT_EQ(std::memcmp(mapped + Offset, Data.data(), Data.size()), 0);
+    rhi.UnmapBuffer(handle);
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, RejectsOutOfBoundsBufferWrite)
+{
+    constexpr std::array<std::uint8_t, 8> Data = {};
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        16, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    // The operation should be rejected without crashing.
+    rhi.WriteBuffer(handle, Data.data(), Data.size(), 12);
+
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, GpuOnlyBufferCannotBeMapped)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        256,
+        rhi::MemoryUsage::GpuOnly,
+        rhi::BufferUsage::Vertex));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    EXPECT_EQ(rhi.MapBuffer(handle), nullptr);
+    rhi.UnmapBuffer(handle);
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, DestroyBuffer)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    rhi.DestroyBuffer(handle);
+    EXPECT_EQ(rhi.MapBuffer(handle), nullptr);
+
+    // Destroying the same handle again should not crash.
+    rhi.DestroyBuffer(handle);
+}
+
+TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
+{
+    std::vector<rhi::BufferHandle> handles;
+    for (int i = 0; i < 16; ++i) {
+        auto handle = rhi.CreateBuffer(MakeBufferDesc(
+            128 + i, rhi::MemoryUsage::CpuToGpu));
+        ASSERT_NE(handle.id, InvalidHandle);
+        handles.push_back(handle);
+    }
+
+    for (auto it = handles.rbegin(); it != handles.rend(); ++it) {
+        rhi.DestroyBuffer(*it);
+    }
 }
 
 // ============================================================================
