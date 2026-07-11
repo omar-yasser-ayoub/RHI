@@ -319,7 +319,25 @@ void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
 }
 
 void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
-    return;
+    if (!m_Device || !data || size == 0 ||
+        handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
+        !m_Buffers[handle.id]) {
+        return;
+    }
+
+    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
+    if (offset > metadata.size || size > metadata.size - offset) {
+        printf("[RHI] WriteBuffer range is outside the WebGPU buffer\n");
+        return;
+    }
+    if (metadata.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        printf("[RHI] Cannot write directly to a GPU-to-CPU WebGPU buffer\n");
+        return;
+    }
+
+    m_Queue.WriteBuffer(m_Buffers[handle.id], offset, data, size);
 }
 
 void WebGPURHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {

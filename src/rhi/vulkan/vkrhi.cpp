@@ -3,6 +3,7 @@
 #include "rhi/resources/buffer.h"
 #include <vulkan/vulkan.h>
 #include <iostream>
+#include <cstring>
 #include <vector>
 
 
@@ -424,7 +425,34 @@ void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
 }
 
 void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
-    return;
+    if (!m_Device || !data || size == 0 ||
+        handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMemory.size() ||
+        handle.id >= m_BufferMetadata.size() ||
+        m_Buffers[handle.id] == VK_NULL_HANDLE ||
+        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
+        return;
+    }
+
+    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
+    if (offset > metadata.size || size > metadata.size - offset) {
+        printf("[ERROR] WriteBuffer range is outside the Vulkan buffer\n");
+        return;
+    }
+    if (metadata.memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] GPU-only Vulkan buffer writes require a staging buffer\n");
+        return;
+    }
+
+    void* mapped = nullptr;
+    if (vkMapMemory(m_Device, m_BufferMemory[handle.id], offset, size, 0, &mapped) != VK_SUCCESS) {
+        printf("[ERROR] Failed to map Vulkan buffer for writing\n");
+        return;
+    }
+
+    std::memcpy(mapped, data, size);
+    vkUnmapMemory(m_Device, m_BufferMemory[handle.id]);
 }
 
 void VulkanRHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {

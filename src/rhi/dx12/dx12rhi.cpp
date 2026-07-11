@@ -3,6 +3,7 @@
 #include <combaseapi.h>
 #include <d3d12.h>
 #include <iostream>
+#include <cstring>
 #include <array>
 
 
@@ -302,7 +303,39 @@ void DX12RHI::UnmapBuffer(rhi::BufferHandle handle) {
 }
 
 void DX12RHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
-    return;
+    if (!m_Device || !data || size == 0 ||
+        handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
+        !m_Buffers[handle.id]) {
+        return;
+    }
+
+    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
+    if (offset > metadata.size || size > metadata.size - offset) {
+        printf("[ERROR] WriteBuffer range is outside the DX12 buffer\n");
+        return;
+    }
+    if (metadata.memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] GPU-only DX12 buffer writes require an upload buffer\n");
+        return;
+    }
+
+    void* mapped = nullptr;
+    D3D12_RANGE readRange{};
+    HRESULT result = m_Buffers[handle.id]->Map(0, &readRange, &mapped);
+    if (FAILED(result)) {
+        printf("[ERROR] Failed to map DX12 buffer for writing: 0x%08X\n",
+               static_cast<unsigned>(result));
+        return;
+    }
+
+    std::memcpy(static_cast<std::byte*>(mapped) + offset, data, size);
+    D3D12_RANGE writtenRange{
+        static_cast<SIZE_T>(offset),
+        static_cast<SIZE_T>(offset + size)
+    };
+    m_Buffers[handle.id]->Unmap(0, &writtenRange);
 }
 
 void DX12RHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
