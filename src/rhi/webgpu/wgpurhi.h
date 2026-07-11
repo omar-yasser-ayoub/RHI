@@ -11,7 +11,7 @@ public:
 
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
-    rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr);
+    rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -20,10 +20,15 @@ public:
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
 
+    void MapBuffer(rhi::BufferHandle handle);
+    void UnmapBuffer(rhi::BufferHandle handle);
+
     static wgpu::FilterMode toWebGPU(rhi::Filter f);
     static wgpu::MipmapFilterMode toWebGPU(rhi::MipmapFilter f);
     static wgpu::AddressMode toWebGPU(rhi::AddressMode f);
     static wgpu::CompareFunction toWebGPU(rhi::CompareOp op);
+    static wgpu::BufferUsage toWebGPU(rhi::BufferUsage usage);
+    static wgpu::BufferUsage toWebGPU(rhi::MemoryUsage usage);
 
 private:
     wgpu::Instance m_Instance;
@@ -31,4 +36,5 @@ private:
     wgpu::Device   m_Device;
     wgpu::Queue    m_Queue;
     std::vector<wgpu::Sampler> m_Samplers;
+    std::vector<wgpu::Buffer> m_Buffers;
 };

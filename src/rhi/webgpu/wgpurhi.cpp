@@ -1,5 +1,6 @@
 #include "rhi/webgpu/wgpurhi.h"
 #include "rhi/irhi.h"
+#include "rhi/resources/buffer.h"
 #include <cstdio>
 #include <iostream>
 #include <webgpu/webgpu_cpp.h>
@@ -129,6 +130,26 @@ wgpu::CompareFunction WebGPURHI::toWebGPU(rhi::CompareOp op) {
     }
 }
 
+wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::BufferUsage usage) {
+    wgpu::BufferUsage result = wgpu::BufferUsage::None;
+    if (HasFlag(usage, rhi::BufferUsage::Vertex)) result |= wgpu::BufferUsage::Vertex;
+    if (HasFlag(usage, rhi::BufferUsage::Index)) result |= wgpu::BufferUsage::Index;
+    if (HasFlag(usage, rhi::BufferUsage::Uniform)) result |= wgpu::BufferUsage::Uniform;
+    if (HasFlag(usage, rhi::BufferUsage::Storage)) result |= wgpu::BufferUsage::Storage;
+    if (HasFlag(usage, rhi::BufferUsage::Indirect)) result |= wgpu::BufferUsage::Indirect;
+    if (HasFlag(usage, rhi::BufferUsage::CopySrc)) result |= wgpu::BufferUsage::CopySrc;
+    if (HasFlag(usage, rhi::BufferUsage::CopyDst)) result |= wgpu::BufferUsage::CopyDst;
+    return result;
+}
+
+wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::MemoryUsage usage) {
+    wgpu::BufferUsage result = wgpu::BufferUsage::None;
+    if (HasFlag(usage, rhi::MemoryUsage::GpuOnly)) result |= wgpu::BufferUsage::None;
+    if (HasFlag(usage, rhi::MemoryUsage::CpuToGpu)) result |= wgpu::BufferUsage::CopySrc;
+    if (HasFlag(usage, rhi::MemoryUsage::GpuToCpu)) result |= wgpu::BufferUsage::CopyDst;
+    return result;
+}
+
 rhi::SamplerHandle WebGPURHI::CreateSampler(const rhi::SamplerDesc& desc) {
     rhi::SamplerHandle handle;
 
@@ -170,8 +191,56 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
     return rhi::TextureHandle{};
 }
 
-rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
-    return rhi::BufferHandle{};
+rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
+
+    rhi::BufferHandle handle;
+
+    wgpu::BufferDescriptor bufferDesc;
+    wgpu::BufferUsage bufferUsage;
+
+    bufferDesc.size = desc.size;
+    bufferUsage = toWebGPU(desc.usage);
+    bufferUsage |= toWebGPU(desc.memoryUsage);
+    bufferDesc.usage = bufferUsage;
+
+    wgpu::Buffer buffer = m_Device.CreateBuffer(&bufferDesc);
+
+    handle.id = static_cast<uint64_t>(m_Buffers.size());
+    m_Buffers.push_back(buffer);
+
+    return handle;
+}
+
+void WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF) {
+        return;
+    }
+    wgpu::Buffer buffer = m_Buffers[handle.id];
+    wgpu::BufferUsage usage = buffer.GetUsage();
+    bool canWrite = (usage & wgpu::BufferUsage::MapWrite) != wgpu::BufferUsage::None;
+    bool canRead  = (usage & wgpu::BufferUsage::MapRead)  != wgpu::BufferUsage::None;
+    if (!canWrite && !canRead)
+    {
+        printf("[RHI] MapBuffer called on a buffer that is not mappable\n");
+        return;
+    }
+    wgpu::MapMode mode = canWrite ? wgpu::MapMode::Write : wgpu::MapMode::Read;
+
+    bool done = false;
+
+    auto future = buffer.MapAsync(mode, 0, buffer.GetSize(), wgpu::CallbackMode::WaitAnyOnly,
+            [&](wgpu::MapAsyncStatus status, wgpu::StringView)
+            {
+                if (status != wgpu::MapAsyncStatus::Success)
+                    printf("[RHI] MapBuffer failed\n");
+                done = true;
+            });
+    m_Instance.WaitAny(future, UINT64_MAX);
+}
+
+void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF) return;
+    m_Buffers[handle.id].Unmap();
 }
 
 void WebGPURHI::DestroySampler(rhi::SamplerHandle handle) {

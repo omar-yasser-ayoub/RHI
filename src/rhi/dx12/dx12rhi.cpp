@@ -1,5 +1,5 @@
 #include "rhi/dx12/dx12rhi.h"
-#include "rhi/IRHI.h"
+#include "rhi/irhi.h"
 #include <combaseapi.h>
 #include <d3d12.h>
 #include <iostream>
@@ -146,7 +146,7 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
     return rhi::TextureHandle{};
 }
 
-rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
+rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     return rhi::BufferHandle{};
 }
 

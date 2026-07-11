@@ -13,7 +13,7 @@ public:
 
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
-    rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc, const void* initialData = nullptr);
+    rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -21,6 +21,9 @@ public:
 
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
+
+    void MapBuffer(rhi::BufferHandle handle);
+    void UnmapBuffer(rhi::BufferHandle handle);
 
     VkFilter toVk(rhi::Filter mode);
     VkSamplerMipmapMode toVk(rhi::MipmapFilter mode);

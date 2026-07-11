@@ -119,13 +119,13 @@ namespace rhi
             ~static_cast<std::uint32_t>(value));
     }
 
-    inline TextureUsage& operator|=(TextureUsage& lhs, TextureUsage rhs)
+    constexpr TextureUsage& operator|=(TextureUsage& lhs, TextureUsage rhs)
     {
         lhs = lhs | rhs;
         return lhs;
     }
 
-    inline TextureUsage& operator&=(TextureUsage& lhs, TextureUsage rhs)
+    constexpr TextureUsage& operator&=(TextureUsage& lhs, TextureUsage rhs)
     {
         lhs = lhs & rhs;
         return lhs;

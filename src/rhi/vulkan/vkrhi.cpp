@@ -1,5 +1,5 @@
 #include "rhi/vulkan/vkrhi.h"
-#include "rhi/IRHI.h"
+#include "rhi/irhi.h"
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
@@ -205,7 +205,7 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
     return rhi::TextureHandle{};
 }
 
-rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc, const void* initialData) {
+rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     return rhi::BufferHandle{};
 }
 

@@ -5,7 +5,13 @@
 namespace rhi
 {
     struct BufferHandle {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
+    };
+
+    enum class MemoryUsage {
+        GpuOnly,
+        CpuToGpu,
+        GpuToCpu,
     };
 
     enum class BufferUsage : std::uint32_t
@@ -42,13 +48,13 @@ namespace rhi
             ~static_cast<std::uint32_t>(value));
     }
 
-    inline BufferUsage& operator|=(BufferUsage& lhs, BufferUsage rhs)
+    constexpr BufferUsage& operator|=(BufferUsage& lhs, BufferUsage rhs)
     {
         lhs = lhs | rhs;
         return lhs;
     }
 
-    inline BufferUsage& operator&=(BufferUsage& lhs, BufferUsage rhs)
+    constexpr BufferUsage& operator&=(BufferUsage& lhs, BufferUsage rhs)
     {
         lhs = lhs & rhs;
         return lhs;
@@ -60,9 +66,16 @@ namespace rhi
                 static_cast<std::uint32_t>(flag)) != 0;
     }
 
+    constexpr bool HasFlag(MemoryUsage value, MemoryUsage flag)
+    {
+        return (static_cast<std::uint32_t>(value) &
+                static_cast<std::uint32_t>(flag)) != 0;
+    }
+
     struct BufferDesc
     {
         std::uint64_t size = 0;
         BufferUsage usage = BufferUsage::None;
+        MemoryUsage memoryUsage = MemoryUsage::GpuOnly;
     };
 }
