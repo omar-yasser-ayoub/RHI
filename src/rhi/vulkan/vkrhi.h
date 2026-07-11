@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/irhi.h"
+#include "rhi/resources/buffer.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
@@ -42,4 +43,5 @@ private:
     std::vector<VkSampler> m_Samplers;
     std::vector<VkBuffer> m_Buffers;
     std::vector<VkDeviceMemory> m_BufferMemory;
+    std::vector<rhi::BufferDesc> m_BufferMetadata;
 };

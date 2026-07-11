@@ -126,14 +126,43 @@ D3D12_HEAP_PROPERTIES DX12RHI::toD3D12(rhi::MemoryUsage usage) {
     }
 }
 
-D3D12_RESOURCE_STATES toD3D12InitialState(rhi::MemoryUsage usage) {
-    switch (usage)
+D3D12_RESOURCE_STATES DX12RHI::toD3D12InitialState(
+    rhi::MemoryUsage memoryUsage,
+    rhi::BufferUsage bufferUsage) {
+    switch (memoryUsage)
     {
-        case rhi::MemoryUsage::GpuOnly:  return D3D12_RESOURCE_STATE_COMMON;
-        case rhi::MemoryUsage::CpuToGpu: return D3D12_RESOURCE_STATE_GENERIC_READ;
-        case rhi::MemoryUsage::GpuToCpu: return D3D12_RESOURCE_STATE_COPY_DEST;
-        default:                         return D3D12_RESOURCE_STATE_COMMON;
+        case rhi::MemoryUsage::CpuToGpu:
+            return D3D12_RESOURCE_STATE_GENERIC_READ;
+        case rhi::MemoryUsage::GpuToCpu:
+            return D3D12_RESOURCE_STATE_COPY_DEST;
+        case rhi::MemoryUsage::GpuOnly:
+            break;
+        default:
+            return D3D12_RESOURCE_STATE_COMMON;
     }
+
+    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Vertex) ||
+        rhi::HasFlag(bufferUsage, rhi::BufferUsage::Uniform)) {
+        state |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    }
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Index)) {
+        state |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
+    }
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Storage)) {
+        state |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+    }
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Indirect)) {
+        state |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+    }
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::CopySrc)) {
+        state |= D3D12_RESOURCE_STATE_COPY_SOURCE;
+    }
+    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::CopyDst)) {
+        state |= D3D12_RESOURCE_STATE_COPY_DEST;
+    }
+
+    return state;
 }
 
 rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
@@ -167,8 +196,14 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
 }
 
 rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
+    if (!m_Device || desc.size == 0) {
+        printf("[ERROR] Invalid buffer description\n");
+        return rhi::BufferHandle{};
+    }
+
     D3D12_HEAP_PROPERTIES heapProps = toD3D12(desc.memoryUsage);
-    D3D12_RESOURCE_STATES initialState = toD3D12InitialState(desc.memoryUsage);
+    D3D12_RESOURCE_STATES initialState = toD3D12InitialState(
+        desc.memoryUsage, desc.usage);
 
     D3D12_RESOURCE_DESC resourceDesc = {};
     resourceDesc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -184,24 +219,24 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     resourceDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
-        if (FAILED(m_Device->CreateCommittedResource(
-            &heapProps,
-            D3D12_HEAP_FLAG_NONE,
-            &resourceDesc,
-            initialState,
-            nullptr,
-            IID_PPV_ARGS(&resource))))
-        {
-            printf("[ERROR] Failed to create buffer\n");
-            return rhi::BufferHandle{};
-        }
+    HRESULT result = m_Device->CreateCommittedResource(
+        &heapProps,
+        D3D12_HEAP_FLAG_NONE,
+        &resourceDesc,
+        initialState,
+        nullptr,
+        IID_PPV_ARGS(&resource));
+    if (FAILED(result)) {
+        printf("[ERROR] Failed to create buffer: 0x%08X\n",
+               static_cast<unsigned>(result));
+        return rhi::BufferHandle{};
+    }
 
     rhi::BufferHandle handle;
     handle.id = static_cast<uint64_t>(m_Buffers.size());
     m_Buffers.push_back(std::move(resource));
+    m_BufferMetadata.push_back(desc);
     return handle;
-
-    return rhi::BufferHandle{};
 }
 
 void DX12RHI::DestroySampler(rhi::SamplerHandle handle) {
@@ -215,31 +250,52 @@ void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
 void DX12RHI::DestroyBuffer(rhi::BufferHandle handle)
 {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
-        handle.id >= m_Buffers.size()) {
+        handle.id >= m_Buffers.size() ||
+        !m_Buffers[handle.id]) {
         return;
     }
     m_Buffers[handle.id].Reset();
+    if (handle.id < m_BufferMetadata.size()) {
+        m_BufferMetadata[handle.id] = {};
+    }
 }
 
 void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
-        handle.id >= m_Buffers.size()) {
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
+        !m_Buffers[handle.id]) {
+        return nullptr;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] Cannot map a GPU-only buffer\n");
         return nullptr;
     }
 
-        void* ptr = nullptr;
-        if (FAILED(m_Buffers[handle.id]->Map(0, nullptr, &ptr)))
+    void* ptr = nullptr;
+    D3D12_RANGE readRange{};
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        readRange.End = static_cast<SIZE_T>(m_BufferMetadata[handle.id].size);
+    }
+
+    if (FAILED(m_Buffers[handle.id]->Map(0, &readRange, &ptr)))
         {
             printf("[ERROR] Failed to map buffer\n");
             return nullptr;
         }
 
-        return ptr;
+    return ptr;
 }
 
 void DX12RHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
-        handle.id >= m_Buffers.size()) {
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
+        !m_Buffers[handle.id]) {
+        return;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] Cannot unmap a GPU-only buffer\n");
         return;
     }
     m_Buffers[handle.id]->Unmap(0, nullptr);

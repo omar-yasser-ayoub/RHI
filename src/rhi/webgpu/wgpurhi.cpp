@@ -91,6 +91,7 @@ void WebGPURHI::Shutdown()
     }
 
     m_Buffers.clear();
+    m_BufferMetadata.clear();
     m_Samplers.clear();
     m_Queue = {};
     m_Device = {};
@@ -234,6 +235,7 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     handle.id = static_cast<uint64_t>(m_Buffers.size());
     m_Buffers.push_back(buffer);
+    m_BufferMetadata.push_back(desc);
 
     return handle;
 }
@@ -241,7 +243,12 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
 void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
     if (handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
+        return nullptr;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[RHI] Cannot map a GPU-only buffer\n");
         return nullptr;
     }
     wgpu::Buffer buffer = m_Buffers[handle.id];
@@ -274,7 +281,12 @@ void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
 void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
+        return;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[RHI] Cannot unmap a GPU-only buffer\n");
         return;
     }
     m_Buffers[handle.id].Unmap();
@@ -301,6 +313,9 @@ void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
     m_Buffers[handle.id].Unmap();
     m_Buffers[handle.id].Destroy();
     m_Buffers[handle.id] = {};
+    if (handle.id < m_BufferMetadata.size()) {
+        m_BufferMetadata[handle.id] = {};
+    }
 }
 
 void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {

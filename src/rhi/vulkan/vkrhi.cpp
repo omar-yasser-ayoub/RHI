@@ -149,6 +149,9 @@ void VulkanRHI::Shutdown() {
                 vkFreeMemory(m_Device, m_BufferMemory[i], nullptr);
                 m_BufferMemory[i] = VK_NULL_HANDLE;
             }
+            if (i < m_BufferMetadata.size()) {
+                m_BufferMetadata[i] = {};
+            }
         }
         for (VkSampler sampler : m_Samplers) {
             if (sampler != VK_NULL_HANDLE) {
@@ -158,6 +161,7 @@ void VulkanRHI::Shutdown() {
 
         m_Buffers.clear();
         m_BufferMemory.clear();
+        m_BufferMetadata.clear();
         m_Samplers.clear();
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
@@ -340,6 +344,7 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     m_BufferMemory.push_back(bufferMemory);
     m_Buffers.push_back(buffer);
+    m_BufferMetadata.push_back(desc);
     rhi::BufferHandle handle;
     handle.id = static_cast<uint64_t>(m_Buffers.size() - 1);
 
@@ -364,6 +369,7 @@ void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
+        handle.id >= m_BufferMetadata.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE) {
         return;
     }
@@ -374,6 +380,7 @@ void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
         vkFreeMemory(m_Device, m_BufferMemory[handle.id], nullptr);
         m_BufferMemory[handle.id] = VK_NULL_HANDLE;
     }
+    m_BufferMetadata[handle.id] = {};
 }
 
 void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
@@ -381,9 +388,14 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
+        handle.id >= m_BufferMetadata.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE ||
         m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return ptr;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] Cannot map a GPU-only buffer\n");
+        return nullptr;
     }
 
     VkDeviceMemory memory = m_BufferMemory[handle.id];
@@ -400,7 +412,12 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
 void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_BufferMemory.size() ||
+        handle.id >= m_BufferMetadata.size() ||
         m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
+        return;
+    }
+    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+        printf("[ERROR] Cannot unmap a GPU-only buffer\n");
         return;
     }
     vkUnmapMemory(m_Device, m_BufferMemory[handle.id]);

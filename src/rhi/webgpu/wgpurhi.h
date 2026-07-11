@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/irhi.h"
+#include "rhi/resources/buffer.h"
 #include <webgpu/webgpu_cpp.h>
 
 class WebGPURHI : public IRHI
@@ -37,4 +38,5 @@ private:
     wgpu::Queue    m_Queue;
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<wgpu::Buffer> m_Buffers;
+    std::vector<rhi::BufferDesc> m_BufferMetadata;
 };

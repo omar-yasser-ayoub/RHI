@@ -32,7 +32,9 @@ public:
     static D3D12_COMPARISON_FUNC toD3D12(rhi::CompareOp mode);
     static std::array<float, 4> toD3D12(rhi::BorderColor color);
     static D3D12_HEAP_PROPERTIES toD3D12(rhi::MemoryUsage usage);
-    static D3D12_RESOURCE_STATES toD3D12InitialState(rhi::MemoryUsage usage);
+    static D3D12_RESOURCE_STATES toD3D12InitialState(
+        rhi::MemoryUsage memoryUsage,
+        rhi::BufferUsage bufferUsage);
 private:
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_Adapter;
@@ -41,4 +43,5 @@ private:
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
+    std::vector<rhi::BufferDesc> m_BufferMetadata;
 };
