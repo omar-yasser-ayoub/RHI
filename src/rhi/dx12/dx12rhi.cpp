@@ -116,8 +116,28 @@ std::array<float, 4> DX12RHI::toD3D12(rhi::BorderColor color) {
     }
 }
 
+D3D12_HEAP_PROPERTIES DX12RHI::toD3D12(rhi::MemoryUsage usage) {
+    switch (usage)
+    {
+        case rhi::MemoryUsage::GpuOnly:  return D3D12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+        case rhi::MemoryUsage::CpuToGpu: return D3D12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
+        case rhi::MemoryUsage::GpuToCpu: return D3D12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_READBACK);
+        default:                         return D3D12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
+    }
+}
+
+D3D12_RESOURCE_STATES toD3D12InitialState(rhi::MemoryUsage usage) {
+    switch (usage)
+    {
+        case rhi::MemoryUsage::GpuOnly:  return D3D12_RESOURCE_STATE_COMMON;
+        case rhi::MemoryUsage::CpuToGpu: return D3D12_RESOURCE_STATE_GENERIC_READ;
+        case rhi::MemoryUsage::GpuToCpu: return D3D12_RESOURCE_STATE_COPY_DEST;
+        default:                         return D3D12_RESOURCE_STATE_COMMON;
+    }
+}
+
 rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
-    D3D12_SAMPLER_DESC samplerDesc = {};
+    D3D12_SAMPLER_DESC samplerDesc{};
     samplerDesc.Filter = toD3D12(desc.minFilter, desc.magFilter, desc.mipFilter, desc.anisotropyEnabled, desc.compareEnabled);
     samplerDesc.AddressU = toD3D12(desc.addressU);
     samplerDesc.AddressV = toD3D12(desc.addressV);
@@ -147,6 +167,40 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
 }
 
 rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
+    D3D12_HEAP_PROPERTIES heapProps = toD3D12(desc.memoryUsage);
+    D3D12_RESOURCE_STATES initialState = toD3D12InitialState(desc.memoryUsage);
+
+    D3D12_RESOURCE_DESC resourceDesc = {};
+    resourceDesc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
+    resourceDesc.Alignment          = 0;
+    resourceDesc.Width              = desc.size;
+    resourceDesc.Height             = 1;
+    resourceDesc.DepthOrArraySize   = 1;
+    resourceDesc.MipLevels          = 1;
+    resourceDesc.Format             = DXGI_FORMAT_UNKNOWN;
+    resourceDesc.SampleDesc.Count   = 1;
+    resourceDesc.SampleDesc.Quality = 0;
+    resourceDesc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    resourceDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
+
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+        if (FAILED(m_Device->CreateCommittedResource(
+            &heapProps,
+            D3D12_HEAP_FLAG_NONE,
+            &resourceDesc,
+            initialState,
+            nullptr,
+            IID_PPV_ARGS(&resource))))
+        {
+            printf("[ERROR] Failed to create buffer\n");
+            return rhi::BufferHandle{};
+        }
+
+    rhi::BufferHandle handle;
+    handle.id = static_cast<uint64_t>(m_Buffers.size());
+    m_Buffers.push_back(std::move(resource));
+    return handle;
+
     return rhi::BufferHandle{};
 }
 
@@ -158,8 +212,37 @@ void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
     return;
 }
 
-void DX12RHI::DestroyBuffer(rhi::BufferHandle handle) {
-    return;
+void DX12RHI::DestroyBuffer(rhi::BufferHandle handle)
+{
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size()) {
+        return;
+    }
+    m_Buffers[handle.id].Reset();
+}
+
+void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size()) {
+        return nullptr;
+    }
+
+        void* ptr = nullptr;
+        if (FAILED(m_Buffers[handle.id]->Map(0, nullptr, &ptr)))
+        {
+            printf("[ERROR] Failed to map buffer\n");
+            return nullptr;
+        }
+
+        return ptr;
+}
+
+void DX12RHI::UnmapBuffer(rhi::BufferHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size()) {
+        return;
+    }
+    m_Buffers[handle.id]->Unmap(0, nullptr);
 }
 
 void DX12RHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {

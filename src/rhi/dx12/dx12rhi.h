@@ -5,6 +5,7 @@
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
+#include <vector>
 
 class DX12RHI : public IRHI
 {
@@ -23,14 +24,15 @@ public:
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
 
-    void MapBuffer(rhi::BufferHandle handle);
+    void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(rhi::AddressMode mode);
     static D3D12_COMPARISON_FUNC toD3D12(rhi::CompareOp mode);
     static std::array<float, 4> toD3D12(rhi::BorderColor color);
-
+    static D3D12_HEAP_PROPERTIES toD3D12(rhi::MemoryUsage usage);
+    static D3D12_RESOURCE_STATES toD3D12InitialState(rhi::MemoryUsage usage);
 private:
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_Adapter;
@@ -38,4 +40,5 @@ private:
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
+    std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
 };
