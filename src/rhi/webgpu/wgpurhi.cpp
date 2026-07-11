@@ -254,8 +254,11 @@ void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
     return;
 }
 
-void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle) {
-    return;
+void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
+{
+    if (handle.id == 0xFFFFFFFFFFFFFFFF) return;
+    m_Buffers[handle.id].Destroy();
+    m_Buffers[handle.id] = {};
 }
 
 void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {

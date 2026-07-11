@@ -1,5 +1,6 @@
 #include "rhi/vulkan/vkrhi.h"
 #include "rhi/irhi.h"
+#include "rhi/resources/buffer.h"
 #include <vulkan/vulkan.h>
 #include <iostream>
 #include <vector>
@@ -170,6 +171,51 @@ VkBorderColor VulkanRHI::toVk(rhi::BorderColor mode){
     }
 }
 
+VkBufferUsageFlags VulkanRHI::toVk(rhi::BufferUsage usage) {
+    VkBufferUsageFlags flags = 0;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::Vertex)) flags |= VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::Index)) flags |= VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::Uniform)) flags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::Storage)) flags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::Indirect)) flags |= VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::CopySrc)) flags |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    if (rhi::HasFlag(usage, rhi::BufferUsage::CopyDst)) flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    return flags;
+}
+
+VkMemoryPropertyFlags VulkanRHI::toVk(rhi::MemoryUsage usage)
+{
+    switch (usage)
+    {
+        case rhi::MemoryUsage::GpuOnly:
+            return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+        case rhi::MemoryUsage::CpuToGpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+        case rhi::MemoryUsage::GpuToCpu:
+            return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                 | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+        default:
+            return 0;
+    }
+}
+
+uint32_t VulkanRHI::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProps;
+    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProps);
+
+    for (uint32_t i = 0; i < memProps.memoryTypeCount; i++)
+    {
+        if ((typeFilter & (1 << i)) &&
+            (memProps.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+    }
+
+    printf("[ERROR] Failed to find suitable memory type\n");
+    return UINT32_MAX;
+}
 
 rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
     VkSamplerCreateInfo samplerDesc = {};
@@ -193,6 +239,7 @@ rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
 
     if (vkCreateSampler(m_Device, &samplerDesc, nullptr, &sampler) != VK_SUCCESS) {
         printf("[ERROR] Failed to create sampler\n");
+        return rhi::SamplerHandle{};
     }
 
     rhi::SamplerHandle handle;
@@ -206,7 +253,48 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
 }
 
 rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
-    return rhi::BufferHandle{};
+    VkBufferCreateInfo bufferDesc{};
+
+    bufferDesc.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferDesc.size = desc.size;
+    bufferDesc.usage = toVk(desc.usage);
+    bufferDesc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkBuffer buffer;
+    if (vkCreateBuffer(m_Device, &bufferDesc, nullptr, &buffer) != VK_SUCCESS) {
+        printf("[ERROR] Failed to create buffer\n");
+        return rhi::BufferHandle{};
+    }
+
+    VkMemoryRequirements memReqs;
+    vkGetBufferMemoryRequirements(m_Device, buffer, &memReqs);
+
+    VkMemoryAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocInfo.allocationSize = memReqs.size;
+    uint32_t memTypeIndex = findMemoryType(memReqs.memoryTypeBits, toVk(desc.memoryUsage));
+    if (memTypeIndex == UINT32_MAX)
+    {
+        printf("[ERROR] Failed to find suitable memory type\n");
+        vkDestroyBuffer(m_Device, buffer, nullptr);
+        return rhi::BufferHandle{};
+    }
+    allocInfo.memoryTypeIndex = memTypeIndex;
+
+    VkDeviceMemory bufferMemory;
+    if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+        printf("[ERROR] Failed to allocate buffer memory\n");
+        return rhi::BufferHandle{};
+    }
+
+    vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+
+    m_BufferMemory.push_back(bufferMemory);
+    m_Buffers.push_back(buffer);
+    rhi::BufferHandle handle;
+    handle.id = static_cast<uint64_t>(m_Buffers.size() - 1);
+
+    return handle;
 }
 
 void VulkanRHI::DestroySampler(rhi::SamplerHandle handle) {
@@ -222,7 +310,33 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
 }
 
 void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
-    return;
+    if (handle.id != 0xFFFFFFFFFFFFFFFF) {
+        vkDestroyBuffer(m_Device, m_Buffers[handle.id], nullptr);
+        m_Buffers[handle.id] = VK_NULL_HANDLE;
+        return;
+    }
+}
+
+void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
+    void* ptr = nullptr;
+    if (handle.id == 0xFFFFFFFFFFFFFFFF)
+        return ptr;
+
+    VkDeviceMemory memory = m_BufferMemory[handle.id];
+
+    if (vkMapMemory(m_Device, memory, 0, VK_WHOLE_SIZE, 0, &ptr) != VK_SUCCESS)
+    {
+        printf("[ERROR] Failed to map buffer\n");
+        return nullptr;
+    }
+
+    return ptr;
+}
+
+void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF)
+        return;
+    vkUnmapMemory(m_Device,m_BufferMemory[handle.id]);
 }
 
 void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
