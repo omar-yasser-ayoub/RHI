@@ -20,7 +20,7 @@ public:
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
 
-    void MapBuffer(rhi::BufferHandle handle);
+    void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
     static wgpu::FilterMode toWebGPU(rhi::Filter f);

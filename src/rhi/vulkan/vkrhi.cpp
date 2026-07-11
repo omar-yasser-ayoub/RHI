@@ -42,6 +42,8 @@ bool VulkanRHI::Initialize() {
 
     if (result != VK_SUCCESS) {
         std::cerr << "Failed to enumerate Vulkan devices: " << result << std::endl;
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
         return false;
     }
 
@@ -96,6 +98,14 @@ bool VulkanRHI::Initialize() {
         }
     }
 
+    if (graphicsQueueFamily == UINT32_MAX) {
+        std::cerr << "No graphics queue family found.\n";
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
+        return false;
+    }
+
     float priority = 1.0f;
 
     VkDeviceQueueCreateInfo queueInfo{};
@@ -115,15 +125,49 @@ bool VulkanRHI::Initialize() {
         nullptr,
         &m_Device);
 
+    if (result != VK_SUCCESS) {
+        std::cerr << "Failed to create Vulkan device: " << result << '\n';
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
+        return false;
+    }
+
     return true;
 }
 
 void VulkanRHI::Shutdown() {
+    if (m_Device) {
+        vkDeviceWaitIdle(m_Device);
+
+        for (std::size_t i = 0; i < m_Buffers.size(); ++i) {
+            if (m_Buffers[i] != VK_NULL_HANDLE) {
+                vkDestroyBuffer(m_Device, m_Buffers[i], nullptr);
+                m_Buffers[i] = VK_NULL_HANDLE;
+            }
+            if (i < m_BufferMemory.size() && m_BufferMemory[i] != VK_NULL_HANDLE) {
+                vkFreeMemory(m_Device, m_BufferMemory[i], nullptr);
+                m_BufferMemory[i] = VK_NULL_HANDLE;
+            }
+        }
+        for (VkSampler sampler : m_Samplers) {
+            if (sampler != VK_NULL_HANDLE) {
+                vkDestroySampler(m_Device, sampler, nullptr);
+            }
+        }
+
+        m_Buffers.clear();
+        m_BufferMemory.clear();
+        m_Samplers.clear();
+        vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+    }
+
     if (m_Instance) {
         vkDestroyInstance(m_Instance, nullptr);
         m_Instance = VK_NULL_HANDLE;
-        m_PhysicalDevice = VK_NULL_HANDLE;
     }
+    m_PhysicalDevice = VK_NULL_HANDLE;
 }
 
 VkFilter VulkanRHI::toVk(rhi::Filter mode){
@@ -194,8 +238,7 @@ VkMemoryPropertyFlags VulkanRHI::toVk(rhi::MemoryUsage usage)
                  | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         case rhi::MemoryUsage::GpuToCpu:
             return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
-                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-                 | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+                 | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
         default:
             return 0;
     }
@@ -284,10 +327,16 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     VkDeviceMemory bufferMemory;
     if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
         printf("[ERROR] Failed to allocate buffer memory\n");
+        vkDestroyBuffer(m_Device, buffer, nullptr);
         return rhi::BufferHandle{};
     }
 
-    vkBindBufferMemory(m_Device, buffer, bufferMemory, 0);
+    if (vkBindBufferMemory(m_Device, buffer, bufferMemory, 0) != VK_SUCCESS) {
+        printf("[ERROR] Failed to bind buffer memory\n");
+        vkFreeMemory(m_Device, bufferMemory, nullptr);
+        vkDestroyBuffer(m_Device, buffer, nullptr);
+        return rhi::BufferHandle{};
+    }
 
     m_BufferMemory.push_back(bufferMemory);
     m_Buffers.push_back(buffer);
@@ -298,11 +347,13 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
 }
 
 void VulkanRHI::DestroySampler(rhi::SamplerHandle handle) {
-    if (handle.id < m_Samplers.size()) {
-        vkDestroySampler(m_Device, m_Samplers[handle.id], nullptr);
-        m_Samplers[handle.id] = VK_NULL_HANDLE;
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Samplers.size() ||
+        m_Samplers[handle.id] == VK_NULL_HANDLE) {
         return;
     }
+    vkDestroySampler(m_Device, m_Samplers[handle.id], nullptr);
+    m_Samplers[handle.id] = VK_NULL_HANDLE;
 }
 
 void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
@@ -310,17 +361,30 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
 }
 
 void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
-    if (handle.id != 0xFFFFFFFFFFFFFFFF) {
-        vkDestroyBuffer(m_Device, m_Buffers[handle.id], nullptr);
-        m_Buffers[handle.id] = VK_NULL_HANDLE;
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMemory.size() ||
+        m_Buffers[handle.id] == VK_NULL_HANDLE) {
         return;
+    }
+
+    vkDestroyBuffer(m_Device, m_Buffers[handle.id], nullptr);
+    m_Buffers[handle.id] = VK_NULL_HANDLE;
+    if (m_BufferMemory[handle.id] != VK_NULL_HANDLE) {
+        vkFreeMemory(m_Device, m_BufferMemory[handle.id], nullptr);
+        m_BufferMemory[handle.id] = VK_NULL_HANDLE;
     }
 }
 
 void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
     void* ptr = nullptr;
-    if (handle.id == 0xFFFFFFFFFFFFFFFF)
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        handle.id >= m_BufferMemory.size() ||
+        m_Buffers[handle.id] == VK_NULL_HANDLE ||
+        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return ptr;
+    }
 
     VkDeviceMemory memory = m_BufferMemory[handle.id];
 
@@ -334,9 +398,12 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
 }
 
 void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
-    if (handle.id == 0xFFFFFFFFFFFFFFFF)
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_BufferMemory.size() ||
+        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return;
-    vkUnmapMemory(m_Device,m_BufferMemory[handle.id]);
+    }
+    vkUnmapMemory(m_Device, m_BufferMemory[handle.id]);
 }
 
 void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {

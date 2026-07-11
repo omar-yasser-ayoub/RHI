@@ -79,8 +79,21 @@ bool WebGPURHI::Initialize()
 
 void WebGPURHI::Shutdown()
 {
-    m_Queue   = {};
-    m_Device  = {};
+    for (auto& buffer : m_Buffers) {
+        if (buffer) {
+            buffer.Unmap();
+            buffer.Destroy();
+            buffer = {};
+        }
+    }
+    for (auto& sampler : m_Samplers) {
+        sampler = {};
+    }
+
+    m_Buffers.clear();
+    m_Samplers.clear();
+    m_Queue = {};
+    m_Device = {};
     m_Adapter = {};
     m_Instance = {};
 }
@@ -143,11 +156,16 @@ wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::BufferUsage usage) {
 }
 
 wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::MemoryUsage usage) {
-    wgpu::BufferUsage result = wgpu::BufferUsage::None;
-    if (HasFlag(usage, rhi::MemoryUsage::GpuOnly)) result |= wgpu::BufferUsage::None;
-    if (HasFlag(usage, rhi::MemoryUsage::CpuToGpu)) result |= wgpu::BufferUsage::CopySrc;
-    if (HasFlag(usage, rhi::MemoryUsage::GpuToCpu)) result |= wgpu::BufferUsage::CopyDst;
-    return result;
+    switch (usage) {
+        case rhi::MemoryUsage::GpuOnly:
+            return wgpu::BufferUsage::None;
+        case rhi::MemoryUsage::CpuToGpu:
+            return wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc;
+        case rhi::MemoryUsage::GpuToCpu:
+            return wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
+        default:
+            return wgpu::BufferUsage::None;
+    }
 }
 
 rhi::SamplerHandle WebGPURHI::CreateSampler(const rhi::SamplerDesc& desc) {
@@ -181,6 +199,10 @@ rhi::SamplerHandle WebGPURHI::CreateSampler(const rhi::SamplerDesc& desc) {
     }
 
     wgpu::Sampler sampler = m_Device.CreateSampler(&samplerDesc);
+    if (!sampler) {
+        printf("[RHI] Failed to create WebGPU sampler\n");
+        return handle;
+    }
     handle.id = static_cast<uint64_t>(m_Samplers.size());
     m_Samplers.push_back(sampler);
 
@@ -195,15 +217,20 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     rhi::BufferHandle handle;
 
-    wgpu::BufferDescriptor bufferDesc;
-    wgpu::BufferUsage bufferUsage;
+    if (!m_Device || desc.size == 0) {
+        printf("[RHI] Invalid WebGPU buffer description\n");
+        return handle;
+    }
 
+    wgpu::BufferDescriptor bufferDesc{};
     bufferDesc.size = desc.size;
-    bufferUsage = toWebGPU(desc.usage);
-    bufferUsage |= toWebGPU(desc.memoryUsage);
-    bufferDesc.usage = bufferUsage;
+    bufferDesc.usage = toWebGPU(desc.usage) | toWebGPU(desc.memoryUsage);
 
     wgpu::Buffer buffer = m_Device.CreateBuffer(&bufferDesc);
+    if (!buffer) {
+        printf("[RHI] Failed to create WebGPU buffer\n");
+        return handle;
+    }
 
     handle.id = static_cast<uint64_t>(m_Buffers.size());
     m_Buffers.push_back(buffer);
@@ -211,9 +238,11 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
     return handle;
 }
 
-void WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
-    if (handle.id == 0xFFFFFFFFFFFFFFFF) {
-        return;
+void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        !m_Buffers[handle.id]) {
+        return nullptr;
     }
     wgpu::Buffer buffer = m_Buffers[handle.id];
     wgpu::BufferUsage usage = buffer.GetUsage();
@@ -222,32 +251,40 @@ void WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
     if (!canWrite && !canRead)
     {
         printf("[RHI] MapBuffer called on a buffer that is not mappable\n");
-        return;
+        return nullptr;
     }
     wgpu::MapMode mode = canWrite ? wgpu::MapMode::Write : wgpu::MapMode::Read;
 
-    bool done = false;
-
+    bool success = false;
     auto future = buffer.MapAsync(mode, 0, buffer.GetSize(), wgpu::CallbackMode::WaitAnyOnly,
-            [&](wgpu::MapAsyncStatus status, wgpu::StringView)
+            [&](wgpu::MapAsyncStatus status, wgpu::StringView message)
             {
-                if (status != wgpu::MapAsyncStatus::Success)
-                    printf("[RHI] MapBuffer failed\n");
-                done = true;
+                if (status != wgpu::MapAsyncStatus::Success) {
+                    printf("[RHI] MapBuffer failed: %.*s\n",
+                           static_cast<int>(message.length), message.data ? message.data : "");
+                    return;
+                }
+                success = true;
             });
+
     m_Instance.WaitAny(future, UINT64_MAX);
+    return success ? buffer.GetMappedRange(0, buffer.GetSize()) : nullptr;
 }
 
 void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
-    if (handle.id == 0xFFFFFFFFFFFFFFFF) return;
+    if (handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        !m_Buffers[handle.id]) {
+        return;
+    }
     m_Buffers[handle.id].Unmap();
 }
 
 void WebGPURHI::DestroySampler(rhi::SamplerHandle handle) {
-    if (handle.id != 0xFFFFFFFFFFFFFFFF) {
-        m_Samplers[handle.id] = {};
-        handle.id = 0xFFFFFFFFFFFFFFFF;
+    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Samplers.size()) {
+        return;
     }
+    m_Samplers[handle.id] = {};
 }
 
 void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
@@ -256,7 +293,12 @@ void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
 
 void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
 {
-    if (handle.id == 0xFFFFFFFFFFFFFFFF) return;
+    if (handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_Buffers.size() ||
+        !m_Buffers[handle.id]) {
+        return;
+    }
+    m_Buffers[handle.id].Unmap();
     m_Buffers[handle.id].Destroy();
     m_Buffers[handle.id] = {};
 }
