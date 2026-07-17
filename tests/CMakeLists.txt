@@ -31,7 +31,11 @@ if(RHI_BACKEND STREQUAL "VULKAN")
     find_package(Vulkan REQUIRED)
     target_sources(rhi_tests
         PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/VkRHI.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkrhi.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkconversions.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -47,7 +51,11 @@ elseif(RHI_BACKEND STREQUAL "DX12")
     endif()
     target_sources(rhi_tests
         PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/DX12RHI.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12rhi.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12sampler.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12texture.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12buffer.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12conversions.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -64,7 +72,11 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
     find_package(Dawn REQUIRED PATHS ${DAWN_SDK_ROOT})
     target_sources(rhi_tests
         PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/WGPURHI.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpurhi.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpubuffer.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuconversions.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpusampler.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgputexture.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE

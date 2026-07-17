@@ -23,7 +23,11 @@ if(RHI_BACKEND STREQUAL "VULKAN")
   find_package(Vulkan REQUIRED)
   target_sources(${PROJECT_NAME}
         PRIVATE
-            src/rhi/vulkan/VkRHI.cpp
+            src/rhi/vulkan/vkrhi.cpp
+            src/rhi/vulkan/vktexture.cpp
+            src/rhi/vulkan/vkbuffer.cpp
+            src/rhi/vulkan/vksampler.cpp
+            src/rhi/vulkan/vkconversions.cpp
     )
   target_link_libraries(${PROJECT_NAME}
         PRIVATE
@@ -40,7 +44,11 @@ elseif(RHI_BACKEND STREQUAL "DX12")
   message(STATUS "Configuring RHI for DirectX 12")
   target_sources(${PROJECT_NAME}
         PRIVATE
-            src/rhi/dx12/DX12RHI.cpp
+            src/rhi/dx12/dx12rhi.cpp
+            src/rhi/dx12/dx12sampler.cpp
+            src/rhi/dx12/dx12texture.cpp
+            src/rhi/dx12/dx12buffer.cpp
+            src/rhi/dx12/dx12conversions.cpp
     )
   target_link_libraries(${PROJECT_NAME}
         PRIVATE
@@ -57,7 +65,11 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
   find_package(Dawn REQUIRED PATHS ${DAWN_SDK_ROOT})
   target_sources(${PROJECT_NAME}
             PRIVATE
-                src/rhi/webgpu/WGPURHI.cpp
+                src/rhi/webgpu/wgpurhi.cpp
+                src/rhi/webgpu/wgpubuffer.cpp
+                src/rhi/webgpu/wgpuconversions.cpp
+                src/rhi/webgpu/wgpusampler.cpp
+                src/rhi/webgpu/wgputexture.cpp
         )
   target_link_libraries(${PROJECT_NAME}
             PRIVATE

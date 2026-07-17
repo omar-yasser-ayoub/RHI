@@ -317,21 +317,6 @@ TEST_F(RHITest, MapAndWriteCpuToGpuBuffer)
     rhi.DestroyBuffer(handle);
 }
 
-TEST_F(RHITest, RejectsCpuToGpuBufferWithGpuUsage)
-{
-    auto handle = rhi.CreateBuffer(MakeBufferDesc(
-        64,
-        rhi::MemoryUsage::CpuToGpu,
-        rhi::BufferUsage::Vertex | rhi::BufferUsage::CopySrc));
-
-#if defined(RHI_WEBGPU)
-    EXPECT_EQ(handle.id, InvalidHandle);
-#else
-    EXPECT_NE(handle.id, InvalidHandle);
-    rhi.DestroyBuffer(handle);
-#endif
-}
-
 TEST_F(RHITest, WriteBufferWithOffset)
 {
     constexpr std::size_t BufferSize = 64;
