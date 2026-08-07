@@ -1,4 +1,5 @@
 #include "rhi/webgpu/wgpurhi.h"
+#include <cstdint>
 
 wgpu::FilterMode WebGPURHI::toWebGPU(rhi::Filter f) {
     switch (f) {
@@ -68,4 +69,168 @@ wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::MemoryUsage usage) {
         default:
             return wgpu::BufferUsage::None;
     }
+}
+
+wgpu::TextureDimension WebGPURHI::toWebGPU(rhi::TextureDimension dim) {
+    switch (dim) {
+        case rhi::TextureDimension::Tex1D: return wgpu::TextureDimension::e1D;
+        case rhi::TextureDimension::Tex2D: return wgpu::TextureDimension::e2D;
+        case rhi::TextureDimension::Tex3D: return wgpu::TextureDimension::e3D;
+        default: return wgpu::TextureDimension::e2D;
+    }
+}
+
+wgpu::TextureFormat WebGPURHI::toWebGPU(rhi::TextureFormat format) {
+    switch (format) {
+        case rhi::TextureFormat::Unknown:              return wgpu::TextureFormat::Undefined;
+
+        // 8-bit
+        case rhi::TextureFormat::R8Unorm:               return wgpu::TextureFormat::R8Unorm;
+        case rhi::TextureFormat::R8Snorm:               return wgpu::TextureFormat::R8Snorm;
+        case rhi::TextureFormat::R8Uint:                return wgpu::TextureFormat::R8Uint;
+        case rhi::TextureFormat::R8Sint:                return wgpu::TextureFormat::R8Sint;
+        case rhi::TextureFormat::RG8Unorm:              return wgpu::TextureFormat::RG8Unorm;
+        case rhi::TextureFormat::RG8Snorm:              return wgpu::TextureFormat::RG8Snorm;
+        case rhi::TextureFormat::RG8Uint:               return wgpu::TextureFormat::RG8Uint;
+        case rhi::TextureFormat::RG8Sint:               return wgpu::TextureFormat::RG8Sint;
+        case rhi::TextureFormat::RGBA8Unorm:            return wgpu::TextureFormat::RGBA8Unorm;
+        case rhi::TextureFormat::RGBA8UnormSrgb:        return wgpu::TextureFormat::RGBA8UnormSrgb;
+        case rhi::TextureFormat::RGBA8Snorm:            return wgpu::TextureFormat::RGBA8Snorm;
+        case rhi::TextureFormat::RGBA8Uint:             return wgpu::TextureFormat::RGBA8Uint;
+        case rhi::TextureFormat::RGBA8Sint:             return wgpu::TextureFormat::RGBA8Sint;
+        case rhi::TextureFormat::BGRA8Unorm:            return wgpu::TextureFormat::BGRA8Unorm;
+        case rhi::TextureFormat::BGRA8UnormSrgb:        return wgpu::TextureFormat::BGRA8UnormSrgb;
+
+        // 16-bit
+        case rhi::TextureFormat::R16Unorm:              return wgpu::TextureFormat::R16Unorm;
+        case rhi::TextureFormat::R16Snorm:              return wgpu::TextureFormat::R16Snorm;
+        case rhi::TextureFormat::R16Uint:               return wgpu::TextureFormat::R16Uint;
+        case rhi::TextureFormat::R16Sint:               return wgpu::TextureFormat::R16Sint;
+        case rhi::TextureFormat::R16Float:              return wgpu::TextureFormat::R16Float;
+        case rhi::TextureFormat::RG16Unorm:             return wgpu::TextureFormat::RG16Unorm;
+        case rhi::TextureFormat::RG16Snorm:             return wgpu::TextureFormat::RG16Snorm;
+        case rhi::TextureFormat::RG16Uint:              return wgpu::TextureFormat::RG16Uint;
+        case rhi::TextureFormat::RG16Sint:              return wgpu::TextureFormat::RG16Sint;
+        case rhi::TextureFormat::RG16Float:             return wgpu::TextureFormat::RG16Float;
+        case rhi::TextureFormat::RGBA16Unorm:           return wgpu::TextureFormat::RGBA16Unorm;
+        case rhi::TextureFormat::RGBA16Snorm:           return wgpu::TextureFormat::RGBA16Snorm;
+        case rhi::TextureFormat::RGBA16Uint:            return wgpu::TextureFormat::RGBA16Uint;
+        case rhi::TextureFormat::RGBA16Sint:            return wgpu::TextureFormat::RGBA16Sint;
+        case rhi::TextureFormat::RGBA16Float:           return wgpu::TextureFormat::RGBA16Float;
+
+        // 32-bit
+        case rhi::TextureFormat::R32Uint:               return wgpu::TextureFormat::R32Uint;
+        case rhi::TextureFormat::R32Sint:               return wgpu::TextureFormat::R32Sint;
+        case rhi::TextureFormat::R32Float:              return wgpu::TextureFormat::R32Float;
+        case rhi::TextureFormat::RG32Uint:              return wgpu::TextureFormat::RG32Uint;
+        case rhi::TextureFormat::RG32Sint:              return wgpu::TextureFormat::RG32Sint;
+        case rhi::TextureFormat::RG32Float:             return wgpu::TextureFormat::RG32Float;
+        case rhi::TextureFormat::RGBA32Uint:            return wgpu::TextureFormat::RGBA32Uint;
+        case rhi::TextureFormat::RGBA32Sint:            return wgpu::TextureFormat::RGBA32Sint;
+        case rhi::TextureFormat::RGBA32Float:           return wgpu::TextureFormat::RGBA32Float;
+
+        // No 3-channel 32-bit formats in WebGPU — falls through to default.
+        case rhi::TextureFormat::RGB32Uint:
+        case rhi::TextureFormat::RGB32Sint:
+        case rhi::TextureFormat::RGB32Float:
+            break;
+
+        // Packed
+        case rhi::TextureFormat::RGB10A2Unorm:          return wgpu::TextureFormat::RGB10A2Unorm;
+        case rhi::TextureFormat::RGB10A2Uint:           return wgpu::TextureFormat::RGB10A2Uint;
+        case rhi::TextureFormat::RG11B10Float:          return wgpu::TextureFormat::RG11B10Ufloat;
+        case rhi::TextureFormat::RGB9E5Float:           return wgpu::TextureFormat::RGB9E5Ufloat;
+
+        // Depth / Stencil
+        case rhi::TextureFormat::Depth16Unorm:          return wgpu::TextureFormat::Depth16Unorm;
+        case rhi::TextureFormat::Depth24Plus:           return wgpu::TextureFormat::Depth24Plus;
+        case rhi::TextureFormat::Depth24PlusStencil8:   return wgpu::TextureFormat::Depth24PlusStencil8;
+        case rhi::TextureFormat::Depth32Float:          return wgpu::TextureFormat::Depth32Float;
+        case rhi::TextureFormat::Depth32FloatStencil8:  return wgpu::TextureFormat::Depth32FloatStencil8;
+        case rhi::TextureFormat::Stencil8:              return wgpu::TextureFormat::Stencil8;
+
+        // BC
+        case rhi::TextureFormat::BC1RGBAUnorm:          return wgpu::TextureFormat::BC1RGBAUnorm;
+        case rhi::TextureFormat::BC1RGBAUnormSrgb:      return wgpu::TextureFormat::BC1RGBAUnormSrgb;
+        case rhi::TextureFormat::BC2RGBAUnorm:          return wgpu::TextureFormat::BC2RGBAUnorm;
+        case rhi::TextureFormat::BC2RGBAUnormSrgb:      return wgpu::TextureFormat::BC2RGBAUnormSrgb;
+        case rhi::TextureFormat::BC3RGBAUnorm:          return wgpu::TextureFormat::BC3RGBAUnorm;
+        case rhi::TextureFormat::BC3RGBAUnormSrgb:      return wgpu::TextureFormat::BC3RGBAUnormSrgb;
+        case rhi::TextureFormat::BC4RUnorm:             return wgpu::TextureFormat::BC4RUnorm;
+        case rhi::TextureFormat::BC4RSnorm:             return wgpu::TextureFormat::BC4RSnorm;
+        case rhi::TextureFormat::BC5RGUnorm:            return wgpu::TextureFormat::BC5RGUnorm;
+        case rhi::TextureFormat::BC5RGSnorm:            return wgpu::TextureFormat::BC5RGSnorm;
+        case rhi::TextureFormat::BC6HRGBUFloat:         return wgpu::TextureFormat::BC6HRGBUfloat;
+        case rhi::TextureFormat::BC6HRGBFloat:          return wgpu::TextureFormat::BC6HRGBFloat;
+        case rhi::TextureFormat::BC7RGBAUnorm:          return wgpu::TextureFormat::BC7RGBAUnorm;
+        case rhi::TextureFormat::BC7RGBAUnormSrgb:      return wgpu::TextureFormat::BC7RGBAUnormSrgb;
+
+        // ETC2 / EAC
+        case rhi::TextureFormat::ETC2RGB8Unorm:         return wgpu::TextureFormat::ETC2RGB8Unorm;
+        case rhi::TextureFormat::ETC2RGB8UnormSrgb:     return wgpu::TextureFormat::ETC2RGB8UnormSrgb;
+        case rhi::TextureFormat::ETC2RGB8A1Unorm:       return wgpu::TextureFormat::ETC2RGB8A1Unorm;
+        case rhi::TextureFormat::ETC2RGB8A1UnormSrgb:   return wgpu::TextureFormat::ETC2RGB8A1UnormSrgb;
+        case rhi::TextureFormat::ETC2RGBA8Unorm:        return wgpu::TextureFormat::ETC2RGBA8Unorm;
+        case rhi::TextureFormat::ETC2RGBA8UnormSrgb:    return wgpu::TextureFormat::ETC2RGBA8UnormSrgb;
+        case rhi::TextureFormat::EACR11Unorm:           return wgpu::TextureFormat::EACR11Unorm;
+        case rhi::TextureFormat::EACR11Snorm:           return wgpu::TextureFormat::EACR11Snorm;
+        case rhi::TextureFormat::EACRG11Unorm:          return wgpu::TextureFormat::EACRG11Unorm;
+        case rhi::TextureFormat::EACRG11Snorm:          return wgpu::TextureFormat::EACRG11Snorm;
+
+        // ASTC
+        case rhi::TextureFormat::ASTC4x4Unorm:          return wgpu::TextureFormat::ASTC4x4Unorm;
+        case rhi::TextureFormat::ASTC4x4UnormSrgb:      return wgpu::TextureFormat::ASTC4x4UnormSrgb;
+        case rhi::TextureFormat::ASTC5x4Unorm:          return wgpu::TextureFormat::ASTC5x4Unorm;
+        case rhi::TextureFormat::ASTC5x4UnormSrgb:      return wgpu::TextureFormat::ASTC5x4UnormSrgb;
+        case rhi::TextureFormat::ASTC5x5Unorm:          return wgpu::TextureFormat::ASTC5x5Unorm;
+        case rhi::TextureFormat::ASTC5x5UnormSrgb:      return wgpu::TextureFormat::ASTC5x5UnormSrgb;
+        case rhi::TextureFormat::ASTC6x5Unorm:          return wgpu::TextureFormat::ASTC6x5Unorm;
+        case rhi::TextureFormat::ASTC6x5UnormSrgb:      return wgpu::TextureFormat::ASTC6x5UnormSrgb;
+        case rhi::TextureFormat::ASTC6x6Unorm:          return wgpu::TextureFormat::ASTC6x6Unorm;
+        case rhi::TextureFormat::ASTC6x6UnormSrgb:      return wgpu::TextureFormat::ASTC6x6UnormSrgb;
+        case rhi::TextureFormat::ASTC8x5Unorm:          return wgpu::TextureFormat::ASTC8x5Unorm;
+        case rhi::TextureFormat::ASTC8x5UnormSrgb:      return wgpu::TextureFormat::ASTC8x5UnormSrgb;
+        case rhi::TextureFormat::ASTC8x6Unorm:          return wgpu::TextureFormat::ASTC8x6Unorm;
+        case rhi::TextureFormat::ASTC8x6UnormSrgb:      return wgpu::TextureFormat::ASTC8x6UnormSrgb;
+        case rhi::TextureFormat::ASTC8x8Unorm:          return wgpu::TextureFormat::ASTC8x8Unorm;
+        case rhi::TextureFormat::ASTC8x8UnormSrgb:      return wgpu::TextureFormat::ASTC8x8UnormSrgb;
+        case rhi::TextureFormat::ASTC10x5Unorm:         return wgpu::TextureFormat::ASTC10x5Unorm;
+        case rhi::TextureFormat::ASTC10x5UnormSrgb:     return wgpu::TextureFormat::ASTC10x5UnormSrgb;
+        case rhi::TextureFormat::ASTC10x6Unorm:         return wgpu::TextureFormat::ASTC10x6Unorm;
+        case rhi::TextureFormat::ASTC10x6UnormSrgb:     return wgpu::TextureFormat::ASTC10x6UnormSrgb;
+        case rhi::TextureFormat::ASTC10x8Unorm:         return wgpu::TextureFormat::ASTC10x8Unorm;
+        case rhi::TextureFormat::ASTC10x8UnormSrgb:     return wgpu::TextureFormat::ASTC10x8UnormSrgb;
+        case rhi::TextureFormat::ASTC10x10Unorm:        return wgpu::TextureFormat::ASTC10x10Unorm;
+        case rhi::TextureFormat::ASTC10x10UnormSrgb:    return wgpu::TextureFormat::ASTC10x10UnormSrgb;
+        case rhi::TextureFormat::ASTC12x10Unorm:        return wgpu::TextureFormat::ASTC12x10Unorm;
+        case rhi::TextureFormat::ASTC12x10UnormSrgb:    return wgpu::TextureFormat::ASTC12x10UnormSrgb;
+        case rhi::TextureFormat::ASTC12x12Unorm:        return wgpu::TextureFormat::ASTC12x12Unorm;
+        case rhi::TextureFormat::ASTC12x12UnormSrgb:    return wgpu::TextureFormat::ASTC12x12UnormSrgb;
+
+        default: break;
+    }
+    return wgpu::TextureFormat::Undefined;
+}
+
+uint32_t WebGPURHI::toWebGPU(rhi::SampleCount count) {
+    return static_cast<uint32_t>(count);
+}
+
+wgpu::TextureUsage WebGPURHI::toWebGPU(rhi::TextureUsage usage) {
+    wgpu::TextureUsage result = wgpu::TextureUsage::None;
+
+    if ((usage & rhi::TextureUsage::CopySrc) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::CopySrc;
+    if ((usage & rhi::TextureUsage::CopyDst) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::CopyDst;
+    if ((usage & rhi::TextureUsage::Sampled) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::TextureBinding;
+    if ((usage & rhi::TextureUsage::Storage) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::StorageBinding;
+    if ((usage & rhi::TextureUsage::RenderTarget) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::RenderAttachment;
+    if ((usage & rhi::TextureUsage::DepthStencil) != rhi::TextureUsage::None)
+        result |= wgpu::TextureUsage::RenderAttachment; // WebGPU has no separate depth/stencil usage bit — RenderAttachment covers both
+
+    return result;
 }

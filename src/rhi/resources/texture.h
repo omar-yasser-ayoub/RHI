@@ -8,11 +8,25 @@ namespace rhi
         std::uint64_t id = 0xFFFFFFFF;
     };
 
+    struct TextureViewHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+    };
+
     enum class TextureDimension
     {
         Tex1D,
         Tex2D,
         Tex3D,
+    };
+
+    enum class SampleCount
+    {
+        x1 = 1,
+        x2 = 2,
+        x4 = 4,
+        x8 = 8,
+        x16 = 16,
     };
 
    enum class TextureFormat
@@ -97,6 +111,13 @@ namespace rhi
         CopyDst       = 1 << 5,
     };
 
+    enum class TextureAspect
+    {
+        Color        = 1 << 0,
+        Depth        = 1 << 1,
+        Stencil      = 1 << 2,
+    };
+
     // Bitwise operators
 
     constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs)
@@ -151,6 +172,8 @@ namespace rhi
         TextureFormat format = TextureFormat::RGBA8Unorm;
 
         TextureUsage usage = TextureUsage::None;
+
+        SampleCount sampleCount = SampleCount::x1;
     };
 
     struct TextureWriteDesc
@@ -169,7 +192,18 @@ namespace rhi
         std::uint32_t rowsPerImage = 0;
     };
 
-    // struct TextureViewDesc
-    // {
-    // };
+    struct TextureViewDesc
+    {
+        TextureDimension dimension = TextureDimension::Tex2D;
+
+        TextureFormat format = TextureFormat::RGBA8Unorm;
+
+        TextureAspect aspect = TextureAspect::Color;
+
+        std::uint32_t baseMipLevel = 0;
+        std::uint32_t baseArrayLayer = 0;
+
+        std::uint32_t mipLevels = 1;
+        std::uint32_t arrayLayers = 1;
+    };
 }
