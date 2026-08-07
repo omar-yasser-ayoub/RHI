@@ -70,6 +70,6 @@ void WebGPURHI::DestroyTextureView(rhi::TextureViewHandle handle) {
 }
 
 void WebGPURHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-    // gotta wait till i implement the queue/rendering loop before i can do that
+    // TODO: Implement texture write
     return;
 }

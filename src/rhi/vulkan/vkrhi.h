@@ -2,6 +2,7 @@
 
 #include "rhi/irhi.h"
 #include "rhi/resources/buffer.h"
+#include "rhi/resources/texture.h"
 #include <vulkan/vulkan.h>
 #include <vector>
 
@@ -15,10 +16,12 @@ public:
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
+    rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
     void DestroyBuffer(rhi::BufferHandle handle);
+    void DestroyTextureView(rhi::TextureViewHandle handle);
 
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
@@ -35,6 +38,12 @@ public:
     VkBorderColor toVk(rhi::BorderColor mode);
     VkBufferUsageFlags toVk(rhi::BufferUsage usage);
     VkMemoryPropertyFlags toVk(rhi::MemoryUsage usage);
+    VkImageViewType toVkView(rhi::TextureDimension type);
+    VkFormat toVk(rhi::TextureFormat format);
+    VkImageAspectFlags toVk(rhi::TextureAspect aspect);
+    VkImageType toVk(rhi::TextureDimension type);
+    VkSampleCountFlagBits toVk(rhi::SampleCount count);
+    VkImageUsageFlags toVk(rhi::TextureUsage usage);
 
 private:
     VkInstance m_Instance = VK_NULL_HANDLE;
@@ -44,4 +53,7 @@ private:
     std::vector<VkBuffer> m_Buffers;
     std::vector<VkDeviceMemory> m_BufferMemory;
     std::vector<rhi::BufferDesc> m_BufferMetadata;
+    std::vector<VkImage> m_Textures;
+    std::vector<VkDeviceMemory> m_TextureMemory;
+    std::vector<VkImageView> m_TextureViews;
 };
