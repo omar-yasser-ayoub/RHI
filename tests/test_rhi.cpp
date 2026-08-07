@@ -391,6 +391,195 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
 }
 
 // ============================================================================
+// Texture Tests
+// ============================================================================
+
+namespace
+{
+constexpr std::uint64_t InvalidTextureHandle = 0xFFFFFFFF;
+
+rhi::TextureDesc MakeTextureDesc(
+    std::uint32_t width = 4,
+    std::uint32_t height = 4,
+    rhi::TextureFormat format = rhi::TextureFormat::RGBA8Unorm,
+    rhi::TextureUsage usage = rhi::TextureUsage::Sampled |
+                               rhi::TextureUsage::CopyDst)
+{
+    rhi::TextureDesc desc;
+    desc.width = width;
+    desc.height = height;
+    desc.format = format;
+    desc.usage = usage;
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreateTexture)
+{
+    auto handle = rhi.CreateTexture(MakeTextureDesc());
+
+    EXPECT_NE(handle.id, InvalidTextureHandle);
+    rhi.DestroyTexture(handle);
+}
+
+TEST_F(RHITest, CreateMultipleTextures)
+{
+    std::vector<rhi::TextureHandle> handles;
+    for (int i = 0; i < 3; ++i) {
+        auto handle = rhi.CreateTexture(MakeTextureDesc(4 + i, 4 + i));
+        ASSERT_NE(handle.id, InvalidTextureHandle);
+        handles.push_back(handle);
+    }
+
+    EXPECT_NE(handles[0].id, handles[1].id);
+    EXPECT_NE(handles[1].id, handles[2].id);
+
+    for (auto handle : handles) {
+        rhi.DestroyTexture(handle);
+    }
+}
+
+TEST_F(RHITest, CreateTextureWithDifferentDimensionsAndFormats)
+{
+    struct TextureCase {
+        rhi::TextureDimension dimension;
+        std::uint32_t width;
+        std::uint32_t height;
+        std::uint32_t depth;
+        rhi::TextureFormat format;
+    };
+
+    const TextureCase cases[] = {
+        { rhi::TextureDimension::Tex1D, 16, 1, 1, rhi::TextureFormat::R8Unorm },
+        { rhi::TextureDimension::Tex2D, 8, 8, 1, rhi::TextureFormat::RGBA8Unorm },
+        { rhi::TextureDimension::Tex3D, 4, 4, 4, rhi::TextureFormat::RGBA16Float },
+    };
+
+    for (const auto& testCase : cases) {
+        auto desc = MakeTextureDesc(
+            testCase.width,
+            testCase.height,
+            testCase.format,
+            rhi::TextureUsage::Sampled | rhi::TextureUsage::Storage |
+                rhi::TextureUsage::CopySrc | rhi::TextureUsage::CopyDst);
+        desc.dimension = testCase.dimension;
+        desc.depth = testCase.depth;
+
+        auto handle = rhi.CreateTexture(desc);
+        ASSERT_NE(handle.id, InvalidTextureHandle)
+            << "Failed for texture dimension/format case";
+        rhi.DestroyTexture(handle);
+    }
+}
+
+TEST_F(RHITest, CreateTextureWithMipLevelsAndSampleCount)
+{
+    auto desc = MakeTextureDesc(
+        16,
+        16,
+        rhi::TextureFormat::RGBA8Unorm,
+        rhi::TextureUsage::Sampled | rhi::TextureUsage::RenderTarget);
+    desc.mipLevels = 4;
+    desc.sampleCount = rhi::SampleCount::x1;
+
+    auto handle = rhi.CreateTexture(desc);
+    ASSERT_NE(handle.id, InvalidTextureHandle);
+
+    rhi.DestroyTexture(handle);
+}
+
+#if defined(RHI_WEBGPU)
+TEST_F(RHITest, CreateTextureView)
+{
+    auto texture = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(texture.id, InvalidTextureHandle);
+
+    rhi::TextureViewDesc viewDesc;
+    auto view = rhi.CreateTextureView(viewDesc, texture);
+
+    EXPECT_NE(view.id, InvalidTextureHandle);
+    rhi.DestroyTextureView(view);
+    rhi.DestroyTexture(texture);
+}
+
+TEST_F(RHITest, CreateTextureViewsForMipLevelsAndArrayLayers)
+{
+    auto textureDesc = MakeTextureDesc();
+    textureDesc.mipLevels = 3;
+    textureDesc.arrayLayers = 2;
+
+    auto texture = rhi.CreateTexture(textureDesc);
+    ASSERT_NE(texture.id, InvalidTextureHandle);
+
+    rhi::TextureViewDesc viewDesc;
+    viewDesc.baseMipLevel = 1;
+    viewDesc.baseArrayLayer = 1;
+    viewDesc.mipLevels = 1;
+    viewDesc.arrayLayers = 1;
+
+    auto view = rhi.CreateTextureView(viewDesc, texture);
+    ASSERT_NE(view.id, InvalidTextureHandle);
+
+    rhi.DestroyTextureView(view);
+    rhi.DestroyTexture(texture);
+}
+
+TEST_F(RHITest, CreateAndDestroyMultipleTextureViews)
+{
+    auto texture = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(texture.id, InvalidTextureHandle);
+
+    rhi::TextureViewDesc viewDesc;
+    auto view1 = rhi.CreateTextureView(viewDesc, texture);
+    auto view2 = rhi.CreateTextureView(viewDesc, texture);
+    ASSERT_NE(view1.id, InvalidTextureHandle);
+    ASSERT_NE(view2.id, InvalidTextureHandle);
+    EXPECT_NE(view1.id, view2.id);
+
+    rhi.DestroyTextureView(view2);
+    rhi.DestroyTextureView(view1);
+    rhi.DestroyTexture(texture);
+}
+
+// TEST_F(RHITest, DestroyTextureAndTextureViewAreIdempotent)
+// {
+//     auto texture = rhi.CreateTexture(MakeTextureDesc());
+//     ASSERT_NE(texture.id, InvalidTextureHandle);
+
+//     rhi::TextureViewDesc viewDesc;
+//     auto view = rhi.CreateTextureView(viewDesc, texture);
+//     ASSERT_NE(view.id, InvalidTextureHandle);
+
+//     rhi.DestroyTextureView(view);
+//     rhi.DestroyTextureView(view);
+//     rhi.DestroyTexture(texture);
+//     rhi.DestroyTexture(texture);
+// }
+// #endif
+
+TEST_F(RHITest, WriteTextureAcceptsTextureData)
+{
+    auto texture = rhi.CreateTexture(MakeTextureDesc(
+        4,
+        4,
+        rhi::TextureFormat::RGBA8Unorm,
+        rhi::TextureUsage::CopyDst | rhi::TextureUsage::Sampled));
+    ASSERT_NE(texture.id, InvalidTextureHandle);
+
+    constexpr std::array<std::uint8_t, 64> pixels{};
+    rhi::TextureWriteDesc writeDesc;
+    writeDesc.width = 4;
+    writeDesc.height = 4;
+    writeDesc.bytesPerRow = 16;
+    writeDesc.rowsPerImage = 4;
+
+    // WriteTexture is intentionally a no-op until the WebGPU queue upload path
+    // is implemented; this still verifies the public call is safe.
+    rhi.WriteTexture(texture, writeDesc, pixels.data());
+    rhi.DestroyTexture(texture);
+}
+
+// ============================================================================
 // Stress Tests
 // ============================================================================
 
