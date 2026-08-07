@@ -398,6 +398,10 @@ namespace
 {
 constexpr std::uint64_t InvalidTextureHandle = 0xFFFFFFFF;
 
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+#define RHI_HAS_TEXTURE_VIEWS 1
+#endif
+
 rhi::TextureDesc MakeTextureDesc(
     std::uint32_t width = 4,
     std::uint32_t height = 4,
@@ -488,7 +492,7 @@ TEST_F(RHITest, CreateTextureWithMipLevelsAndSampleCount)
     rhi.DestroyTexture(handle);
 }
 
-#if defined(RHI_WEBGPU)
+#if defined(RHI_HAS_TEXTURE_VIEWS)
 TEST_F(RHITest, CreateTextureView)
 {
     auto texture = rhi.CreateTexture(MakeTextureDesc());
@@ -541,21 +545,22 @@ TEST_F(RHITest, CreateAndDestroyMultipleTextureViews)
     rhi.DestroyTexture(texture);
 }
 
-// TEST_F(RHITest, DestroyTextureAndTextureViewAreIdempotent)
-// {
-//     auto texture = rhi.CreateTexture(MakeTextureDesc());
-//     ASSERT_NE(texture.id, InvalidTextureHandle);
+TEST_F(RHITest, DestroyTextureAndTextureViewAreIdempotent)
+{
+    auto texture = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(texture.id, InvalidTextureHandle);
 
-//     rhi::TextureViewDesc viewDesc;
-//     auto view = rhi.CreateTextureView(viewDesc, texture);
-//     ASSERT_NE(view.id, InvalidTextureHandle);
+    rhi::TextureViewDesc viewDesc;
+    auto view = rhi.CreateTextureView(viewDesc, texture);
+    ASSERT_NE(view.id, InvalidTextureHandle);
 
-//     rhi.DestroyTextureView(view);
-//     rhi.DestroyTextureView(view);
-//     rhi.DestroyTexture(texture);
-//     rhi.DestroyTexture(texture);
-// }
-// #endif
+    rhi.DestroyTextureView(view);
+    rhi.DestroyTextureView(view);
+    rhi.DestroyTexture(texture);
+    rhi.DestroyTexture(texture);
+}
+
+#endif
 
 TEST_F(RHITest, WriteTextureAcceptsTextureData)
 {
@@ -573,8 +578,8 @@ TEST_F(RHITest, WriteTextureAcceptsTextureData)
     writeDesc.bytesPerRow = 16;
     writeDesc.rowsPerImage = 4;
 
-    // WriteTexture is intentionally a no-op until the WebGPU queue upload path
-    // is implemented; this still verifies the public call is safe.
+    // Upload is not implemented by every backend yet; this verifies that the
+    // public call is safe for a valid texture.
     rhi.WriteTexture(texture, writeDesc, pixels.data());
     rhi.DestroyTexture(texture);
 }

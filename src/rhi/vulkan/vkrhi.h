@@ -38,7 +38,7 @@ public:
     VkBorderColor toVk(rhi::BorderColor mode);
     VkBufferUsageFlags toVk(rhi::BufferUsage usage);
     VkMemoryPropertyFlags toVk(rhi::MemoryUsage usage);
-    VkImageViewType toVkView(rhi::TextureDimension type);
+    VkImageViewType toVk(rhi::TextureViewDimension type, int layerCount);
     VkFormat toVk(rhi::TextureFormat format);
     VkImageAspectFlags toVk(rhi::TextureAspect aspect);
     VkImageType toVk(rhi::TextureDimension type);

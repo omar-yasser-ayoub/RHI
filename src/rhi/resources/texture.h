@@ -118,6 +118,17 @@ namespace rhi
         Stencil      = 1 << 2,
     };
 
+    enum class TextureViewDimension
+    {
+        Tex1D,
+        Tex2D,
+        Tex3D,
+        Tex1DArray,
+        Tex2DArray,
+        TexCube,
+        TexCubeArray,
+    };
+
     // Bitwise operators
 
     constexpr TextureUsage operator|(TextureUsage lhs, TextureUsage rhs)
@@ -194,7 +205,7 @@ namespace rhi
 
     struct TextureViewDesc
     {
-        TextureDimension dimension = TextureDimension::Tex2D;
+        TextureViewDimension dimension = TextureViewDimension::Tex2D;
 
         TextureFormat format = TextureFormat::RGBA8Unorm;
 

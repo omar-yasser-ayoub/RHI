@@ -98,7 +98,13 @@ rhi::TextureViewHandle VulkanRHI::CreateTextureView(const rhi::TextureViewDesc& 
     VkImageViewCreateInfo viewInfo = {};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     viewInfo.image = m_Textures[texture.id];
-    viewInfo.viewType = toVkView(desc.dimension);
+
+    VkImageViewType viewType = toVk(desc.dimension, desc.arrayLayers);
+    if (viewType == VK_IMAGE_VIEW_TYPE_MAX_ENUM) {
+        printf("[ERROR] Invalid texture dimension\n");
+        return rhi::TextureViewHandle{};
+    }
+    viewInfo.viewType = viewType;
     viewInfo.format = toVk(desc.format);
     viewInfo.subresourceRange.aspectMask = toVk(desc.aspect);
     viewInfo.subresourceRange.baseMipLevel = desc.baseMipLevel;
