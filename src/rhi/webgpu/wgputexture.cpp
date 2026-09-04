@@ -51,7 +51,7 @@ rhi::TextureViewHandle WebGPURHI::CreateTextureView(const rhi::TextureViewDesc& 
 }
 
 void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
-    if (handle.id == 0xFFFFFFFF) {
+    if (handle.id >= m_Textures.size() || !m_Textures[handle.id]) {
         return;
     }
 
@@ -61,7 +61,7 @@ void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
 }
 
 void WebGPURHI::DestroyTextureView(rhi::TextureViewHandle handle) {
-    if (handle.id == 0xFFFFFFFF) {
+    if (handle.id >= m_TextureViews.size() || !m_TextureViews[handle.id]) {
         return;
     }
 
