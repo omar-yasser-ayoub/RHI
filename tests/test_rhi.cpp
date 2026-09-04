@@ -5,6 +5,13 @@
 #include <cstring>
 #include <vector>
 
+#if defined(RHI_VULKAN) || defined(RHI_DX12)
+    #include <Windows.h>
+    #include <wrl/client.h>
+    #include <third_party/dxc/inc/dxcapi.h>
+
+#endif
+
 
 #if defined(RHI_VULKAN)
     #include "rhi/vulkan/vkrhi.h"
@@ -389,6 +396,100 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
         rhi.DestroyBuffer(*it);
     }
 }
+
+// ============================================================================
+// Shader Compilation Tests
+// ============================================================================
+
+#if defined(RHI_VULKAN) || defined(RHI_DX12)
+namespace
+{
+struct ShaderCompilation
+{
+    Microsoft::WRL::ComPtr<IDxcBlob> object;
+};
+
+ShaderCompilation CompileShaderForTest(
+    RHIImpl& rhi,
+    const char* sourceText,
+    const wchar_t* profile,
+    bool spirv = false)
+{
+    DxcBuffer source{};
+    source.Ptr = sourceText;
+    source.Size = std::strlen(sourceText);
+    source.Encoding = DXC_CP_UTF8;
+
+    std::vector<LPCWSTR> args = { L"-E", L"main", L"-T", profile };
+#if defined(RHI_VULKAN)
+    if (spirv) {
+        args.push_back(L"-spirv");
+        args.push_back(L"-fvk-use-dx-layout");
+    }
+#else
+    (void)spirv;
+#endif
+
+    ShaderCompilation result;
+    result.object = rhi.CompileShader(source, args);
+
+    return result;
+}
+
+void ExpectShaderObjectValid(const ShaderCompilation& shader)
+{
+    ASSERT_NE(shader.object, nullptr);
+    ASSERT_NE(shader.object->GetBufferPointer(), nullptr);
+    EXPECT_GT(shader.object->GetBufferSize(), 4u);
+
+    const auto* bytes = static_cast<const std::uint32_t*>(shader.object->GetBufferPointer());
+#if defined(RHI_VULKAN)
+    EXPECT_EQ(bytes[0], 0x07230203u) << "Expected SPIR-V magic number";
+#else
+    EXPECT_EQ(bytes[0], 0x43425844u) << "Expected DXIL container magic";
+#endif
+}
+}
+
+TEST_F(RHITest, CompileVertexShaderProducesValidBinary)
+{
+    constexpr char source[] =
+        "struct VSInput { float3 position : POSITION; };\n"
+        "struct VSOutput { float4 position : SV_Position; };\n"
+        "VSOutput main(VSInput input) { VSOutput output; "
+        "output.position = float4(input.position, 1.0); return output; }\n";
+
+    auto shader = CompileShaderForTest(rhi, source, L"vs_6_0", true);
+    ExpectShaderObjectValid(shader);
+}
+
+TEST_F(RHITest, CompilePixelShaderProducesValidBinary)
+{
+    constexpr char source[] =
+        "float4 main() : SV_Target { return float4(1, 0, 0, 1); }\n";
+
+    auto shader = CompileShaderForTest(rhi, source, L"ps_6_0", true);
+    ExpectShaderObjectValid(shader);
+}
+
+TEST_F(RHITest, CompileComputeShaderProducesValidBinary)
+{
+    constexpr char source[] =
+        "[numthreads(8, 4, 2)] void main(uint3 id : SV_DispatchThreadID) { }\n";
+
+    auto shader = CompileShaderForTest(rhi, source, L"cs_6_0", true);
+    ExpectShaderObjectValid(shader);
+}
+
+TEST_F(RHITest, RejectInvalidShaderSource)
+{
+    constexpr char source[] =
+        "float4 main() : SV_Target { return does_not_exist; }\n";
+
+    auto shader = CompileShaderForTest(rhi, source, L"ps_6_0", true);
+    EXPECT_EQ(shader.object, nullptr);
+}
+#endif
 
 // ============================================================================
 // Texture Tests

@@ -18,6 +18,22 @@ target_include_directories(${PROJECT_NAME}
         src
 )
 
+if(WIN32)
+  set(DXC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/dxc" CACHE PATH "DXC SDK root")
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(DXC_ARCH x64)
+  else()
+    set(DXC_ARCH x86)
+  endif()
+
+  add_library(dxc SHARED IMPORTED GLOBAL)
+  set_target_properties(dxc PROPERTIES
+    IMPORTED_IMPLIB "${DXC_ROOT}/lib/${DXC_ARCH}/dxcompiler.lib"
+    IMPORTED_LOCATION "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
+    INTERFACE_INCLUDE_DIRECTORIES "${DXC_ROOT}/inc"
+  )
+endif()
+
 if(RHI_BACKEND STREQUAL "VULKAN")
   message(STATUS "Configuring RHI for Vulkan")
   find_package(Vulkan REQUIRED)
@@ -28,10 +44,12 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             src/rhi/vulkan/vkbuffer.cpp
             src/rhi/vulkan/vksampler.cpp
             src/rhi/vulkan/vkconversions.cpp
+            src/rhi/vulkan/vkshader.cpp
     )
   target_link_libraries(${PROJECT_NAME}
         PRIVATE
             Vulkan::Vulkan
+            dxc
     )
   target_compile_definitions(${PROJECT_NAME}
         PRIVATE
@@ -49,11 +67,13 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             src/rhi/dx12/dx12texture.cpp
             src/rhi/dx12/dx12buffer.cpp
             src/rhi/dx12/dx12conversions.cpp
+            src/rhi/dx12/dx12shader.cpp
     )
   target_link_libraries(${PROJECT_NAME}
         PRIVATE
             d3d12
             dxgi
+            dxc
     )
   target_compile_definitions(${PROJECT_NAME}
         PRIVATE
@@ -81,6 +101,17 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
         )
 else()
   message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
+endif()
+
+if(WIN32)
+  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
+      "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${DXC_ROOT}/bin/${DXC_ARCH}/dxil.dll"
+      "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
+  )
 endif()
 
 # Include tests

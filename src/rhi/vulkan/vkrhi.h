@@ -5,6 +5,9 @@
 #include "rhi/resources/texture.h"
 #include <vulkan/vulkan.h>
 #include <vector>
+#include <Windows.h>
+#include <third_party/dxc/inc/dxcapi.h>
+#include <wrl/client.h>
 
 
 class VulkanRHI : public IRHI
@@ -30,6 +33,8 @@ public:
     void UnmapBuffer(rhi::BufferHandle handle);
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
+
+    Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(DxcBuffer source, std::vector<LPCWSTR> args);
 
     VkFilter toVk(rhi::Filter mode);
     VkSamplerMipmapMode toVk(rhi::MipmapFilter mode);

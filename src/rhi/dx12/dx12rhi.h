@@ -7,6 +7,7 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 #include <vector>
+#include <third_party/dxc/inc/dxcapi.h>
 
 class DX12RHI : public IRHI
 {
@@ -30,6 +31,8 @@ public:
 
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
+
+    Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(DxcBuffer source, std::vector<LPCWSTR> args);
 
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(rhi::AddressMode mode);

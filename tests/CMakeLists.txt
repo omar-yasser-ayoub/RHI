@@ -33,6 +33,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
         PRIVATE
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkrhi.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkconversions.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkshader.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp
@@ -40,6 +41,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
     target_link_libraries(rhi_tests
         PRIVATE
             Vulkan::Vulkan
+            dxc
     )
     target_compile_definitions(rhi_tests
         PRIVATE
@@ -56,11 +58,13 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12texture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12buffer.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12conversions.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12shader.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
             d3d12
             dxgi
+            dxc
     )
     target_compile_definitions(rhi_tests
         PRIVATE
@@ -88,6 +92,17 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
     )
 else()
     message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
+endif()
+
+if(WIN32)
+    add_custom_command(TARGET rhi_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
+            "$<TARGET_FILE_DIR:rhi_tests>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DXC_ROOT}/bin/${DXC_ARCH}/dxil.dll"
+            "$<TARGET_FILE_DIR:rhi_tests>"
+    )
 endif()
 
 # Enable testing
