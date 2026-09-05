@@ -76,4 +76,9 @@ namespace rhi {
         ShaderStageFlags stage;
         std::string entryPoint;
     };
+
+    struct ShaderModuleHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+    };
 }

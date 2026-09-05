@@ -16,7 +16,7 @@ public:
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
-    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
+    rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -51,4 +51,5 @@ private:
     std::vector<rhi::BufferDesc> m_BufferMetadata;
     std::vector<wgpu::Texture> m_Textures;
     std::vector<wgpu::TextureView> m_TextureViews;
+    std::vector<rhi::ShaderModule> m_ShaderModules;
 };

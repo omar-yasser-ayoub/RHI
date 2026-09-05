@@ -21,7 +21,7 @@ public:
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
-    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
+    rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -87,4 +87,5 @@ private:
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& heap,
         uint32_t& offset,
         uint32_t descriptorSize);
+    std::vector<rhi::ShaderModule> m_ShaderModules;
 };

@@ -123,7 +123,7 @@ rhi::ShaderReflection ParseReflection(
 
 }
 
-rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
+rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
 {
     rhi::ShaderModule module;
 
@@ -132,7 +132,7 @@ rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
     const std::string suffix = ".hlsl";
     if (filename.size() <= suffix.size() ||
         filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) != 0) {
-        return module;
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     const std::string stem = filename.substr(0, filename.size() - suffix.size());
@@ -144,7 +144,7 @@ rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
 
     std::ifstream wgslFile(wgslPath, std::ios::binary);
     if (!wgslFile) {
-        return module;
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     module.bytecode.assign(
@@ -154,7 +154,7 @@ rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
     std::ifstream spirvFile(spirvPath, std::ios::binary);
     if (!spirvFile) {
         module.bytecode.clear();
-        return module;
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     std::vector<std::uint8_t> spirv{
@@ -162,7 +162,7 @@ rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
         std::istreambuf_iterator<char>()};
     if (spirv.empty()) {
         module.bytecode.clear();
-        return module;
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     SpvReflectShaderModule reflection{};
@@ -172,10 +172,14 @@ rhi::ShaderModule WebGPURHI::CompileShader(rhi::ShaderSource source)
         &reflection);
     if (result != SPV_REFLECT_RESULT_SUCCESS) {
         module.bytecode.clear();
-        return module;
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     module.reflection = ParseReflection(&reflection, source.stage);
     spvReflectDestroyShaderModule(&reflection);
-    return module;
+    m_ShaderModules.push_back(module);
+
+    rhi::ShaderModuleHandle handle;
+    handle.id = static_cast<uint64_t>(m_ShaderModules.size() - 1);
+    return handle;
 }

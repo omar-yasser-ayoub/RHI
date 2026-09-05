@@ -151,7 +151,7 @@ rhi::ShaderReflection ParseReflection(
         return result;
 }
 
-rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
+rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     std::filesystem::path path = source.path;
 
@@ -195,7 +195,7 @@ rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC utils: 0x%x\n", hr);
-        return {};
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
@@ -204,7 +204,7 @@ rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC include handler: 0x%x\n", hr);
-        return {};
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     Microsoft::WRL::ComPtr<IDxcCompiler3> compiler3;
@@ -213,7 +213,7 @@ rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC compiler: 0x%x\n", hr);
-        return {};
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     Microsoft::WRL::ComPtr<IDxcResult> result;
@@ -228,13 +228,13 @@ rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr) || !result) {
         printf("Failed to compile shader: 0x%x\n", hr);
-        return {};
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     result->GetStatus(&hr);
 
     if (FAILED(hr)) {
-        return {};
+        return {static_cast<uint64_t>(m_ShaderModules.size())};
     }
 
     Microsoft::WRL::ComPtr<IDxcBlobUtf8> errorMsgs;
@@ -267,5 +267,9 @@ rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     spvReflectDestroyShaderModule(&reflectModule);
 
-    return module;
+    m_ShaderModules.push_back(module);
+
+    rhi::ShaderModuleHandle handle;
+    handle.id = static_cast<uint64_t>(m_ShaderModules.size() - 1);
+    return handle;
 }
