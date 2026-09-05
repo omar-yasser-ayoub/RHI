@@ -63,5 +63,9 @@ Microsoft::WRL::ComPtr<IDxcBlob> DX12RHI::CompileShader(DxcBuffer source, std::v
 
     hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderobj), nullptr);
 
-    return shaderobj;
+    Microsoft::WRL::ComPtr<IDxcBlob> reflection;
+
+    hr = result->GetOutput(DXC_OUT_REFLECTION, IID_PPV_ARGS(&reflection), nullptr);
+
+    return {};
 }
