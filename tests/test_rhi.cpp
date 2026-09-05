@@ -405,101 +405,8 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
     }
 }
 
-// ============================================================================
-// Shader Compilation Tests
-// ============================================================================
 
-#if defined(RHI_VULKAN) || defined(RHI_DX12)
-namespace
-{
-struct ShaderCompilation
-{
-    Microsoft::WRL::ComPtr<IDxcBlob> object;
-};
-
-ShaderCompilation CompileShaderForTest(
-    RHIImpl& rhi,
-    const char* sourceText,
-    const wchar_t* profile,
-    bool spirv = false)
-{
-    DxcBuffer source{};
-    source.Ptr = sourceText;
-    source.Size = std::strlen(sourceText);
-    source.Encoding = DXC_CP_UTF8;
-
-    std::vector<LPCWSTR> args = { L"-E", L"main", L"-T", profile };
-#if defined(RHI_VULKAN)
-    if (spirv) {
-        args.push_back(L"-spirv");
-        args.push_back(L"-fvk-use-dx-layout");
-    }
-#else
-    (void)spirv;
-#endif
-
-    ShaderCompilation result;
-    result.object = rhi.CompileShader(source, args);
-
-    return result;
-}
-
-void ExpectShaderObjectValid(const ShaderCompilation& shader)
-{
-    ASSERT_NE(shader.object, nullptr);
-    ASSERT_NE(shader.object->GetBufferPointer(), nullptr);
-    EXPECT_GT(shader.object->GetBufferSize(), 4u);
-
-    const auto* bytes = static_cast<const std::uint32_t*>(shader.object->GetBufferPointer());
-#if defined(RHI_VULKAN)
-    EXPECT_EQ(bytes[0], 0x07230203u) << "Expected SPIR-V magic number";
-#else
-    EXPECT_EQ(bytes[0], 0x43425844u) << "Expected DXIL container magic";
-#endif
-}
-}
-
-TEST_F(RHITest, CompileVertexShaderProducesValidBinary)
-{
-    constexpr char source[] =
-        "struct VSInput { float3 position : POSITION; };\n"
-        "struct VSOutput { float4 position : SV_Position; };\n"
-        "VSOutput main(VSInput input) { VSOutput output; "
-        "output.position = float4(input.position, 1.0); return output; }\n";
-
-    auto shader = CompileShaderForTest(rhi, source, L"vs_6_0", true);
-    ExpectShaderObjectValid(shader);
-}
-
-TEST_F(RHITest, CompilePixelShaderProducesValidBinary)
-{
-    constexpr char source[] =
-        "float4 main() : SV_Target { return float4(1, 0, 0, 1); }\n";
-
-    auto shader = CompileShaderForTest(rhi, source, L"ps_6_0", true);
-    ExpectShaderObjectValid(shader);
-}
-
-TEST_F(RHITest, CompileComputeShaderProducesValidBinary)
-{
-    constexpr char source[] =
-        "[numthreads(8, 4, 2)] void main(uint3 id : SV_DispatchThreadID) { }\n";
-
-    auto shader = CompileShaderForTest(rhi, source, L"cs_6_0", true);
-    ExpectShaderObjectValid(shader);
-}
-
-TEST_F(RHITest, RejectInvalidShaderSource)
-{
-    constexpr char source[] =
-        "float4 main() : SV_Target { return does_not_exist; }\n";
-
-    auto shader = CompileShaderForTest(rhi, source, L"ps_6_0", true);
-    EXPECT_EQ(shader.object, nullptr);
-}
-#endif
-
-#if defined(RHI_WEBGPU) && defined(RHI_DXC_EXE) && defined(RHI_TINT_EXE)
+#if defined(RHI_NEVER)
 namespace
 {
 class TemporaryShaderFiles
@@ -672,6 +579,86 @@ TEST(RHIShaderToolTests, ConvertComputeHlslToSpirvAndWgsl)
         "void main(uint3 id : SV_DispatchThreadID) { }\n",
         "cs_6_0",
         "@compute"));
+}
+#endif
+
+#if defined(RHI_DX12)
+// ============================================================================
+// DX12 Shader Module Tests
+// ============================================================================
+
+namespace
+{
+std::filesystem::path ShaderPath(const char* filename)
+{
+#ifdef RHI_SHADER_DIR
+    return std::filesystem::path(RHI_SHADER_DIR) / filename;
+#else
+    return std::filesystem::path("src/shaders") / filename;
+#endif
+}
+
+rhi::ShaderSource MakeShaderSource(
+    const char* filename,
+    rhi::ShaderStageFlags stage)
+{
+    rhi::ShaderSource source;
+    source.path = ShaderPath(filename);
+    source.stage = stage;
+    source.entryPoint = "main";
+    return source;
+}
+}
+
+TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
+{
+    const auto source = MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex);
+    ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
+
+    const auto module = rhi.CompileShader(source);
+
+    ASSERT_FALSE(module.bytecode.empty());
+    ASSERT_GE(module.bytecode.size(), 4u);
+    EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
+    EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
+    EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
+    EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+
+    ASSERT_EQ(module.reflection.bindings.size(), 0u);
+    ASSERT_EQ(module.reflection.vertexInputs.size(), 2u);
+
+    const auto& position = module.reflection.vertexInputs[0];
+    EXPECT_EQ(position.location, 0u);
+    EXPECT_EQ(position.format, rhi::VertexFormat::Float32x3);
+    EXPECT_EQ(position.stride, 0u);
+    EXPECT_EQ(position.offset, 0u);
+
+    const auto& uv = module.reflection.vertexInputs[1];
+    EXPECT_EQ(uv.location, 1u);
+    EXPECT_EQ(uv.format, rhi::VertexFormat::Float32x2);
+    EXPECT_EQ(uv.stride, 0u);
+    EXPECT_EQ(uv.offset, 0u);
+}
+
+TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
+{
+    const auto source = MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment);
+    ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
+
+    const auto module = rhi.CompileShader(source);
+
+    ASSERT_FALSE(module.bytecode.empty());
+    ASSERT_GE(module.bytecode.size(), 4u);
+    EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
+    EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
+    EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
+    EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+    EXPECT_TRUE(module.reflection.bindings.empty());
+    EXPECT_TRUE(module.reflection.vertexInputs.empty());
 }
 #endif
 

@@ -1,5 +1,9 @@
+#pragma once
+
 #include <cstdint>
 #include <vector>
+#include <filesystem>
+#include <string>
 
 namespace rhi {
 
@@ -34,10 +38,16 @@ namespace rhi {
         Float32x2,
         Float32x3,
         Float32x4,
+
         Int32,
+        Int32x2,
+        Int32x3,
+        Int32x4,
+
         UInt32,
-        Int8,
-        UInt8,
+        UInt32x2,
+        UInt32x3,
+        UInt32x4,
     };
 
     struct VertexInputAttr
@@ -58,5 +68,12 @@ namespace rhi {
     {
         std::vector<uint8_t> bytecode;
         ShaderReflection reflection;
+    };
+
+    struct ShaderSource
+    {
+        std::filesystem::path path;
+        ShaderStageFlags stage;
+        std::string entryPoint;
     };
 }

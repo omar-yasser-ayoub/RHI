@@ -3,6 +3,8 @@
 #include "rhi/irhi.h"
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/texture.h"
+#include <rhi/resources/shader.h>
+
 #include <vulkan/vulkan.h>
 #include <vector>
 #include <Windows.h>
@@ -34,7 +36,7 @@ public:
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-    Microsoft::WRL::ComPtr<IDxcBlob> CompileShader(DxcBuffer source, std::vector<LPCWSTR> args);
+    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
 
     VkFilter toVk(rhi::Filter mode);
     VkSamplerMipmapMode toVk(rhi::MipmapFilter mode);

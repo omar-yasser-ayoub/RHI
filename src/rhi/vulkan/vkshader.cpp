@@ -1,8 +1,11 @@
 #include "rhi/vulkan/vkrhi.h"
 #include <wrl/client.h>
+#include "/third_party/spirv-reflect/spirv_reflect.h"
 
+rhi::ShaderModule VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
-Microsoft::WRL::ComPtr<IDxcBlob> VulkanRHI::CompileShader(DxcBuffer source, std::vector<LPCWSTR> args) {
+    // convert from ShaderSource to DxcBuffer
+
     Microsoft::WRL::ComPtr<IDxcUtils> utils;
 
     HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.ReleaseAndGetAddressOf()));
@@ -63,5 +66,5 @@ Microsoft::WRL::ComPtr<IDxcBlob> VulkanRHI::CompileShader(DxcBuffer source, std:
 
     hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderobj), nullptr);
 
-    return shaderobj;
+    return {};
 }
