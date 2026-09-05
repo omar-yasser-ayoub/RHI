@@ -34,18 +34,15 @@ function(configure_rhi_shaders target)
       foreach(shader IN LISTS RHI_SHADER_SOURCES)
         get_filename_component(shader_filename "${shader}" NAME)
 
-        # shader_stem retains the stage (.vert/.frag/.comp) so that outputs
-        # for different stages of the same shader "basic" don't collide,
-        # e.g. basic.vert.wgsl vs basic.frag.wgsl
         if(shader_filename MATCHES "^(.+)\\.vert\\.hlsl$")
           set(shader_stem "${CMAKE_MATCH_1}.vert")
-          set(shader_profile vs_6_0)
+          set(shader_profile vs_6_6)
         elseif(shader_filename MATCHES "^(.+)\\.frag\\.hlsl$")
           set(shader_stem "${CMAKE_MATCH_1}.frag")
-          set(shader_profile ps_6_0)
+          set(shader_profile ps_6_6)
         elseif(shader_filename MATCHES "^(.+)\\.comp\\.hlsl$")
           set(shader_stem "${CMAKE_MATCH_1}.comp")
-          set(shader_profile cs_6_0)
+          set(shader_profile cs_6_6)
         else()
           message(FATAL_ERROR
             "Shader '${shader_filename}' must use .vert.hlsl, .frag.hlsl, or .comp.hlsl")
@@ -93,6 +90,9 @@ function(configure_rhi_shaders target)
     endif()
 
     add_custom_target(rhi_shaders DEPENDS ${shader_outputs})
+    if(TARGET rhi_shader_cleanup)
+      add_dependencies(rhi_shaders rhi_shader_cleanup)
+    endif()
   endif()
 
   add_dependencies(${target} rhi_shaders)
@@ -184,6 +184,7 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 src/rhi/webgpu/wgpuconversions.cpp
                 src/rhi/webgpu/wgpusampler.cpp
                 src/rhi/webgpu/wgputexture.cpp
+                src/rhi/webgpu/wgpushader.cpp
                 src/third_party/spirv-reflect/spirv_reflect.cpp
         )
   target_link_libraries(${PROJECT_NAME}

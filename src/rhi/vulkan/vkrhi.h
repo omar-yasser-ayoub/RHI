@@ -22,6 +22,7 @@ public:
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
+    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -36,7 +37,6 @@ public:
 
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
 
-    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
 
     VkFilter toVk(rhi::Filter mode);
     VkSamplerMipmapMode toVk(rhi::MipmapFilter mode);

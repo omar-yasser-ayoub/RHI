@@ -21,6 +21,7 @@ public:
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
+    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -34,7 +35,7 @@ public:
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
-    rhi::ShaderModule CompileShader(rhi::ShaderSource source);
+
 
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(rhi::AddressMode mode);

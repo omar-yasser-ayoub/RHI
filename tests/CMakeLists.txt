@@ -84,6 +84,8 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuconversions.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpusampler.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgputexture.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpushader.cpp
+            ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE

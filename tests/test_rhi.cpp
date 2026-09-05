@@ -5,7 +5,9 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <vector>
 
 
@@ -396,7 +398,7 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
 }
 
 
-#if defined(RHI_DX12) || defined(RHI_VULKAN)
+#if defined(RHI_DX12) || defined(RHI_VULKAN) || defined(RHI_WEBGPU)
 // ============================================================================
 // Backend Shader Module Tests
 // ============================================================================
@@ -422,6 +424,22 @@ rhi::ShaderSource MakeShaderSource(
     source.entryPoint = "main";
     return source;
 }
+
+const rhi::ShaderBinding* FindBinding(
+    const rhi::ShaderReflection& reflection,
+    std::uint32_t set,
+    std::uint32_t binding,
+    rhi::BindingType type)
+{
+    for (const auto& candidate : reflection.bindings) {
+        if (candidate.set == set &&
+            candidate.binding == binding &&
+            candidate.type == type) {
+            return &candidate;
+        }
+    }
+    return nullptr;
+}
 }
 
 TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
@@ -440,9 +458,12 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
     EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
     EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
     EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
-#else
+#elif defined(RHI_VULKAN)
     const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
     EXPECT_EQ(spirv[0], 0x07230203u);
+#else
+    const std::string wgsl(module.bytecode.begin(), module.bytecode.end());
+    EXPECT_NE(wgsl.find("@vertex"), std::string::npos);
 #endif
 
     ASSERT_EQ(module.reflection.bindings.size(), 0u);
@@ -461,6 +482,62 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
     EXPECT_EQ(uv.offset, 0u);
 }
 
+TEST_F(RHITest, CompileBindingVertexShaderModuleFromShaderAsset)
+{
+    const auto source = MakeShaderSource(
+        "bindings.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex);
+    ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
+
+    const auto module = rhi.CompileShader(source);
+    ASSERT_FALSE(module.bytecode.empty());
+    ASSERT_EQ(module.reflection.bindings.size(), 2u);
+    ASSERT_EQ(module.reflection.vertexInputs.size(), 2u);
+
+    const auto* camera = FindBinding(
+        module.reflection, 0u, 0u, rhi::BindingType::UniformBuffer);
+    ASSERT_NE(camera, nullptr);
+    EXPECT_EQ(camera->arraySize, 1u);
+    EXPECT_EQ(camera->stage, rhi::ShaderStageFlags::Vertex);
+
+    const auto* positions = FindBinding(
+        module.reflection, 1u, 1u, rhi::BindingType::StorageBuffer);
+    ASSERT_NE(positions, nullptr);
+    EXPECT_EQ(positions->arraySize, 1u);
+    EXPECT_EQ(positions->stage, rhi::ShaderStageFlags::Vertex);
+}
+
+TEST_F(RHITest, CompileBindingFragmentShaderModuleFromShaderAsset)
+{
+    const auto source = MakeShaderSource(
+        "bindings.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment);
+    ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
+
+    const auto module = rhi.CompileShader(source);
+    ASSERT_FALSE(module.bytecode.empty());
+    ASSERT_EQ(module.reflection.bindings.size(), 3u);
+    EXPECT_TRUE(module.reflection.vertexInputs.empty());
+
+    const auto* albedo = FindBinding(
+        module.reflection, 2u, 0u, rhi::BindingType::SampledTexture);
+    ASSERT_NE(albedo, nullptr);
+    EXPECT_EQ(albedo->arraySize, 1u);
+    EXPECT_EQ(albedo->stage, rhi::ShaderStageFlags::Fragment);
+
+    const auto* sampler = FindBinding(
+        module.reflection, 2u, 1u, rhi::BindingType::Sampler);
+    ASSERT_NE(sampler, nullptr);
+    EXPECT_EQ(sampler->arraySize, 1u);
+    EXPECT_EQ(sampler->stage, rhi::ShaderStageFlags::Fragment);
+
+    const auto* output = FindBinding(
+        module.reflection, 3u, 2u, rhi::BindingType::StorageTexture);
+    ASSERT_NE(output, nullptr);
+    EXPECT_EQ(output->arraySize, 1u);
+    EXPECT_EQ(output->stage, rhi::ShaderStageFlags::Fragment);
+}
+
 TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
 {
     const auto source = MakeShaderSource(
@@ -477,9 +554,12 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
     EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
     EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
     EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
-#else
+#elif defined(RHI_VULKAN)
     const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
     EXPECT_EQ(spirv[0], 0x07230203u);
+#else
+    const std::string wgsl(module.bytecode.begin(), module.bytecode.end());
+    EXPECT_NE(wgsl.find("@fragment"), std::string::npos);
 #endif
     EXPECT_TRUE(module.reflection.bindings.empty());
     EXPECT_TRUE(module.reflection.vertexInputs.empty());
