@@ -75,6 +75,7 @@ rhi::BindGroupLayoutHandle VulkanRHI::CreateBindGroupLayout(const rhi::BindGroup
     }
 
     handle.id = m_BindGroupLayouts.size();
+    handle.desc = desc;
     m_BindGroupLayouts.push_back(layout);
 
     return handle;
@@ -198,6 +199,7 @@ rhi::BindGroupHandle VulkanRHI::CreateBindGroup(const rhi::BindGroupDesc& desc) 
 
 
     handle.id = m_BindGroups.size();
+    handle.desc = desc;
     m_BindGroups.push_back(set);
 
     return handle;

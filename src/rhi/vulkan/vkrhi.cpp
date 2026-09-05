@@ -172,9 +172,6 @@ void VulkanRHI::Shutdown() {
                 vkFreeMemory(m_Device, m_BufferMemory[i], nullptr);
                 m_BufferMemory[i] = VK_NULL_HANDLE;
             }
-            if (i < m_BufferMetadata.size()) {
-                m_BufferMetadata[i] = {};
-            }
         }
         for (VkSampler sampler : m_Samplers) {
             if (sampler != VK_NULL_HANDLE) {
@@ -184,7 +181,6 @@ void VulkanRHI::Shutdown() {
 
         m_Buffers.clear();
         m_BufferMemory.clear();
-        m_BufferMetadata.clear();
         m_Samplers.clear();
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;

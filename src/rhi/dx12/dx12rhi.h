@@ -22,6 +22,7 @@ public:
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
+    const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);

@@ -273,3 +273,11 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     handle.id = static_cast<uint64_t>(m_ShaderModules.size() - 1);
     return handle;
 }
+
+const rhi::ShaderModule* VulkanRHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
+{
+    if (handle.id >= m_ShaderModules.size()) {
+        return nullptr;
+    }
+    return &m_ShaderModules[handle.id];
+}

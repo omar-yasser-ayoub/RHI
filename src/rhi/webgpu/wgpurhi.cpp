@@ -89,7 +89,6 @@ void WebGPURHI::Shutdown()
     }
 
     m_Buffers.clear();
-    m_BufferMetadata.clear();
     m_Samplers.clear();
     m_Queue = {};
     m_Device = {};

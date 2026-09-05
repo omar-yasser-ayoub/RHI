@@ -236,3 +236,11 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
     handle.id = static_cast<uint64_t>(m_ShaderModules.size() - 1);
     return handle;
 }
+
+const rhi::ShaderModule* DX12RHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
+{
+    if (handle.id >= m_ShaderModules.size()) {
+        return nullptr;
+    }
+    return &m_ShaderModules[handle.id];
+}

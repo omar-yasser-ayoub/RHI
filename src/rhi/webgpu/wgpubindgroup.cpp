@@ -144,6 +144,7 @@ rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
         return handle;
 
     handle.id = m_BindGroups.size();
+    handle.desc = desc;
     m_BindGroups.push_back(bindGroup);
     return handle;
 }

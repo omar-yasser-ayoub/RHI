@@ -449,33 +449,35 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
         rhi::ShaderStageFlags::Vertex);
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
-    const auto module = rhi.CompileShader(source);
+    const auto handle = rhi.CompileShader(source);
+    const auto* module = rhi.GetShaderModule(handle);
 
-    ASSERT_FALSE(module.bytecode.empty());
-    ASSERT_GE(module.bytecode.size(), 4u);
+    ASSERT_NE(module, nullptr);
+    ASSERT_FALSE(module->bytecode.empty());
+    ASSERT_GE(module->bytecode.size(), 4u);
 #if defined(RHI_DX12)
-    EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
-    EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
-    EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
-    EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+    EXPECT_EQ(module->bytecode[0], static_cast<std::uint8_t>('D'));
+    EXPECT_EQ(module->bytecode[1], static_cast<std::uint8_t>('X'));
+    EXPECT_EQ(module->bytecode[2], static_cast<std::uint8_t>('B'));
+    EXPECT_EQ(module->bytecode[3], static_cast<std::uint8_t>('C'));
 #elif defined(RHI_VULKAN)
-    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
+    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module->bytecode.data());
     EXPECT_EQ(spirv[0], 0x07230203u);
 #else
-    const std::string wgsl(module.bytecode.begin(), module.bytecode.end());
+    const std::string wgsl(module->bytecode.begin(), module->bytecode.end());
     EXPECT_NE(wgsl.find("@vertex"), std::string::npos);
 #endif
 
-    ASSERT_EQ(module.reflection.bindings.size(), 0u);
-    ASSERT_EQ(module.reflection.vertexInputs.size(), 2u);
+    ASSERT_EQ(module->reflection.bindings.size(), 0u);
+    ASSERT_EQ(module->reflection.vertexInputs.size(), 2u);
 
-    const auto& position = module.reflection.vertexInputs[0];
+    const auto& position = module->reflection.vertexInputs[0];
     EXPECT_EQ(position.location, 0u);
     EXPECT_EQ(position.format, rhi::VertexFormat::Float32x3);
     EXPECT_EQ(position.stride, 0u);
     EXPECT_EQ(position.offset, 0u);
 
-    const auto& uv = module.reflection.vertexInputs[1];
+    const auto& uv = module->reflection.vertexInputs[1];
     EXPECT_EQ(uv.location, 1u);
     EXPECT_EQ(uv.format, rhi::VertexFormat::Float32x2);
     EXPECT_EQ(uv.stride, 0u);
@@ -489,19 +491,21 @@ TEST_F(RHITest, CompileBindingVertexShaderModuleFromShaderAsset)
         rhi::ShaderStageFlags::Vertex);
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
-    const auto module = rhi.CompileShader(source);
-    ASSERT_FALSE(module.bytecode.empty());
-    ASSERT_EQ(module.reflection.bindings.size(), 2u);
-    ASSERT_EQ(module.reflection.vertexInputs.size(), 2u);
+    const auto handle = rhi.CompileShader(source);
+    const auto* module = rhi.GetShaderModule(handle);
+    ASSERT_NE(module, nullptr);
+    ASSERT_FALSE(module->bytecode.empty());
+    ASSERT_EQ(module->reflection.bindings.size(), 2u);
+    ASSERT_EQ(module->reflection.vertexInputs.size(), 2u);
 
     const auto* camera = FindBinding(
-        module.reflection, 0u, 0u, rhi::BindingType::UniformBuffer);
+        module->reflection, 0u, 0u, rhi::BindingType::UniformBuffer);
     ASSERT_NE(camera, nullptr);
     EXPECT_EQ(camera->arraySize, 1u);
     EXPECT_EQ(camera->stage, rhi::ShaderStageFlags::Vertex);
 
     const auto* positions = FindBinding(
-        module.reflection, 1u, 1u, rhi::BindingType::StorageBuffer);
+        module->reflection, 1u, 1u, rhi::BindingType::StorageBuffer);
     ASSERT_NE(positions, nullptr);
     EXPECT_EQ(positions->arraySize, 1u);
     EXPECT_EQ(positions->stage, rhi::ShaderStageFlags::Vertex);
@@ -514,25 +518,27 @@ TEST_F(RHITest, CompileBindingFragmentShaderModuleFromShaderAsset)
         rhi::ShaderStageFlags::Fragment);
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
-    const auto module = rhi.CompileShader(source);
-    ASSERT_FALSE(module.bytecode.empty());
-    ASSERT_EQ(module.reflection.bindings.size(), 3u);
-    EXPECT_TRUE(module.reflection.vertexInputs.empty());
+    const auto handle = rhi.CompileShader(source);
+    const auto* module = rhi.GetShaderModule(handle);
+    ASSERT_NE(module, nullptr);
+    ASSERT_FALSE(module->bytecode.empty());
+    ASSERT_EQ(module->reflection.bindings.size(), 3u);
+    EXPECT_TRUE(module->reflection.vertexInputs.empty());
 
     const auto* albedo = FindBinding(
-        module.reflection, 2u, 0u, rhi::BindingType::SampledTexture);
+        module->reflection, 2u, 0u, rhi::BindingType::SampledTexture);
     ASSERT_NE(albedo, nullptr);
     EXPECT_EQ(albedo->arraySize, 1u);
     EXPECT_EQ(albedo->stage, rhi::ShaderStageFlags::Fragment);
 
     const auto* sampler = FindBinding(
-        module.reflection, 2u, 1u, rhi::BindingType::Sampler);
+        module->reflection, 2u, 1u, rhi::BindingType::Sampler);
     ASSERT_NE(sampler, nullptr);
     EXPECT_EQ(sampler->arraySize, 1u);
     EXPECT_EQ(sampler->stage, rhi::ShaderStageFlags::Fragment);
 
     const auto* output = FindBinding(
-        module.reflection, 3u, 2u, rhi::BindingType::StorageTexture);
+        module->reflection, 3u, 2u, rhi::BindingType::StorageTexture);
     ASSERT_NE(output, nullptr);
     EXPECT_EQ(output->arraySize, 1u);
     EXPECT_EQ(output->stage, rhi::ShaderStageFlags::Fragment);
@@ -545,24 +551,125 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
         rhi::ShaderStageFlags::Fragment);
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
-    const auto module = rhi.CompileShader(source);
+    const auto handle = rhi.CompileShader(source);
+    const auto* module = rhi.GetShaderModule(handle);
+    ASSERT_NE(module, nullptr);
 
-    ASSERT_FALSE(module.bytecode.empty());
-    ASSERT_GE(module.bytecode.size(), 4u);
+    ASSERT_FALSE(module->bytecode.empty());
+    ASSERT_GE(module->bytecode.size(), 4u);
 #if defined(RHI_DX12)
-    EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
-    EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
-    EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
-    EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+    EXPECT_EQ(module->bytecode[0], static_cast<std::uint8_t>('D'));
+    EXPECT_EQ(module->bytecode[1], static_cast<std::uint8_t>('X'));
+    EXPECT_EQ(module->bytecode[2], static_cast<std::uint8_t>('B'));
+    EXPECT_EQ(module->bytecode[3], static_cast<std::uint8_t>('C'));
 #elif defined(RHI_VULKAN)
-    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
+    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module->bytecode.data());
     EXPECT_EQ(spirv[0], 0x07230203u);
 #else
-    const std::string wgsl(module.bytecode.begin(), module.bytecode.end());
+    const std::string wgsl(module->bytecode.begin(), module->bytecode.end());
     EXPECT_NE(wgsl.find("@fragment"), std::string::npos);
 #endif
-    EXPECT_TRUE(module.reflection.bindings.empty());
-    EXPECT_TRUE(module.reflection.vertexInputs.empty());
+    EXPECT_TRUE(module->reflection.bindings.empty());
+    EXPECT_TRUE(module->reflection.vertexInputs.empty());
+}
+#endif
+
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+// ============================================================================
+// Bind Group Tests
+// ============================================================================
+
+namespace
+{
+rhi::BindGroupLayoutDesc MakeUniformBindGroupLayoutDesc()
+{
+    rhi::BindGroupLayoutDesc desc;
+    desc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreateBindGroupLayout)
+{
+    const auto desc = MakeUniformBindGroupLayoutDesc();
+    const auto layout = rhi.CreateBindGroupLayout(desc);
+
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_EQ(layout.desc.shaderBindings.size(), 1u);
+    EXPECT_EQ(layout.desc.shaderBindings[0].set, 0u);
+    EXPECT_EQ(layout.desc.shaderBindings[0].binding, 0u);
+    EXPECT_EQ(layout.desc.shaderBindings[0].type, rhi::BindingType::UniformBuffer);
+}
+
+TEST_F(RHITest, RejectsEmptyBindGroupLayout)
+{
+    rhi::BindGroupLayoutDesc desc;
+    const auto layout = rhi.CreateBindGroupLayout(desc);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, RejectsBindGroupLayoutWithMixedSets)
+{
+    rhi::BindGroupLayoutDesc desc = MakeUniformBindGroupLayoutDesc();
+    desc.shaderBindings.push_back({
+        1,
+        1,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+
+    const auto layout = rhi.CreateBindGroupLayout(desc);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, CreateBindGroupWithBuffer)
+{
+    const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+
+    const auto buffer = rhi.CreateBuffer(MakeBufferDesc(
+        256,
+        rhi::MemoryUsage::CpuToGpu,
+        rhi::BufferUsage::Uniform));
+    ASSERT_NE(buffer.id, InvalidHandle);
+
+    rhi::BindGroupDesc desc;
+    desc.layout = layout;
+    desc.entries.push_back({ 0, buffer, {}, {} });
+
+    const auto bindGroup = rhi.CreateBindGroup(desc);
+    ASSERT_NE(bindGroup.id, 0xFFFFFFFFu);
+    ASSERT_EQ(bindGroup.desc.layout.id, layout.id);
+    ASSERT_EQ(bindGroup.desc.entries.size(), 1u);
+    EXPECT_EQ(bindGroup.desc.entries[0].binding, 0u);
+
+    rhi.DestroyBuffer(buffer);
+}
+
+TEST_F(RHITest, RejectsEmptyBindGroup)
+{
+    const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+
+    rhi::BindGroupDesc desc;
+    desc.layout = layout;
+    const auto bindGroup = rhi.CreateBindGroup(desc);
+    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, RejectsBindGroupWithInvalidLayout)
+{
+    rhi::BindGroupDesc desc;
+    desc.layout.id = 0xFFFFFFFFu;
+    desc.entries.push_back({ 0, {}, {}, {} });
+
+    const auto bindGroup = rhi.CreateBindGroup(desc);
+    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFu);
 }
 #endif
 

@@ -138,6 +138,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             src/rhi/vulkan/vksampler.cpp
             src/rhi/vulkan/vkconversions.cpp
             src/rhi/vulkan/vkshader.cpp
+            src/rhi/vulkan/vkbindgroup.cpp
             src/third_party/spirv-reflect/spirv_reflect.cpp
     )
   target_link_libraries(${PROJECT_NAME}
@@ -185,6 +186,7 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 src/rhi/webgpu/wgpusampler.cpp
                 src/rhi/webgpu/wgputexture.cpp
                 src/rhi/webgpu/wgpushader.cpp
+                src/rhi/webgpu/wgpubindgroup.cpp
                 src/third_party/spirv-reflect/spirv_reflect.cpp
         )
   target_link_libraries(${PROJECT_NAME}
