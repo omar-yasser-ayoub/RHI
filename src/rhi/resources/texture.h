@@ -4,14 +4,7 @@
 
 namespace rhi
 {
-    struct TextureHandle {
-        std::uint64_t id = 0xFFFFFFFF;
-    };
 
-    struct TextureViewHandle
-    {
-        std::uint64_t id = 0xFFFFFFFF;
-    };
 
     enum class TextureDimension
     {
@@ -216,5 +209,17 @@ namespace rhi
 
         std::uint32_t mipLevels = 1;
         std::uint32_t arrayLayers = 1;
+    };
+
+    struct TextureHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+        TextureDesc desc{};
+    };
+
+    struct TextureViewHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+        TextureViewDesc desc{};
     };
 }

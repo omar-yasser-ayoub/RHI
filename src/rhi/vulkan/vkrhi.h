@@ -4,6 +4,7 @@
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/texture.h"
 #include <rhi/resources/shader.h>
+#include <rhi/resources/bindgroup.h>
 
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -23,6 +24,8 @@ public:
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
+    rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
+    rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -56,12 +59,14 @@ private:
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;
+    VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;
     std::vector<VkBuffer> m_Buffers;
     std::vector<VkDeviceMemory> m_BufferMemory;
-    std::vector<rhi::BufferDesc> m_BufferMetadata;
     std::vector<VkImage> m_Textures;
     std::vector<VkDeviceMemory> m_TextureMemory;
     std::vector<VkImageView> m_TextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;
+    std::vector<VkDescriptorSetLayout> m_BindGroupLayouts;
+    std::vector<VkDescriptorSet> m_BindGroups;
 };

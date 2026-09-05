@@ -79,8 +79,8 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     rhi::BufferHandle handle;
     handle.id = static_cast<uint64_t>(m_Buffers.size());
+    handle.desc = desc;
     m_Buffers.push_back(std::move(resource));
-    m_BufferMetadata.push_back(desc);
     return handle;
 }
 
@@ -94,27 +94,23 @@ void DX12RHI::DestroyBuffer(rhi::BufferHandle handle)
         return;
     }
     m_Buffers[handle.id].Reset();
-    if (handle.id < m_BufferMetadata.size()) {
-        m_BufferMetadata[handle.id] = {};
-    }
 }
 
 void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return nullptr;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] Cannot map a GPU-only buffer\n");
         return nullptr;
     }
 
     void* ptr = nullptr;
     D3D12_RANGE readRange{};
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuToCpu) {
-        readRange.End = static_cast<SIZE_T>(m_BufferMetadata[handle.id].size);
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        readRange.End = static_cast<SIZE_T>(handle.desc.size);
     }
 
     if (FAILED(m_Buffers[handle.id]->Map(0, &readRange, &ptr)))
@@ -129,11 +125,10 @@ void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {
 void DX12RHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] Cannot unmap a GPU-only buffer\n");
         return;
     }
@@ -144,17 +139,15 @@ void DX12RHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_
     if (!m_Device || !data || size == 0 ||
         handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return;
     }
 
-    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
-    if (offset > metadata.size || size > metadata.size - offset) {
+    if (offset > handle.desc.size || size > handle.desc.size - offset) {
         printf("[ERROR] WriteBuffer range is outside the DX12 buffer\n");
         return;
     }
-    if (metadata.memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] GPU-only DX12 buffer writes require an upload buffer\n");
         return;
     }

@@ -89,6 +89,7 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
         return handle;
 
     handle.id = m_BindGroupLayouts.size();
+    handle.desc = desc;
     m_BindGroupLayouts.push_back(bindGroupLayout);
 
     return handle;

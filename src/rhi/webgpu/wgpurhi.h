@@ -51,7 +51,6 @@ private:
     wgpu::Queue    m_Queue;
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<wgpu::Buffer> m_Buffers;
-    std::vector<rhi::BufferDesc> m_BufferMetadata;
     std::vector<wgpu::Texture> m_Textures;
     std::vector<wgpu::TextureView> m_TextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;

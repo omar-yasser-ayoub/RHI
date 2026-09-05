@@ -5,16 +5,6 @@
 #include "rhi/resources/texture.h"
 #include <vector>
 namespace rhi {
-    struct BindGroupLayoutHandle
-    {
-        std::uint64_t id = 0xFFFFFFFF;
-    };
-
-    struct BindGroupHandle
-    {
-        std::uint64_t id = 0xFFFFFFFF;
-    };
-
     struct BindGroupEntry
     {
         uint32_t binding;
@@ -23,14 +13,26 @@ namespace rhi {
         SamplerHandle sampler;
     };
 
+    struct BindGroupLayoutDesc {
+        std::vector<ShaderBinding> shaderBindings;
+    };
+
+    struct BindGroupLayoutHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+        BindGroupLayoutDesc desc;
+    };
+
     struct BindGroupDesc
     {
         BindGroupLayoutHandle layout;
         std::vector<BindGroupEntry> entries;
     };
 
-    struct BindGroupLayoutDesc {
-        std::vector<ShaderBinding> shaderBindings;
+    struct BindGroupHandle
+    {
+        std::uint64_t id = 0xFFFFFFFF;
+        BindGroupDesc desc;
     };
 
 }

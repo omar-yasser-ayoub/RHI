@@ -66,9 +66,9 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     m_BufferMemory.push_back(bufferMemory);
     m_Buffers.push_back(buffer);
-    m_BufferMetadata.push_back(desc);
     rhi::BufferHandle handle;
     handle.id = static_cast<uint64_t>(m_Buffers.size() - 1);
+    handle.desc = desc;
 
     return handle;
 }
@@ -77,7 +77,6 @@ void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE) {
         return;
     }
@@ -88,7 +87,6 @@ void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
         vkFreeMemory(m_Device, m_BufferMemory[handle.id], nullptr);
         m_BufferMemory[handle.id] = VK_NULL_HANDLE;
     }
-    m_BufferMetadata[handle.id] = {};
 }
 
 void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
@@ -96,12 +94,11 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE ||
         m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return ptr;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] Cannot map a GPU-only buffer\n");
         return nullptr;
     }
@@ -120,11 +117,10 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
 void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_BufferMemory.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] Cannot unmap a GPU-only buffer\n");
         return;
     }
@@ -136,18 +132,16 @@ void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
         handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE ||
         m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
         return;
     }
 
-    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
-    if (offset > metadata.size || size > metadata.size - offset) {
+    if (offset > handle.desc.size || size > handle.desc.size - offset) {
         printf("[ERROR] WriteBuffer range is outside the Vulkan buffer\n");
         return;
     }
-    if (metadata.memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] GPU-only Vulkan buffer writes require a staging buffer\n");
         return;
     }

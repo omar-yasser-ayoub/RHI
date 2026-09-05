@@ -134,6 +134,28 @@ bool VulkanRHI::Initialize() {
         return false;
     }
 
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.maxSets = 100;
+
+    VkDescriptorPoolSize poolSizes[] = {
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 100 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 100 },
+        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 100 },
+        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 100 },
+        { VK_DESCRIPTOR_TYPE_SAMPLER, 100 },
+    };
+
+    poolInfo.poolSizeCount = 5;
+    poolInfo.pPoolSizes = poolSizes;
+
+    vkCreateDescriptorPool(
+        m_Device,
+        &poolInfo,
+        nullptr,
+        &m_DescriptorPool
+    );
+
     return true;
 }
 

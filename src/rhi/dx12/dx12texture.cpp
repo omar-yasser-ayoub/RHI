@@ -45,14 +45,16 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
         return rhi::TextureHandle{};
     }
 
+    rhi::TextureHandle handle;
+    handle.id = static_cast<uint32_t>(m_Textures.size());
+    handle.desc = desc;
     m_Textures.push_back(resource);
-    m_TextureMetadata.push_back(desc);
-    return rhi::TextureHandle{ static_cast<uint32_t>(m_Textures.size() - 1) };
+    return handle;
 }
 
 rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle) {
     ID3D12Resource* resource = m_Textures[handle.id].Get();
-    const rhi::TextureDesc& textureDesc = m_TextureMetadata[handle.id];
+    const rhi::TextureDesc& textureDesc = handle.desc;
 
     TextureViewData viewData;
 
@@ -108,8 +110,11 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         viewData.hasDsv = true;
     }
 
+    rhi::TextureViewHandle result;
+    result.id = static_cast<uint32_t>(m_TextureViews.size());
+    result.desc = desc;
     m_TextureViews.push_back(viewData);
-    return rhi::TextureViewHandle{ static_cast<uint32_t>(m_TextureViews.size() - 1) };
+    return result;
 }
 
 void DX12RHI::DestroyTextureView(rhi::TextureViewHandle handle) {

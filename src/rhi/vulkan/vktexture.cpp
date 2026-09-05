@@ -59,6 +59,7 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
     m_TextureMemory.push_back(memory);
     rhi::TextureHandle handle;
     handle.id = m_Textures.size() - 1;
+    handle.desc = desc;
     return handle;
 }
 
@@ -127,6 +128,7 @@ rhi::TextureViewHandle VulkanRHI::CreateTextureView(const rhi::TextureViewDesc& 
 
     rhi::TextureViewHandle handle;
     handle.id = m_TextureViews.size() - 1;
+    handle.desc = desc;
     return handle;
 }
 

@@ -28,6 +28,7 @@ rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
 
     rhi::SamplerHandle handle;
     handle.id = static_cast<uint64_t>(m_Samplers.size());
+    handle.desc = desc;
     m_Samplers.push_back(sampler);
     return handle;
 }

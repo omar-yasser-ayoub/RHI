@@ -20,8 +20,8 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
     }
 
     handle.id = static_cast<uint64_t>(m_Buffers.size());
+    handle.desc = desc;
     m_Buffers.push_back(buffer);
-    m_BufferMetadata.push_back(desc);
 
     return handle;
 }
@@ -29,11 +29,10 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
 void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
     if (handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return nullptr;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[RHI] Cannot map a GPU-only buffer\n");
         return nullptr;
     }
@@ -67,11 +66,10 @@ void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
 void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
     if (handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return;
     }
-    if (m_BufferMetadata[handle.id].memoryUsage == rhi::MemoryUsage::GpuOnly) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[RHI] Cannot unmap a GPU-only buffer\n");
         return;
     }
@@ -82,22 +80,20 @@ void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
     if (!m_Device || !data || size == 0 ||
         handle.id == 0xFFFFFFFFFFFFFFFF ||
         handle.id >= m_Buffers.size() ||
-        handle.id >= m_BufferMetadata.size() ||
         !m_Buffers[handle.id]) {
         return;
     }
 
-    const rhi::BufferDesc& metadata = m_BufferMetadata[handle.id];
-    if (offset > metadata.size || size > metadata.size - offset) {
+    if (offset > handle.desc.size || size > handle.desc.size - offset) {
         printf("[RHI] WriteBuffer range is outside the WebGPU buffer\n");
         return;
     }
-    if (metadata.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
         printf("[RHI] Cannot write directly to a GPU-to-CPU WebGPU buffer\n");
         return;
     }
 
-    if (metadata.memoryUsage == rhi::MemoryUsage::CpuToGpu) {
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::CpuToGpu) {
         wgpu::Buffer mappedBuffer = m_Buffers[handle.id];
         bool success = false;
         auto future = mappedBuffer.MapAsync(
@@ -143,7 +139,4 @@ void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
     m_Buffers[handle.id].Unmap();
     m_Buffers[handle.id].Destroy();
     m_Buffers[handle.id] = {};
-    if (handle.id < m_BufferMetadata.size()) {
-        m_BufferMetadata[handle.id] = {};
-    }
 }

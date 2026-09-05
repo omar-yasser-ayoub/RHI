@@ -66,9 +66,7 @@ private:
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
-    std::vector<rhi::BufferDesc> m_BufferMetadata;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Textures;
-    std::vector<rhi::TextureDesc> m_TextureMetadata;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_CbvSrvUavHeap;

@@ -24,6 +24,7 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
 
     rhi::TextureHandle handle{};
     handle.id = static_cast<std::uint64_t>(m_Textures.size() - 1);
+    handle.desc = desc;
 
     return handle;
 }
@@ -46,6 +47,7 @@ rhi::TextureViewHandle WebGPURHI::CreateTextureView(const rhi::TextureViewDesc& 
 
     rhi::TextureViewHandle handle{};
     handle.id = static_cast<std::uint64_t>(m_TextureViews.size() - 1);
+    handle.desc = desc;
 
     return handle;
 }
