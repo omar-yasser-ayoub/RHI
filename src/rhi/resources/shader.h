@@ -16,12 +16,33 @@ namespace rhi {
         Sampler,
     };
 
-    enum class ShaderStageFlags
+    enum class ShaderStageFlags : std::uint32_t
     {
-        Vertex = 1 << 0,
+        None     = 0,
+        Vertex   = 1 << 0,
         Fragment = 1 << 1,
-        Compute = 1 << 2,
+        Compute  = 1 << 2,
     };
+
+    constexpr ShaderStageFlags operator|(ShaderStageFlags lhs, ShaderStageFlags rhs)
+    {
+        return static_cast<ShaderStageFlags>(
+            static_cast<std::uint32_t>(lhs) |
+            static_cast<std::uint32_t>(rhs));
+    }
+
+    constexpr ShaderStageFlags operator&(ShaderStageFlags lhs, ShaderStageFlags rhs)
+    {
+        return static_cast<ShaderStageFlags>(
+            static_cast<std::uint32_t>(lhs) &
+            static_cast<std::uint32_t>(rhs));
+    }
+
+    constexpr bool HasFlag(ShaderStageFlags value, ShaderStageFlags flag)
+    {
+        return (static_cast<std::uint32_t>(value) &
+                static_cast<std::uint32_t>(flag)) != 0;
+    }
 
     struct ShaderBinding
     {

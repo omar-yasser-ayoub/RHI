@@ -4,6 +4,7 @@
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/shader.h"
 #include "rhi/resources/texture.h"
+#include "rhi/resources/bindgroup.h"
 #include <webgpu/webgpu_cpp.h>
 
 class WebGPURHI : public IRHI
@@ -17,6 +18,8 @@ public:
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
+    rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
+    rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -52,4 +55,6 @@ private:
     std::vector<wgpu::Texture> m_Textures;
     std::vector<wgpu::TextureView> m_TextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;
+    std::vector<wgpu::BindGroupLayout> m_BindGroupLayouts;
+    std::vector<wgpu::BindGroup> m_BindGroups;
 };
