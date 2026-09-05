@@ -7,6 +7,99 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(RHI_BACKEND "VULKAN" CACHE STRING "RHI backend to use")
 set_property(CACHE RHI_BACKEND PROPERTY STRINGS VULKAN DX12 WEBGPU)
 
+set(RHI_SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
+set(RHI_SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+file(GLOB RHI_SHADER_SOURCES CONFIGURE_DEPENDS
+    "${RHI_SHADER_SOURCE_DIR}/*.hlsl")
+
+function(configure_rhi_shaders target)
+  if(NOT RHI_SHADER_SOURCES)
+    message(WARNING "No HLSL shaders found in ${RHI_SHADER_SOURCE_DIR}")
+    return()
+  endif()
+
+  if(NOT TARGET rhi_shaders)
+    set(shader_outputs)
+
+    if(RHI_BACKEND STREQUAL "WEBGPU")
+      if(NOT WIN32)
+        message(FATAL_ERROR
+          "WebGPU shader compilation requires Windows DXC and Tint tools")
+      endif()
+
+      set(shader_tool_dir "${CMAKE_CURRENT_BINARY_DIR}/shader_tools")
+      set(dxc_exe "${DXC_ROOT}/bin/${DXC_ARCH}/dxc.exe")
+      set(tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/tint/tint.exe")
+
+      foreach(shader IN LISTS RHI_SHADER_SOURCES)
+        get_filename_component(shader_filename "${shader}" NAME)
+
+        # shader_stem retains the stage (.vert/.frag/.comp) so that outputs
+        # for different stages of the same shader "basic" don't collide,
+        # e.g. basic.vert.wgsl vs basic.frag.wgsl
+        if(shader_filename MATCHES "^(.+)\\.vert\\.hlsl$")
+          set(shader_stem "${CMAKE_MATCH_1}.vert")
+          set(shader_profile vs_6_0)
+        elseif(shader_filename MATCHES "^(.+)\\.frag\\.hlsl$")
+          set(shader_stem "${CMAKE_MATCH_1}.frag")
+          set(shader_profile ps_6_0)
+        elseif(shader_filename MATCHES "^(.+)\\.comp\\.hlsl$")
+          set(shader_stem "${CMAKE_MATCH_1}.comp")
+          set(shader_profile cs_6_0)
+        else()
+          message(FATAL_ERROR
+            "Shader '${shader_filename}' must use .vert.hlsl, .frag.hlsl, or .comp.hlsl")
+        endif()
+
+        set(hlsl_output "${RHI_SHADER_BINARY_DIR}/${shader_filename}")
+        set(spirv_output "${shader_tool_dir}/${shader_stem}.spv")
+        set(wgsl_output "${RHI_SHADER_BINARY_DIR}/${shader_stem}.wgsl")
+        set(reflection_output "${RHI_SHADER_BINARY_DIR}/${shader_stem}.reflection.txt")
+
+        add_custom_command(
+          OUTPUT "${wgsl_output}" "${reflection_output}"
+          BYPRODUCTS "${spirv_output}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${RHI_SHADER_BINARY_DIR}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${shader_tool_dir}"
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${shader}" "${hlsl_output}"
+          COMMAND "${dxc_exe}"
+            -spirv -E main -T ${shader_profile} -fvk-use-dx-layout
+            -Fo "${spirv_output}" "${shader}"
+          COMMAND "${tint_exe}"
+            --format wgsl -o "${wgsl_output}" "${spirv_output}"
+          COMMAND "${tint_exe}"
+            --dump-inspector-bindings true "${spirv_output}"
+            > "${reflection_output}"
+          DEPENDS "${shader}" "${dxc_exe}" "${tint_exe}"
+          VERBATIM
+        )
+        list(APPEND shader_outputs "${wgsl_output}" "${reflection_output}")
+      endforeach()
+    else()
+      foreach(shader IN LISTS RHI_SHADER_SOURCES)
+        get_filename_component(shader_filename "${shader}" NAME)
+        set(hlsl_output "${RHI_SHADER_BINARY_DIR}/${shader_filename}")
+        add_custom_command(
+          OUTPUT "${hlsl_output}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${RHI_SHADER_BINARY_DIR}"
+          COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${shader}" "${hlsl_output}"
+          DEPENDS "${shader}"
+          VERBATIM
+        )
+        list(APPEND shader_outputs "${hlsl_output}")
+      endforeach()
+    endif()
+
+    add_custom_target(rhi_shaders DEPENDS ${shader_outputs})
+  endif()
+
+  add_dependencies(${target} rhi_shaders)
+  target_compile_definitions(${target}
+    PRIVATE RHI_SHADER_DIR=\"${RHI_SHADER_BINARY_DIR}\")
+endfunction()
+
 set(SOURCE_FILES
     src/main.cpp
 )
@@ -113,6 +206,8 @@ if(WIN32)
       "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
   )
 endif()
+
+configure_rhi_shaders(${PROJECT_NAME})
 
 # Include tests
 add_subdirectory(tests)

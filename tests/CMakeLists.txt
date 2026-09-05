@@ -26,15 +26,7 @@ target_include_directories(rhi_tests
         ${CMAKE_SOURCE_DIR}/src
 )
 
-if(WIN32 AND RHI_BACKEND STREQUAL "WEBGPU")
-    file(TO_CMAKE_PATH "${DXC_ROOT}/bin/${DXC_ARCH}/dxc.exe" RHI_DXC_EXE_NATIVE)
-    file(TO_CMAKE_PATH "${CMAKE_SOURCE_DIR}/src/third_party/tint/tint.exe" RHI_TINT_EXE_NATIVE)
-    target_compile_definitions(rhi_tests
-        PRIVATE
-            RHI_DXC_EXE=\"${RHI_DXC_EXE_NATIVE}\"
-            RHI_TINT_EXE=\"${RHI_TINT_EXE_NATIVE}\"
-    )
-endif()
+
 
 # Apply same configuration as main executable
 if(RHI_BACKEND STREQUAL "VULKAN")
@@ -114,6 +106,8 @@ if(WIN32)
             "$<TARGET_FILE_DIR:rhi_tests>"
     )
 endif()
+
+configure_rhi_shaders(rhi_tests)
 
 # Enable testing
 enable_testing()
