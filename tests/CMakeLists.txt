@@ -36,6 +36,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkrhi.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkconversions.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkshader.cpp
+            ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp

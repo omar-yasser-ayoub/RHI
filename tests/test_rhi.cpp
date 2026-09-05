@@ -1,24 +1,14 @@
 #include <gtest/gtest.h>
 #include "rhi/IRHI.h"
-#if defined(RHI_WEBGPU) && defined(_WIN32)
-    #include <Windows.h>
-#endif
+
 #include <array>
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
-#include <sstream>
-#include <cstdlib>
-#include <string>
+
 #include <vector>
 
-#if defined(RHI_VULKAN) || defined(RHI_DX12)
-    #include <Windows.h>
-    #include <wrl/client.h>
-    #include <third_party/dxc/inc/dxcapi.h>
 
-#endif
 
 
 #if defined(RHI_VULKAN)
@@ -406,185 +396,9 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
 }
 
 
-#if defined(RHI_NEVER)
-namespace
-{
-class TemporaryShaderFiles
-{
-public:
-    TemporaryShaderFiles()
-    {
-        const auto base = std::filesystem::temp_directory_path() /
-            ("rhi_shader_test_" + std::to_string(std::rand()));
-        m_Hlsl = base;
-        m_Hlsl += ".hlsl";
-        m_Spirv = base;
-        m_Spirv += ".spv";
-        m_Wgsl = base;
-        m_Wgsl += ".wgsl";
-    }
-
-    ~TemporaryShaderFiles()
-    {
-        std::error_code error;
-        std::filesystem::remove(m_Hlsl, error);
-        std::filesystem::remove(m_Spirv, error);
-        std::filesystem::remove(m_Wgsl, error);
-    }
-
-    std::filesystem::path m_Hlsl;
-    std::filesystem::path m_Spirv;
-    std::filesystem::path m_Wgsl;
-};
-
-#if defined(_WIN32)
-bool RunTool(
-    const char* executable,
-    const std::string& arguments)
-{
-    std::string commandLine = "\"" + std::string(executable) + "\" " + arguments;
-    std::vector<char> mutableCommandLine(commandLine.begin(), commandLine.end());
-    mutableCommandLine.push_back('\0');
-
-    STARTUPINFOA startupInfo{};
-    startupInfo.cb = sizeof(startupInfo);
-    PROCESS_INFORMATION processInfo{};
-
-    if (!CreateProcessA(
-            nullptr,
-            mutableCommandLine.data(),
-            nullptr,
-            nullptr,
-            FALSE,
-            CREATE_NO_WINDOW,
-            nullptr,
-            nullptr,
-            &startupInfo,
-            &processInfo)) {
-        return false;
-    }
-
-    WaitForSingleObject(processInfo.hProcess, INFINITE);
-    DWORD exitCode = 1;
-    GetExitCodeProcess(processInfo.hProcess, &exitCode);
-    CloseHandle(processInfo.hThread);
-    CloseHandle(processInfo.hProcess);
-    return exitCode == 0;
-}
-#endif
-
-bool RunShaderConversionTest(
-    const char* source,
-    const char* profile,
-    const char* expectedWgslMarker)
-{
-    TemporaryShaderFiles files;
-    {
-        std::ofstream output(files.m_Hlsl, std::ios::binary);
-        if (!output.is_open()) {
-            std::fprintf(stderr, "Failed to open HLSL file: %s\n", files.m_Hlsl.string().c_str());
-            return false;
-        }
-        output << source;
-    }
-
-    const std::string dxcArguments =
-        "-spirv -E main -T " + std::string(profile) +
-        " -fvk-use-dx-layout -Fo \"" + files.m_Spirv.string() +
-        "\" \"" + files.m_Hlsl.string() + "\"";
-#if defined(_WIN32)
-    if (!RunTool(RHI_DXC_EXE, dxcArguments)) {
-        std::fprintf(stderr, "DXC failed for %s\n", files.m_Hlsl.string().c_str());
-        return false;
-    }
-#else
-    return false;
-#endif
-    if (!std::filesystem::exists(files.m_Spirv)) {
-        std::fprintf(stderr, "DXC did not produce SPIR-V: %s\n", files.m_Spirv.string().c_str());
-        return false;
-    }
-
-    std::ifstream spirv(files.m_Spirv, std::ios::binary);
-    if (!spirv.is_open()) {
-        std::fprintf(stderr, "Failed to open SPIR-V: %s\n", files.m_Spirv.string().c_str());
-        return false;
-    }
-    std::uint32_t magic = 0;
-    spirv.read(reinterpret_cast<char*>(&magic), sizeof(magic));
-    if (magic != 0x07230203u) {
-        std::fprintf(stderr, "Invalid SPIR-V magic in %s\n", files.m_Spirv.string().c_str());
-        return false;
-    }
-
-    const std::string tintArguments =
-        "--format wgsl -o \"" + files.m_Wgsl.string() +
-        "\" \"" + files.m_Spirv.string() + "\"";
-#if defined(_WIN32)
-    if (!RunTool(RHI_TINT_EXE, tintArguments)) {
-        std::fprintf(stderr, "Tint failed for %s\n", files.m_Spirv.string().c_str());
-        return false;
-    }
-#else
-    return false;
-#endif
-    if (!std::filesystem::exists(files.m_Wgsl)) {
-        std::fprintf(stderr, "Tint did not produce WGSL: %s\n", files.m_Wgsl.string().c_str());
-        return false;
-    }
-
-    std::ifstream wgsl(files.m_Wgsl);
-    if (!wgsl.is_open()) {
-        std::fprintf(stderr, "Failed to open WGSL: %s\n", files.m_Wgsl.string().c_str());
-        return false;
-    }
-    std::ostringstream output;
-    output << wgsl.rdbuf();
-    const std::string wgslText = output.str();
-    if (wgslText.empty()) {
-        std::fprintf(stderr, "Tint produced empty WGSL\n");
-        return false;
-    }
-    if (wgslText.find(expectedWgslMarker) == std::string::npos) {
-        std::fprintf(stderr, "WGSL is missing marker %s\n", expectedWgslMarker);
-        return false;
-    }
-    return true;
-}
-}
-
-TEST(RHIShaderToolTests, ConvertVertexHlslToSpirvAndWgsl)
-{
-    EXPECT_TRUE(RunShaderConversionTest(
-        "struct VSInput { float3 position : POSITION; };\n"
-        "float4 main(VSInput input) : SV_Position {\n"
-        "    return float4(input.position, 1.0);\n"
-        "}\n",
-        "vs_6_0",
-        "@vertex"));
-}
-
-TEST(RHIShaderToolTests, ConvertPixelHlslToSpirvAndWgsl)
-{
-    EXPECT_TRUE(RunShaderConversionTest(
-        "float4 main() : SV_Target { return float4(1, 0, 0, 1); }\n",
-        "ps_6_0",
-        "@fragment"));
-}
-
-TEST(RHIShaderToolTests, ConvertComputeHlslToSpirvAndWgsl)
-{
-    EXPECT_TRUE(RunShaderConversionTest(
-        "[numthreads(8, 4, 2)]\n"
-        "void main(uint3 id : SV_DispatchThreadID) { }\n",
-        "cs_6_0",
-        "@compute"));
-}
-#endif
-
-#if defined(RHI_DX12)
+#if defined(RHI_DX12) || defined(RHI_VULKAN)
 // ============================================================================
-// DX12 Shader Module Tests
+// Backend Shader Module Tests
 // ============================================================================
 
 namespace
@@ -621,10 +435,15 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
 
     ASSERT_FALSE(module.bytecode.empty());
     ASSERT_GE(module.bytecode.size(), 4u);
+#if defined(RHI_DX12)
     EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
     EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
     EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
     EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+#else
+    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
+    EXPECT_EQ(spirv[0], 0x07230203u);
+#endif
 
     ASSERT_EQ(module.reflection.bindings.size(), 0u);
     ASSERT_EQ(module.reflection.vertexInputs.size(), 2u);
@@ -653,10 +472,15 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
 
     ASSERT_FALSE(module.bytecode.empty());
     ASSERT_GE(module.bytecode.size(), 4u);
+#if defined(RHI_DX12)
     EXPECT_EQ(module.bytecode[0], static_cast<std::uint8_t>('D'));
     EXPECT_EQ(module.bytecode[1], static_cast<std::uint8_t>('X'));
     EXPECT_EQ(module.bytecode[2], static_cast<std::uint8_t>('B'));
     EXPECT_EQ(module.bytecode[3], static_cast<std::uint8_t>('C'));
+#else
+    const auto* spirv = reinterpret_cast<const std::uint32_t*>(module.bytecode.data());
+    EXPECT_EQ(spirv[0], 0x07230203u);
+#endif
     EXPECT_TRUE(module.reflection.bindings.empty());
     EXPECT_TRUE(module.reflection.vertexInputs.empty());
 }
