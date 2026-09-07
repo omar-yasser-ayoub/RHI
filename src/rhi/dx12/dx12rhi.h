@@ -69,6 +69,12 @@ private:
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
+    struct SamplerViewData {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpu{};
+        bool hasSampler = false;
+    };
+    std::vector<SamplerViewData> m_SamplerViews;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
     struct BufferViewData {
         D3D12_CPU_DESCRIPTOR_HANDLE cbv{};
@@ -107,6 +113,7 @@ private:
     {
         D3D12_CPU_DESCRIPTOR_HANDLE cpu{};
         D3D12_GPU_DESCRIPTOR_HANDLE gpu{};
+        bool valid = false;
     };
     DX12RHI::DescriptorHandles AllocateDescriptor(
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& heap,

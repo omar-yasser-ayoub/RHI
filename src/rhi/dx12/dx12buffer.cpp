@@ -96,6 +96,9 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
                 m_CbvSrvUavHeap,
                 m_CbvSrvUavHeapOffset,
                 m_CbvSrvUavDescriptorSize);
+            if (!handles.valid) {
+                return rhi::BufferHandle{};
+            }
 
             viewData.cbv = handles.cpu;
             viewData.gpuCbv = handles.gpu;
@@ -122,6 +125,9 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
                m_CbvSrvUavHeap,
                m_CbvSrvUavHeapOffset,
                m_CbvSrvUavDescriptorSize);
+           if (!handles.valid) {
+               return rhi::BufferHandle{};
+           }
 
            viewData.uav = handles.cpu;
            viewData.gpuUav = handles.gpu;

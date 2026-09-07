@@ -352,6 +352,10 @@ DX12RHI::DescriptorHandles DX12RHI::AllocateDescriptor(
 {
     DescriptorHandles handles{};
 
+    if (!heap || descriptorSize == 0 || offset >= heap->GetDesc().NumDescriptors) {
+        return handles;
+    }
+
     handles.cpu = heap->GetCPUDescriptorHandleForHeapStart();
     handles.cpu.ptr += static_cast<SIZE_T>(offset) * descriptorSize;
 
@@ -361,7 +365,8 @@ DX12RHI::DescriptorHandles DX12RHI::AllocateDescriptor(
         handles.gpu.ptr += static_cast<UINT64>(offset) * descriptorSize;
     }
 
-    offset++;
+    ++offset;
+    handles.valid = true;
 
     return handles;
 }

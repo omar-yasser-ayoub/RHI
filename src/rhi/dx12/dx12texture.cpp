@@ -76,9 +76,12 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
                m_CbvSrvUavHeap,
                m_CbvSrvUavHeapOffset,
                m_CbvSrvUavDescriptorSize);
+        if (!handles.valid) {
+            return rhi::TextureViewHandle{};
+        }
 
-        viewData.uav = handles.cpu;
-        viewData.gpuUav = handles.gpu;
+        viewData.srv = handles.cpu;
+        viewData.gpuSrv = handles.gpu;
 
         m_Device->CreateShaderResourceView(resource, &srvDesc, viewData.srv);
         viewData.hasSrv = true;
@@ -95,6 +98,10 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
                m_CbvSrvUavHeapOffset,
                m_CbvSrvUavDescriptorSize);
 
+        if (!handles.valid) {
+            return rhi::TextureViewHandle{};
+        }
+
         viewData.uav = handles.cpu;
         viewData.gpuUav = handles.gpu;
         m_Device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, viewData.uav);
@@ -108,12 +115,15 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         rtvDesc.Texture2D.MipSlice = desc.baseMipLevel;
 
         auto handles = AllocateDescriptor(
-               m_CbvSrvUavHeap,
-               m_CbvSrvUavHeapOffset,
-               m_CbvSrvUavDescriptorSize);
+               m_RtvHeap,
+               m_RtvHeapOffset,
+               m_RtvDescriptorSize);
+        if (!handles.valid) {
+            return rhi::TextureViewHandle{};
+        }
 
-        viewData.uav = handles.cpu;
-        viewData.gpuUav = handles.gpu;
+        viewData.rtv = handles.cpu;
+        viewData.gpuRtv = handles.gpu;
         m_Device->CreateRenderTargetView(resource, &rtvDesc, viewData.rtv);
         viewData.hasRtv = true;
     }
@@ -125,12 +135,15 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         dsvDesc.Texture2D.MipSlice = desc.baseMipLevel;
 
         auto handles = AllocateDescriptor(
-               m_CbvSrvUavHeap,
-               m_CbvSrvUavHeapOffset,
-               m_CbvSrvUavDescriptorSize);
+               m_DsvHeap,
+               m_DsvHeapOffset,
+               m_DsvDescriptorSize);
+        if (!handles.valid) {
+            return rhi::TextureViewHandle{};
+        }
 
-        viewData.uav = handles.cpu;
-        viewData.gpuUav = handles.gpu;
+        viewData.dsv = handles.cpu;
+        viewData.gpuDsv = handles.gpu;
         m_Device->CreateDepthStencilView(resource, &dsvDesc, viewData.dsv);
         viewData.hasDsv = true;
     }

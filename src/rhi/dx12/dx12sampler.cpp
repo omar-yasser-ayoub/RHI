@@ -15,16 +15,28 @@ rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
     samplerDesc.MinLOD = desc.minLOD;
     samplerDesc.MaxLOD = desc.maxLOD;
 
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = m_SamplerHeap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += m_SamplerHeapOffset * m_SamplerDescriptorSize;
+    SamplerViewData viewData{};
 
-    m_Device->CreateSampler(&samplerDesc, handle);
+    auto handles = AllocateDescriptor(
+        m_SamplerHeap,
+        m_SamplerHeapOffset,
+        m_SamplerDescriptorSize);
+    if (!handles.valid) {
+        return rhi::SamplerHandle{};
+    }
+
+    viewData.cpu = handles.cpu;
+    viewData.gpu = handles.gpu;
+    viewData.hasSampler = true;
+
+    m_Device->CreateSampler(&samplerDesc, handles.cpu);
+
+    const auto id = static_cast<std::uint64_t>(m_SamplerViews.size());
+    m_SamplerViews.push_back(viewData);
 
     rhi::SamplerHandle result;
-    result.id = m_SamplerHeapOffset;
+    result.id = id;
     result.desc = desc;
-
-    ++m_SamplerHeapOffset;
     return result;
 }
 
