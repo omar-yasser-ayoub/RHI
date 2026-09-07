@@ -72,7 +72,14 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         srvDesc.Texture2D.MipLevels = desc.mipLevels;
         srvDesc.Texture2D.PlaneSlice = (desc.aspect == rhi::TextureAspect::Stencil) ? 1 : 0;
 
-        viewData.srv = AllocateCpuHandle(m_CbvSrvUavHeap, m_CbvSrvUavHeapOffset, m_CbvSrvUavDescriptorSize);
+        auto handles = AllocateDescriptor(
+               m_CbvSrvUavHeap,
+               m_CbvSrvUavHeapOffset,
+               m_CbvSrvUavDescriptorSize);
+
+        viewData.uav = handles.cpu;
+        viewData.gpuUav = handles.gpu;
+
         m_Device->CreateShaderResourceView(resource, &srvDesc, viewData.srv);
         viewData.hasSrv = true;
     }
@@ -83,7 +90,13 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         uavDesc.ViewDimension = toD3D12UavDimension(desc.dimension);
         uavDesc.Texture2D.MipSlice = desc.baseMipLevel;
 
-        viewData.uav = AllocateCpuHandle(m_CbvSrvUavHeap, m_CbvSrvUavHeapOffset, m_CbvSrvUavDescriptorSize);
+        auto handles = AllocateDescriptor(
+               m_CbvSrvUavHeap,
+               m_CbvSrvUavHeapOffset,
+               m_CbvSrvUavDescriptorSize);
+
+        viewData.uav = handles.cpu;
+        viewData.gpuUav = handles.gpu;
         m_Device->CreateUnorderedAccessView(resource, nullptr, &uavDesc, viewData.uav);
         viewData.hasUav = true;
     }
@@ -94,7 +107,13 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         rtvDesc.ViewDimension = toD3D12RtvDimension(desc.dimension);
         rtvDesc.Texture2D.MipSlice = desc.baseMipLevel;
 
-        viewData.rtv = AllocateCpuHandle(m_RtvHeap, m_RtvHeapOffset, m_RtvDescriptorSize);
+        auto handles = AllocateDescriptor(
+               m_CbvSrvUavHeap,
+               m_CbvSrvUavHeapOffset,
+               m_CbvSrvUavDescriptorSize);
+
+        viewData.uav = handles.cpu;
+        viewData.gpuUav = handles.gpu;
         m_Device->CreateRenderTargetView(resource, &rtvDesc, viewData.rtv);
         viewData.hasRtv = true;
     }
@@ -105,7 +124,13 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
         dsvDesc.ViewDimension = toD3D12DsvDimension(desc.dimension);
         dsvDesc.Texture2D.MipSlice = desc.baseMipLevel;
 
-        viewData.dsv = AllocateCpuHandle(m_DsvHeap, m_DsvHeapOffset, m_DsvDescriptorSize);
+        auto handles = AllocateDescriptor(
+               m_CbvSrvUavHeap,
+               m_CbvSrvUavHeapOffset,
+               m_CbvSrvUavDescriptorSize);
+
+        viewData.uav = handles.cpu;
+        viewData.gpuUav = handles.gpu;
         m_Device->CreateDepthStencilView(resource, &dsvDesc, viewData.dsv);
         viewData.hasDsv = true;
     }

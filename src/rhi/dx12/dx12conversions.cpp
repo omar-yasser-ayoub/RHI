@@ -198,10 +198,6 @@ DXGI_FORMAT DX12RHI::toD3D12(rhi::TextureFormat format)
 }
 
 
-// ---------------------------------------------------------------------------
-// Depth companions - needed because a depth texture that is also sampled must
-// be *created* as TYPELESS, then viewed as D* for the DSV and R* for the SRV.
-// ---------------------------------------------------------------------------
 
 DXGI_FORMAT DX12RHI::toD3D12Typeless(rhi::TextureFormat format)
 {
@@ -349,13 +345,23 @@ D3D12_DSV_DIMENSION DX12RHI::toD3D12DsvDimension(rhi::TextureViewDimension dimen
     }
 }
 
-D3D12_CPU_DESCRIPTOR_HANDLE DX12RHI::AllocateCpuHandle(
+DX12RHI::DescriptorHandles DX12RHI::AllocateDescriptor(
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& heap,
     uint32_t& offset,
     uint32_t descriptorSize)
 {
-    D3D12_CPU_DESCRIPTOR_HANDLE handle = heap->GetCPUDescriptorHandleForHeapStart();
-    handle.ptr += static_cast<SIZE_T>(offset) * descriptorSize;
+    DescriptorHandles handles{};
+
+    handles.cpu = heap->GetCPUDescriptorHandleForHeapStart();
+    handles.cpu.ptr += static_cast<SIZE_T>(offset) * descriptorSize;
+
+    if (heap->GetDesc().Flags & D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE)
+    {
+        handles.gpu = heap->GetGPUDescriptorHandleForHeapStart();
+        handles.gpu.ptr += static_cast<UINT64>(offset) * descriptorSize;
+    }
+
     offset++;
-    return handle;
+
+    return handles;
 }

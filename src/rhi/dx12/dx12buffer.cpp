@@ -63,6 +63,9 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     resourceDesc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resourceDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
 
+    if (rhi::HasFlag(desc.usage, rhi::BufferUsage::Storage))
+        resourceDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+
     Microsoft::WRL::ComPtr<ID3D12Resource> resource;
     HRESULT result = m_Device->CreateCommittedResource(
         &heapProps,
@@ -77,11 +80,72 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return rhi::BufferHandle{};
     }
 
-    rhi::BufferHandle handle;
-    handle.id = static_cast<uint64_t>(m_Buffers.size());
-    handle.desc = desc;
-    m_Buffers.push_back(std::move(resource));
-    return handle;
+    // buffers can't be accessed in dx12 without a view, unlike vulkan. So, we
+    // create a default view for the buffer here, and add it to the vector of buffer views, with the same index
+    // as the buffer itself.
+
+    BufferViewData viewData{};
+    if (rhi::HasFlag(desc.usage, rhi::BufferUsage::Uniform)) {
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{};
+            cbvDesc.BufferLocation = resource->GetGPUVirtualAddress();
+
+            cbvDesc.SizeInBytes =
+                static_cast<UINT>((desc.size + 255) & ~255ull);
+
+            auto handles = AllocateDescriptor(
+                m_CbvSrvUavHeap,
+                m_CbvSrvUavHeapOffset,
+                m_CbvSrvUavDescriptorSize);
+
+            viewData.cbv = handles.cpu;
+            viewData.gpuCbv = handles.gpu;
+
+            m_Device->CreateConstantBufferView(
+                &cbvDesc,
+                viewData.cbv);
+
+            viewData.hasCbv = true;
+        }
+
+    // Storage buffer → raw UAV
+       if (rhi::HasFlag(desc.usage, rhi::BufferUsage::Storage)) {
+
+           D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc{};
+           uavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+           uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+           uavDesc.Buffer.FirstElement = 0;
+           uavDesc.Buffer.NumElements =
+               static_cast<UINT>(desc.size / 4);
+           uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_RAW;
+
+           auto handles = AllocateDescriptor(
+               m_CbvSrvUavHeap,
+               m_CbvSrvUavHeapOffset,
+               m_CbvSrvUavDescriptorSize);
+
+           viewData.uav = handles.cpu;
+           viewData.gpuUav = handles.gpu;
+
+
+           m_Device->CreateUnorderedAccessView(
+               resource.Get(),
+               nullptr,
+               &uavDesc,
+               handles.cpu);
+
+           viewData.hasUav = true;
+       }
+
+        const uint64_t id = m_Buffers.size();
+
+        m_Buffers.push_back(std::move(resource));
+        m_BufferViews.push_back(viewData);
+
+        rhi::BufferHandle handle;
+        handle.id = id;
+        handle.desc = desc;
+
+        return handle;
 }
 
 
@@ -94,6 +158,7 @@ void DX12RHI::DestroyBuffer(rhi::BufferHandle handle)
         return;
     }
     m_Buffers[handle.id].Reset();
+    m_BufferViews[handle.id] = {};
 }
 
 void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {

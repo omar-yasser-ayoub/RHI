@@ -3,6 +3,7 @@
 #include "rhi/irhi.h"
 #include "rhi/resources/texture.h"
 #include "rhi/resources/shader.h"
+#include "rhi/resources/bindgroup.h"
 
 
 #include <d3d12.h>
@@ -23,6 +24,8 @@ public:
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
     const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
+    rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
+    rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -67,6 +70,20 @@ private:
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
+    struct BufferViewData {
+        D3D12_CPU_DESCRIPTOR_HANDLE cbv{};
+        D3D12_CPU_DESCRIPTOR_HANDLE srv{};
+        D3D12_CPU_DESCRIPTOR_HANDLE uav{};
+
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuCbv{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuSrv{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuUav{};
+
+        bool hasCbv = false;
+        bool hasSrv = false;
+        bool hasUav = false;
+    };
+    std::vector<BufferViewData> m_BufferViews;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Textures;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
@@ -79,12 +96,22 @@ private:
         D3D12_CPU_DESCRIPTOR_HANDLE uav{};
         D3D12_CPU_DESCRIPTOR_HANDLE rtv{};
         D3D12_CPU_DESCRIPTOR_HANDLE dsv{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuSrv{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuUav{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuRtv{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpuDsv{};
         bool hasSrv = false, hasUav = false, hasRtv = false, hasDsv = false;
     };
     std::vector<TextureViewData> m_TextureViews;
-    D3D12_CPU_DESCRIPTOR_HANDLE AllocateCpuHandle(
+        struct DescriptorHandles
+    {
+        D3D12_CPU_DESCRIPTOR_HANDLE cpu{};
+        D3D12_GPU_DESCRIPTOR_HANDLE gpu{};
+    };
+    DX12RHI::DescriptorHandles AllocateDescriptor(
         Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& heap,
         uint32_t& offset,
-        uint32_t descriptorSize);
+        uint32_t descriptorSize
+    );
     std::vector<rhi::ShaderModule> m_ShaderModules;
 };
