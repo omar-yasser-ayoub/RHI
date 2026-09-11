@@ -4,6 +4,7 @@
 #include "rhi/resources/texture.h"
 #include "rhi/resources/shader.h"
 #include "rhi/resources/bindgroup.h"
+#include "rhi/resources/pipeline.h"
 
 
 #include <d3d12.h>
@@ -31,6 +32,8 @@ public:
     const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
+    rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
+    rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -64,6 +67,13 @@ public:
     static D3D12_UAV_DIMENSION toD3D12UavDimension(rhi::TextureViewDimension dimension);
     static D3D12_RTV_DIMENSION toD3D12RtvDimension(rhi::TextureViewDimension dimension);
     static D3D12_DSV_DIMENSION toD3D12DsvDimension(rhi::TextureViewDimension dimension);
+    static DXGI_FORMAT toD3D12(rhi::VertexFormat format);
+    static D3D12_PRIMITIVE_TOPOLOGY_TYPE toD3D12(rhi::PrimitiveTopology topology);
+    static D3D12_CULL_MODE toD3D12(rhi::CullMode mode);
+    static D3D12_FILL_MODE toD3D12(rhi::FillMode mode);
+    static D3D12_BLEND toD3D12(rhi::BlendFactor factor);
+    static D3D12_BLEND_OP toD3D12(rhi::BlendOp op);
+    static UINT8 toD3D12(rhi::ColorWriteMask mask);
 
 private:
     rhi::Capabilities m_Capabilities;
@@ -145,4 +155,6 @@ private:
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<BindGroupLayoutData> m_BindGroupLayouts;
     std::vector<BindGroupData> m_BindGroups;
+    std::vector<Microsoft::WRL::ComPtr<ID3D12RootSignature>> m_PipelineLayouts;
+    std::vector<Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_Pipelines;
 };

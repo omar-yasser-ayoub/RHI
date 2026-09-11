@@ -139,6 +139,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             src/rhi/vulkan/vkconversions.cpp
             src/rhi/vulkan/vkshader.cpp
             src/rhi/vulkan/vkbindgroup.cpp
+            src/rhi/vulkan/vkpipeline.cpp
             src/third_party/spirv-reflect/spirv_reflect.cpp
     )
   target_link_libraries(${PROJECT_NAME}
@@ -163,6 +164,8 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             src/rhi/dx12/dx12buffer.cpp
             src/rhi/dx12/dx12conversions.cpp
             src/rhi/dx12/dx12shader.cpp
+            src/rhi/dx12/dx12bindgroup.cpp
+            src/rhi/dx12/dx12pipeline.cpp
     )
   target_link_libraries(${PROJECT_NAME}
         PRIVATE
@@ -187,7 +190,6 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 src/rhi/webgpu/wgputexture.cpp
                 src/rhi/webgpu/wgpushader.cpp
                 src/rhi/webgpu/wgpubindgroup.cpp
-                src/rhi/webgpu/wgpupipelinelayout.cpp
                 src/rhi/webgpu/wgpupipeline.cpp
                 src/third_party/spirv-reflect/spirv_reflect.cpp
         )

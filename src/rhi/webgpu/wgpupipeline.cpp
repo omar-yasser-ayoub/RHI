@@ -133,7 +133,6 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
         return handle;
     }
 
-    // Depth. Unknown format = no depth attachment.
     wgpu::DepthStencilState depthStencil{};
     if (desc.depthStencil.format != rhi::TextureFormat::Unknown) {
         const wgpu::TextureFormat format = toWebGPU(desc.depthStencil.format);

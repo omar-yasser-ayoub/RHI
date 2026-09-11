@@ -274,3 +274,89 @@ VkImageUsageFlags VulkanRHI::toVk(rhi::TextureUsage usage) {
 
     return flags;
 }
+
+VkFormat VulkanRHI::toVk(rhi::VertexFormat format) {
+    switch (format) {
+    case rhi::VertexFormat::Float32:   return VK_FORMAT_R32_SFLOAT;
+    case rhi::VertexFormat::Float32x2: return VK_FORMAT_R32G32_SFLOAT;
+    case rhi::VertexFormat::Float32x3: return VK_FORMAT_R32G32B32_SFLOAT;
+    case rhi::VertexFormat::Float32x4: return VK_FORMAT_R32G32B32A32_SFLOAT;
+    case rhi::VertexFormat::Int32:     return VK_FORMAT_R32_SINT;
+    case rhi::VertexFormat::Int32x2:   return VK_FORMAT_R32G32_SINT;
+    case rhi::VertexFormat::Int32x3:   return VK_FORMAT_R32G32B32_SINT;
+    case rhi::VertexFormat::Int32x4:   return VK_FORMAT_R32G32B32A32_SINT;
+    case rhi::VertexFormat::UInt32:    return VK_FORMAT_R32_UINT;
+    case rhi::VertexFormat::UInt32x2:  return VK_FORMAT_R32G32_UINT;
+    case rhi::VertexFormat::UInt32x3:  return VK_FORMAT_R32G32B32_UINT;
+    case rhi::VertexFormat::UInt32x4:  return VK_FORMAT_R32G32B32A32_UINT;
+    }
+    return VK_FORMAT_UNDEFINED; // unreachable: all rhi::VertexFormat values covered above
+}
+
+VkPrimitiveTopology VulkanRHI::toVk(rhi::PrimitiveTopology topology) {
+    switch (topology) {
+    case rhi::PrimitiveTopology::PointList:     return VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    case rhi::PrimitiveTopology::LineList:      return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+    case rhi::PrimitiveTopology::LineStrip:     return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+    case rhi::PrimitiveTopology::TriangleList:  return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    case rhi::PrimitiveTopology::TriangleStrip: return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP;
+    }
+    return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST; // unreachable
+}
+
+VkCullModeFlags VulkanRHI::toVk(rhi::CullMode mode) {
+    switch (mode) {
+    case rhi::CullMode::None:  return VK_CULL_MODE_NONE;
+    case rhi::CullMode::Front: return VK_CULL_MODE_FRONT_BIT;
+    case rhi::CullMode::Back:  return VK_CULL_MODE_BACK_BIT;
+    }
+    return VK_CULL_MODE_NONE; // unreachable
+}
+
+VkFrontFace VulkanRHI::toVk(rhi::FrontFace face) {
+    switch (face) {
+    case rhi::FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    case rhi::FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
+    }
+    return VK_FRONT_FACE_COUNTER_CLOCKWISE; // unreachable
+}
+
+VkPolygonMode VulkanRHI::toVk(rhi::FillMode mode) {
+    switch (mode) {
+    case rhi::FillMode::Solid:     return VK_POLYGON_MODE_FILL;
+    case rhi::FillMode::Wireframe: return VK_POLYGON_MODE_LINE;
+    }
+    return VK_POLYGON_MODE_FILL; // unreachable
+}
+
+VkBlendFactor VulkanRHI::toVk(rhi::BlendFactor factor) {
+    switch (factor) {
+    case rhi::BlendFactor::Zero:             return VK_BLEND_FACTOR_ZERO;
+    case rhi::BlendFactor::One:              return VK_BLEND_FACTOR_ONE;
+    case rhi::BlendFactor::SrcColor:         return VK_BLEND_FACTOR_SRC_COLOR;
+    case rhi::BlendFactor::OneMinusSrcColor: return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+    case rhi::BlendFactor::DstColor:         return VK_BLEND_FACTOR_DST_COLOR;
+    case rhi::BlendFactor::OneMinusDstColor: return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+    case rhi::BlendFactor::SrcAlpha:         return VK_BLEND_FACTOR_SRC_ALPHA;
+    case rhi::BlendFactor::OneMinusSrcAlpha: return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    case rhi::BlendFactor::DstAlpha:         return VK_BLEND_FACTOR_DST_ALPHA;
+    case rhi::BlendFactor::OneMinusDstAlpha: return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+    }
+    return VK_BLEND_FACTOR_ZERO; // unreachable
+}
+
+VkBlendOp VulkanRHI::toVk(rhi::BlendOp op) {
+    switch (op) {
+    case rhi::BlendOp::Add:             return VK_BLEND_OP_ADD;
+    case rhi::BlendOp::Subtract:        return VK_BLEND_OP_SUBTRACT;
+    case rhi::BlendOp::ReverseSubtract: return VK_BLEND_OP_REVERSE_SUBTRACT;
+    case rhi::BlendOp::Min:             return VK_BLEND_OP_MIN;
+    case rhi::BlendOp::Max:             return VK_BLEND_OP_MAX;
+    }
+    return VK_BLEND_OP_ADD; // unreachable
+}
+
+VkColorComponentFlags VulkanRHI::toVk(rhi::ColorWriteMask mask) {
+    // Bit values match 1:1 (R=1, G=2, B=4, A=8).
+    return static_cast<VkColorComponentFlags>(static_cast<std::uint8_t>(mask));
+}

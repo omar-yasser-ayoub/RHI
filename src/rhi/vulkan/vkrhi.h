@@ -5,6 +5,7 @@
 #include "rhi/resources/texture.h"
 #include <rhi/resources/shader.h>
 #include <rhi/resources/bindgroup.h>
+#include <rhi/resources/pipeline.h>
 
 #include <vulkan/vulkan.h>
 #include <vector>
@@ -32,6 +33,8 @@ public:
     const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
+    rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
+    rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -60,6 +63,14 @@ public:
     VkImageType toVk(rhi::TextureDimension type);
     VkSampleCountFlagBits toVk(rhi::SampleCount count);
     VkImageUsageFlags toVk(rhi::TextureUsage usage);
+    VkFormat toVk(rhi::VertexFormat format);
+    VkPrimitiveTopology toVk(rhi::PrimitiveTopology topology);
+    VkCullModeFlags toVk(rhi::CullMode mode);
+    VkFrontFace toVk(rhi::FrontFace face);
+    VkPolygonMode toVk(rhi::FillMode mode);
+    VkBlendFactor toVk(rhi::BlendFactor factor);
+    VkBlendOp toVk(rhi::BlendOp op);
+    VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
 
 private:
     rhi::Capabilities m_Capabilities;
@@ -80,4 +91,6 @@ private:
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<VkDescriptorSetLayout> m_BindGroupLayouts;
     std::vector<VkDescriptorSet> m_BindGroups;
+    std::vector<VkPipelineLayout> m_PipelineLayouts;
+    std::vector<VkPipeline> m_Pipelines;
 };

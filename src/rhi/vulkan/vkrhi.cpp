@@ -118,6 +118,11 @@ bool VulkanRHI::Initialize() {
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
 
+    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
+    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+    dynamicRendering.dynamicRendering = VK_TRUE;
+    deviceInfo.pNext = &dynamicRendering;
+
     result = vkCreateDevice(
         m_PhysicalDevice,
         &deviceInfo,
@@ -176,10 +181,22 @@ void VulkanRHI::Shutdown() {
                 vkDestroySampler(m_Device, sampler, nullptr);
             }
         }
+        for (VkPipeline pipeline : m_Pipelines) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(m_Device, pipeline, nullptr);
+            }
+        }
+        for (VkPipelineLayout layout : m_PipelineLayouts) {
+            if (layout != VK_NULL_HANDLE) {
+                vkDestroyPipelineLayout(m_Device, layout, nullptr);
+            }
+        }
 
         m_Buffers.clear();
         m_BufferMemory.clear();
         m_Samplers.clear();
+        m_Pipelines.clear();
+        m_PipelineLayouts.clear();
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
     }

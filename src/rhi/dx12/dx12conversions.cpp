@@ -345,6 +345,97 @@ D3D12_DSV_DIMENSION DX12RHI::toD3D12DsvDimension(rhi::TextureViewDimension dimen
     }
 }
 
+DXGI_FORMAT DX12RHI::toD3D12(rhi::VertexFormat format)
+{
+    switch (format)
+    {
+        case rhi::VertexFormat::Float32:   return DXGI_FORMAT_R32_FLOAT;
+        case rhi::VertexFormat::Float32x2: return DXGI_FORMAT_R32G32_FLOAT;
+        case rhi::VertexFormat::Float32x3: return DXGI_FORMAT_R32G32B32_FLOAT;
+        case rhi::VertexFormat::Float32x4: return DXGI_FORMAT_R32G32B32A32_FLOAT;
+        case rhi::VertexFormat::Int32:     return DXGI_FORMAT_R32_SINT;
+        case rhi::VertexFormat::Int32x2:   return DXGI_FORMAT_R32G32_SINT;
+        case rhi::VertexFormat::Int32x3:   return DXGI_FORMAT_R32G32B32_SINT;
+        case rhi::VertexFormat::Int32x4:   return DXGI_FORMAT_R32G32B32A32_SINT;
+        case rhi::VertexFormat::UInt32:    return DXGI_FORMAT_R32_UINT;
+        case rhi::VertexFormat::UInt32x2:  return DXGI_FORMAT_R32G32_UINT;
+        case rhi::VertexFormat::UInt32x3:  return DXGI_FORMAT_R32G32B32_UINT;
+        case rhi::VertexFormat::UInt32x4:  return DXGI_FORMAT_R32G32B32A32_UINT;
+        default: return DXGI_FORMAT_UNKNOWN;
+    }
+}
+
+D3D12_PRIMITIVE_TOPOLOGY_TYPE DX12RHI::toD3D12(rhi::PrimitiveTopology topology)
+{
+    switch (topology)
+    {
+        case rhi::PrimitiveTopology::PointList:     return D3D12_PRIMITIVE_TOPOLOGY_TYPE_POINT;
+        case rhi::PrimitiveTopology::LineList:
+        case rhi::PrimitiveTopology::LineStrip:     return D3D12_PRIMITIVE_TOPOLOGY_TYPE_LINE;
+        case rhi::PrimitiveTopology::TriangleList:
+        case rhi::PrimitiveTopology::TriangleStrip: return D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        default: return D3D12_PRIMITIVE_TOPOLOGY_TYPE_UNDEFINED;
+    }
+}
+
+D3D12_CULL_MODE DX12RHI::toD3D12(rhi::CullMode mode)
+{
+    switch (mode)
+    {
+        case rhi::CullMode::None:  return D3D12_CULL_MODE_NONE;
+        case rhi::CullMode::Front: return D3D12_CULL_MODE_FRONT;
+        case rhi::CullMode::Back:  return D3D12_CULL_MODE_BACK;
+        default: return D3D12_CULL_MODE_NONE;
+    }
+}
+
+D3D12_FILL_MODE DX12RHI::toD3D12(rhi::FillMode mode)
+{
+    switch (mode)
+    {
+        case rhi::FillMode::Solid:     return D3D12_FILL_MODE_SOLID;
+        case rhi::FillMode::Wireframe: return D3D12_FILL_MODE_WIREFRAME;
+        default: return D3D12_FILL_MODE_SOLID;
+    }
+}
+
+D3D12_BLEND DX12RHI::toD3D12(rhi::BlendFactor factor)
+{
+    switch (factor)
+    {
+        case rhi::BlendFactor::Zero:             return D3D12_BLEND_ZERO;
+        case rhi::BlendFactor::One:              return D3D12_BLEND_ONE;
+        case rhi::BlendFactor::SrcColor:         return D3D12_BLEND_SRC_COLOR;
+        case rhi::BlendFactor::OneMinusSrcColor: return D3D12_BLEND_INV_SRC_COLOR;
+        case rhi::BlendFactor::DstColor:         return D3D12_BLEND_DEST_COLOR;
+        case rhi::BlendFactor::OneMinusDstColor: return D3D12_BLEND_INV_DEST_COLOR;
+        case rhi::BlendFactor::SrcAlpha:         return D3D12_BLEND_SRC_ALPHA;
+        case rhi::BlendFactor::OneMinusSrcAlpha: return D3D12_BLEND_INV_SRC_ALPHA;
+        case rhi::BlendFactor::DstAlpha:         return D3D12_BLEND_DEST_ALPHA;
+        case rhi::BlendFactor::OneMinusDstAlpha: return D3D12_BLEND_INV_DEST_ALPHA;
+        default: return D3D12_BLEND_ZERO;
+    }
+}
+
+D3D12_BLEND_OP DX12RHI::toD3D12(rhi::BlendOp op)
+{
+    switch (op)
+    {
+        case rhi::BlendOp::Add:             return D3D12_BLEND_OP_ADD;
+        case rhi::BlendOp::Subtract:        return D3D12_BLEND_OP_SUBTRACT;
+        case rhi::BlendOp::ReverseSubtract: return D3D12_BLEND_OP_REV_SUBTRACT;
+        case rhi::BlendOp::Min:             return D3D12_BLEND_OP_MIN;
+        case rhi::BlendOp::Max:             return D3D12_BLEND_OP_MAX;
+        default: return D3D12_BLEND_OP_ADD;
+    }
+}
+
+UINT8 DX12RHI::toD3D12(rhi::ColorWriteMask mask)
+{
+    // Bit values match 1:1 (R=1, G=2, B=4, A=8).
+    return static_cast<UINT8>(static_cast<std::uint8_t>(mask));
+}
+
 DX12RHI::DescriptorHandles DX12RHI::AllocateDescriptor(
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>& heap,
     uint32_t& offset,

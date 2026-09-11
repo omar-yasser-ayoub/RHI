@@ -37,6 +37,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkconversions.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkshader.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbindgroup.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkpipeline.cpp
             ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
@@ -63,6 +64,8 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12buffer.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12conversions.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12shader.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12bindgroup.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12pipeline.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -87,7 +90,6 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgputexture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpushader.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpubindgroup.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpupipelinelayout.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpupipeline.cpp
             ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
     )
