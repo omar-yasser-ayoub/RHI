@@ -1,7 +1,5 @@
 #include "rhi/dx12/dx12rhi.h"
 
-namespace {
-
 D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(rhi::BindingType type)
 {
     switch (type) {
@@ -47,8 +45,6 @@ D3D12_SHADER_VISIBILITY LayoutVisibility(const rhi::BindGroupLayoutDesc& desc)
     }
     return visibility;
 }
-
-} // namespace
 
 rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
     const rhi::PipelineLayoutDesc& desc)
