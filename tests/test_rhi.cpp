@@ -545,14 +545,10 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
     const auto& position = module->reflection.vertexInputs[0];
     EXPECT_EQ(position.location, 0u);
     EXPECT_EQ(position.format, rhi::VertexFormat::Float32x3);
-    EXPECT_EQ(position.stride, 0u);
-    EXPECT_EQ(position.offset, 0u);
 
     const auto& uv = module->reflection.vertexInputs[1];
     EXPECT_EQ(uv.location, 1u);
     EXPECT_EQ(uv.format, rhi::VertexFormat::Float32x2);
-    EXPECT_EQ(uv.stride, 0u);
-    EXPECT_EQ(uv.offset, 0u);
 }
 
 TEST_F(RHITest, CompileBindingVertexShaderModuleFromShaderAsset)

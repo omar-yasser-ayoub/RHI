@@ -75,8 +75,6 @@ namespace rhi {
     {
         uint32_t location;
         VertexFormat format;
-        uint32_t stride;
-        uint32_t offset;
     };
 
     struct ShaderReflection
