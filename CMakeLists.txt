@@ -187,6 +187,8 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 src/rhi/webgpu/wgputexture.cpp
                 src/rhi/webgpu/wgpushader.cpp
                 src/rhi/webgpu/wgpubindgroup.cpp
+                src/rhi/webgpu/wgpupipelinelayout.cpp
+                src/rhi/webgpu/wgpupipeline.cpp
                 src/third_party/spirv-reflect/spirv_reflect.cpp
         )
   target_link_libraries(${PROJECT_NAME}

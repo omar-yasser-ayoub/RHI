@@ -1048,3 +1048,167 @@ TEST_F(RHITest, CreateComplexSamplerCombinations)
         }
     }
 }
+
+#if defined(RHI_WEBGPU)
+// ============================================================================
+// Pipeline Layout + Graphics Pipeline Tests
+// ============================================================================
+
+namespace
+{
+rhi::GraphicsPipelineDesc MakeTrianglePipelineDesc(
+    rhi::PipelineLayoutHandle layout,
+    rhi::ShaderModuleHandle vs,
+    rhi::ShaderModuleHandle fs)
+{
+    rhi::GraphicsPipelineDesc desc;
+    desc.layout = layout;
+    desc.vertexShader = vs;
+    desc.fragmentShader = fs;
+
+    rhi::VertexBufferLayout buffer;
+    buffer.stride = 20;
+    buffer.attributes.push_back({ 0, 0, rhi::VertexFormat::Float32x3, 0 });
+    buffer.attributes.push_back({ 0, 1, rhi::VertexFormat::Float32x2, 12 });
+    desc.vertexBuffers.push_back(buffer);
+
+    rhi::ColorTarget target;
+    target.format = rhi::TextureFormat::RGBA8Unorm;
+    desc.colorTargets.push_back(target);
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreatePipelineLayout)
+{
+    rhi::BindGroupLayoutDesc bindDesc;
+    bindDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFu);
+
+    rhi::PipelineLayoutDesc desc;
+    desc.layouts.push_back(bindLayout);
+    const auto layout = rhi.CreatePipelineLayout(desc);
+
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_EQ(layout.desc.layouts.size(), 1u);
+    EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
+}
+
+TEST_F(RHITest, RejectsEmptyPipelineLayout)
+{
+    rhi::PipelineLayoutDesc desc;
+    const auto layout = rhi.CreatePipelineLayout(desc);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
+{
+    rhi::PipelineLayoutDesc desc;
+    rhi::BindGroupLayoutHandle bad;
+    bad.id = 0xFFFFFFFFu;
+    desc.layouts.push_back(bad);
+    const auto layout = rhi.CreatePipelineLayout(desc);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, CreateTriangleGraphicsPipeline)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+
+    const auto pipeline = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+
+    auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
+    desc.fillMode = rhi::FillMode::Wireframe;
+    const auto pipeline = rhi.CreateGraphicsPipeline(desc);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+}
+
+TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+
+    auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
+    desc.colorTargets.clear();
+    const auto pipeline = rhi.CreateGraphicsPipeline(desc);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+}
+#endif

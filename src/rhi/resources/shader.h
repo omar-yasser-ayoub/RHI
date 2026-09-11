@@ -87,6 +87,7 @@ namespace rhi {
     {
         std::vector<uint8_t> bytecode;
         ShaderReflection reflection;
+        std::string entryPoint = "main";
     };
 
     struct ShaderSource

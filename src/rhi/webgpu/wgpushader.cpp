@@ -177,6 +177,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
 
     module.reflection = ParseReflection(&reflection, source.stage);
     spvReflectDestroyShaderModule(&reflection);
+    module.entryPoint = source.entryPoint.empty() ? "main" : source.entryPoint;
     m_ShaderModules.push_back(module);
 
     rhi::ShaderModuleHandle handle;

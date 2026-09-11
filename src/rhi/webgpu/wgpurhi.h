@@ -5,6 +5,7 @@
 #include "rhi/resources/shader.h"
 #include "rhi/resources/texture.h"
 #include "rhi/resources/bindgroup.h"
+#include "rhi/resources/pipeline.h"
 #include <webgpu/webgpu_cpp.h>
 
 class WebGPURHI
@@ -26,6 +27,8 @@ public:
     const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
+    rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
+    rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -48,6 +51,13 @@ public:
     static wgpu::TextureFormat toWebGPU(rhi::TextureFormat usage);
     static uint32_t toWebGPU(rhi::SampleCount count);
     static wgpu::TextureUsage toWebGPU(rhi::TextureUsage usage);
+    static wgpu::VertexFormat toWebGPU(rhi::VertexFormat format);
+    static wgpu::PrimitiveTopology toWebGPU(rhi::PrimitiveTopology topology);
+    static wgpu::CullMode toWebGPU(rhi::CullMode mode);
+    static wgpu::FrontFace toWebGPU(rhi::FrontFace face);
+    static wgpu::BlendFactor toWebGPU(rhi::BlendFactor factor);
+    static wgpu::BlendOperation toWebGPU(rhi::BlendOp op);
+    static wgpu::ColorWriteMask toWebGPU(rhi::ColorWriteMask mask);
 
 
 private:
@@ -67,4 +77,6 @@ private:
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<wgpu::BindGroupLayout> m_BindGroupLayouts;
     std::vector<wgpu::BindGroup> m_BindGroups;
+    std::vector<wgpu::PipelineLayout> m_PipelineLayouts;
+    std::vector<wgpu::RenderPipeline> m_Pipelines;
 };

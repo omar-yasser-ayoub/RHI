@@ -230,7 +230,85 @@ wgpu::TextureUsage WebGPURHI::toWebGPU(rhi::TextureUsage usage) {
     if ((usage & rhi::TextureUsage::RenderTarget) != rhi::TextureUsage::None)
         result |= wgpu::TextureUsage::RenderAttachment;
     if ((usage & rhi::TextureUsage::DepthStencil) != rhi::TextureUsage::None)
-        result |= wgpu::TextureUsage::RenderAttachment; // WebGPU has no separate depth/stencil usage bit — RenderAttachment covers both
+        result |= wgpu::TextureUsage::RenderAttachment;
 
     return result;
+}
+
+wgpu::VertexFormat WebGPURHI::toWebGPU(rhi::VertexFormat format) {
+    switch (format) {
+    case rhi::VertexFormat::Float32:   return wgpu::VertexFormat::Float32;
+    case rhi::VertexFormat::Float32x2: return wgpu::VertexFormat::Float32x2;
+    case rhi::VertexFormat::Float32x3: return wgpu::VertexFormat::Float32x3;
+    case rhi::VertexFormat::Float32x4: return wgpu::VertexFormat::Float32x4;
+    case rhi::VertexFormat::Int32:     return wgpu::VertexFormat::Sint32;
+    case rhi::VertexFormat::Int32x2:   return wgpu::VertexFormat::Sint32x2;
+    case rhi::VertexFormat::Int32x3:   return wgpu::VertexFormat::Sint32x3;
+    case rhi::VertexFormat::Int32x4:   return wgpu::VertexFormat::Sint32x4;
+    case rhi::VertexFormat::UInt32:    return wgpu::VertexFormat::Uint32;
+    case rhi::VertexFormat::UInt32x2:  return wgpu::VertexFormat::Uint32x2;
+    case rhi::VertexFormat::UInt32x3:  return wgpu::VertexFormat::Uint32x3;
+    case rhi::VertexFormat::UInt32x4:  return wgpu::VertexFormat::Uint32x4;
+    }
+    return wgpu::VertexFormat::Float32;
+}
+
+wgpu::PrimitiveTopology WebGPURHI::toWebGPU(rhi::PrimitiveTopology topology) {
+    switch (topology) {
+    case rhi::PrimitiveTopology::PointList:    return wgpu::PrimitiveTopology::PointList;
+    case rhi::PrimitiveTopology::LineList:     return wgpu::PrimitiveTopology::LineList;
+    case rhi::PrimitiveTopology::LineStrip:    return wgpu::PrimitiveTopology::LineStrip;
+    case rhi::PrimitiveTopology::TriangleList: return wgpu::PrimitiveTopology::TriangleList;
+    case rhi::PrimitiveTopology::TriangleStrip: return wgpu::PrimitiveTopology::TriangleStrip;
+    default: return wgpu::PrimitiveTopology::Undefined;
+    }
+}
+
+wgpu::CullMode WebGPURHI::toWebGPU(rhi::CullMode mode) {
+    switch (mode) {
+    case rhi::CullMode::None:  return wgpu::CullMode::None;
+    case rhi::CullMode::Front: return wgpu::CullMode::Front;
+    case rhi::CullMode::Back:  return wgpu::CullMode::Back;
+    default: return wgpu::CullMode::Undefined;
+    }
+}
+
+wgpu::FrontFace WebGPURHI::toWebGPU(rhi::FrontFace face) {
+    switch (face) {
+    case rhi::FrontFace::CounterClockwise: return wgpu::FrontFace::CCW;
+    case rhi::FrontFace::Clockwise:        return wgpu::FrontFace::CW;
+    default: return wgpu::FrontFace::Undefined;
+    }
+}
+
+wgpu::BlendFactor WebGPURHI::toWebGPU(rhi::BlendFactor factor) {
+    switch (factor) {
+    case rhi::BlendFactor::Zero:             return wgpu::BlendFactor::Zero;
+    case rhi::BlendFactor::One:              return wgpu::BlendFactor::One;
+    case rhi::BlendFactor::SrcColor:         return wgpu::BlendFactor::Src;
+    case rhi::BlendFactor::OneMinusSrcColor: return wgpu::BlendFactor::OneMinusSrc;
+    case rhi::BlendFactor::DstColor:         return wgpu::BlendFactor::Dst;
+    case rhi::BlendFactor::OneMinusDstColor: return wgpu::BlendFactor::OneMinusDst;
+    case rhi::BlendFactor::SrcAlpha:         return wgpu::BlendFactor::SrcAlpha;
+    case rhi::BlendFactor::OneMinusSrcAlpha: return wgpu::BlendFactor::OneMinusSrcAlpha;
+    case rhi::BlendFactor::DstAlpha:         return wgpu::BlendFactor::DstAlpha;
+    case rhi::BlendFactor::OneMinusDstAlpha: return wgpu::BlendFactor::OneMinusDstAlpha;
+    default: return wgpu::BlendFactor::Undefined;
+    }
+}
+
+wgpu::BlendOperation WebGPURHI::toWebGPU(rhi::BlendOp op) {
+    switch (op) {
+    case rhi::BlendOp::Add:             return wgpu::BlendOperation::Add;
+    case rhi::BlendOp::Subtract:        return wgpu::BlendOperation::Subtract;
+    case rhi::BlendOp::ReverseSubtract: return wgpu::BlendOperation::ReverseSubtract;
+    case rhi::BlendOp::Min:             return wgpu::BlendOperation::Min;
+    case rhi::BlendOp::Max:             return wgpu::BlendOperation::Max;
+    default: return wgpu::BlendOperation::Undefined;
+    }
+}
+
+wgpu::ColorWriteMask WebGPURHI::toWebGPU(rhi::ColorWriteMask mask) {
+    // Bit values match 1:1 (R=1, G=2, B=4, A=8).
+    return static_cast<wgpu::ColorWriteMask>(static_cast<std::uint8_t>(mask));
 }
