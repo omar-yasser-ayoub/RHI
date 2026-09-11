@@ -20,11 +20,16 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
         return rhi::TextureHandle{};
     }
 
-    m_Textures.push_back(texture);
-
     rhi::TextureHandle handle{};
-    handle.id = static_cast<std::uint64_t>(m_Textures.size() - 1);
     handle.desc = desc;
+    if (!m_FreeTextures.empty()) {
+        handle.id = m_FreeTextures.back();
+        m_FreeTextures.pop_back();
+        m_Textures[handle.id] = texture;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_Textures.size());
+        m_Textures.push_back(texture);
+    }
 
     return handle;
 }
@@ -43,11 +48,16 @@ rhi::TextureViewHandle WebGPURHI::CreateTextureView(const rhi::TextureViewDesc& 
         return rhi::TextureViewHandle{};
     }
 
-    m_TextureViews.push_back(view);
-
     rhi::TextureViewHandle handle{};
-    handle.id = static_cast<std::uint64_t>(m_TextureViews.size() - 1);
     handle.desc = desc;
+    if (!m_FreeTextureViews.empty()) {
+        handle.id = m_FreeTextureViews.back();
+        m_FreeTextureViews.pop_back();
+        m_TextureViews[handle.id] = view;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_TextureViews.size());
+        m_TextureViews.push_back(view);
+    }
 
     return handle;
 }
@@ -59,6 +69,7 @@ void WebGPURHI::DestroyTexture(rhi::TextureHandle handle) {
 
     m_Textures[handle.id].Destroy();
     m_Textures[handle.id] = nullptr;
+    m_FreeTextures.push_back(handle.id);
     return;
 }
 
@@ -68,6 +79,7 @@ void WebGPURHI::DestroyTextureView(rhi::TextureViewHandle handle) {
     }
 
     m_TextureViews[handle.id] = {};
+    m_FreeTextureViews.push_back(handle.id);
     return;
 }
 

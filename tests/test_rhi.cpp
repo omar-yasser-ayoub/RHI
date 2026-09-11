@@ -238,6 +238,42 @@ TEST_F(RHITest, CreateAndDestroyMultipleSamplers)
     rhi.DestroySampler(handle1);
 }
 
+TEST_F(RHITest, ReusesSamplerSlotAfterDestroy)
+{
+    rhi::SamplerDesc desc;
+
+    auto handle = rhi.CreateSampler(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFF);
+    rhi.DestroySampler(handle);
+
+    auto reused = rhi.CreateSampler(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFF);
+    EXPECT_EQ(reused.id, handle.id);
+    rhi.DestroySampler(reused);
+}
+
+TEST_F(RHITest, ReusesFirstSamplerSlotAfterDestroy)
+{
+    rhi::SamplerDesc desc;
+
+    auto handle1 = rhi.CreateSampler(desc);
+    auto handle2 = rhi.CreateSampler(desc);
+    auto handle3 = rhi.CreateSampler(desc);
+    ASSERT_NE(handle1.id, 0xFFFFFFFFFFFFFFFF);
+    ASSERT_NE(handle2.id, 0xFFFFFFFFFFFFFFFF);
+    ASSERT_NE(handle3.id, 0xFFFFFFFFFFFFFFFF);
+
+    rhi.DestroySampler(handle1);
+
+    auto handle4 = rhi.CreateSampler(desc);
+    ASSERT_NE(handle4.id, 0xFFFFFFFFFFFFFFFF);
+    EXPECT_EQ(handle4.id, handle1.id);
+
+    rhi.DestroySampler(handle4);
+    rhi.DestroySampler(handle3);
+    rhi.DestroySampler(handle2);
+}
+
 // ============================================================================
 // Buffer Tests
 // ============================================================================
@@ -392,6 +428,44 @@ TEST_F(RHITest, CreateAndDestroyMultipleBuffers)
     for (auto it = handles.rbegin(); it != handles.rend(); ++it) {
         rhi.DestroyBuffer(*it);
     }
+}
+
+TEST_F(RHITest, ReusesBufferSlotAfterDestroy)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle.id, InvalidHandle);
+    rhi.DestroyBuffer(handle);
+
+    auto reused = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(reused.id, InvalidHandle);
+    EXPECT_EQ(reused.id, handle.id);
+    rhi.DestroyBuffer(reused);
+}
+
+TEST_F(RHITest, ReusesFirstBufferSlotAfterDestroy)
+{
+    auto handle1 = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    auto handle2 = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    auto handle3 = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle1.id, InvalidHandle);
+    ASSERT_NE(handle2.id, InvalidHandle);
+    ASSERT_NE(handle3.id, InvalidHandle);
+
+    rhi.DestroyBuffer(handle1);
+
+    auto handle4 = rhi.CreateBuffer(MakeBufferDesc(
+        256, rhi::MemoryUsage::CpuToGpu));
+    ASSERT_NE(handle4.id, InvalidHandle);
+    EXPECT_EQ(handle4.id, handle1.id);
+
+    rhi.DestroyBuffer(handle4);
+    rhi.DestroyBuffer(handle3);
+    rhi.DestroyBuffer(handle2);
 }
 
 
@@ -723,6 +797,38 @@ TEST_F(RHITest, CreateMultipleTextures)
     }
 }
 
+TEST_F(RHITest, ReusesTextureSlotAfterDestroy)
+{
+    auto handle = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(handle.id, InvalidTextureHandle);
+    rhi.DestroyTexture(handle);
+
+    auto reused = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(reused.id, InvalidTextureHandle);
+    EXPECT_EQ(reused.id, handle.id);
+    rhi.DestroyTexture(reused);
+}
+
+TEST_F(RHITest, ReusesFirstTextureSlotAfterDestroy)
+{
+    auto handle1 = rhi.CreateTexture(MakeTextureDesc(4, 4));
+    auto handle2 = rhi.CreateTexture(MakeTextureDesc(5, 5));
+    auto handle3 = rhi.CreateTexture(MakeTextureDesc(6, 6));
+    ASSERT_NE(handle1.id, InvalidTextureHandle);
+    ASSERT_NE(handle2.id, InvalidTextureHandle);
+    ASSERT_NE(handle3.id, InvalidTextureHandle);
+
+    rhi.DestroyTexture(handle1);
+
+    auto handle4 = rhi.CreateTexture(MakeTextureDesc(4, 4));
+    ASSERT_NE(handle4.id, InvalidTextureHandle);
+    EXPECT_EQ(handle4.id, handle1.id);
+
+    rhi.DestroyTexture(handle4);
+    rhi.DestroyTexture(handle3);
+    rhi.DestroyTexture(handle2);
+}
+
 TEST_F(RHITest, CreateTextureWithDifferentDimensionsAndFormats)
 {
     struct TextureCase {
@@ -837,6 +943,24 @@ TEST_F(RHITest, DestroyTextureAndTextureViewAreIdempotent)
     rhi.DestroyTextureView(view);
     rhi.DestroyTextureView(view);
     rhi.DestroyTexture(texture);
+    rhi.DestroyTexture(texture);
+}
+
+TEST_F(RHITest, ReusesTextureViewSlotAfterDestroy)
+{
+    auto texture = rhi.CreateTexture(MakeTextureDesc());
+    ASSERT_NE(texture.id, InvalidTextureHandle);
+
+    rhi::TextureViewDesc viewDesc;
+    auto view = rhi.CreateTextureView(viewDesc, texture);
+    ASSERT_NE(view.id, InvalidTextureHandle);
+    rhi.DestroyTextureView(view);
+
+    auto reused = rhi.CreateTextureView(viewDesc, texture);
+    ASSERT_NE(reused.id, InvalidTextureHandle);
+    EXPECT_EQ(reused.id, view.id);
+
+    rhi.DestroyTextureView(reused);
     rhi.DestroyTexture(texture);
 }
 

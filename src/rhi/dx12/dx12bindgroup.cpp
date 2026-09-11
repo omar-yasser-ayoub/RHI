@@ -50,8 +50,7 @@ rhi::BindGroupLayoutHandle DX12RHI::CreateBindGroupLayout(
             desc.shaderBindings.begin(),
             desc.shaderBindings.end(),
             [&binding](const rhi::ShaderBinding& other) {
-                return other.binding == binding.binding &&
-                       other.type == binding.type;
+                return other.binding == binding.binding;
             });
         if (duplicate != 1) {
             return handle;

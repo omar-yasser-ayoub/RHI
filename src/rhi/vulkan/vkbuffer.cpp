@@ -64,11 +64,18 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return rhi::BufferHandle{};
     }
 
-    m_BufferMemory.push_back(bufferMemory);
-    m_Buffers.push_back(buffer);
     rhi::BufferHandle handle;
-    handle.id = static_cast<uint64_t>(m_Buffers.size() - 1);
     handle.desc = desc;
+    if (!m_FreeBuffers.empty()) {
+        handle.id = m_FreeBuffers.back();
+        m_FreeBuffers.pop_back();
+        m_BufferMemory[handle.id] = bufferMemory;
+        m_Buffers[handle.id] = buffer;
+    } else {
+        handle.id = static_cast<uint64_t>(m_Buffers.size());
+        m_BufferMemory.push_back(bufferMemory);
+        m_Buffers.push_back(buffer);
+    }
 
     return handle;
 }
@@ -87,6 +94,7 @@ void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
         vkFreeMemory(m_Device, m_BufferMemory[handle.id], nullptr);
         m_BufferMemory[handle.id] = VK_NULL_HANDLE;
     }
+    m_FreeBuffers.push_back(handle.id);
 }
 
 void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {

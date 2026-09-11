@@ -19,9 +19,15 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return handle;
     }
 
-    handle.id = static_cast<uint64_t>(m_Buffers.size());
     handle.desc = desc;
-    m_Buffers.push_back(buffer);
+    if (!m_FreeBuffers.empty()) {
+        handle.id = m_FreeBuffers.back();
+        m_FreeBuffers.pop_back();
+        m_Buffers[handle.id] = buffer;
+    } else {
+        handle.id = static_cast<uint64_t>(m_Buffers.size());
+        m_Buffers.push_back(buffer);
+    }
 
     return handle;
 }
@@ -139,4 +145,5 @@ void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
     m_Buffers[handle.id].Unmap();
     m_Buffers[handle.id].Destroy();
     m_Buffers[handle.id] = {};
+    m_FreeBuffers.push_back(handle.id);
 }

@@ -68,11 +68,15 @@ private:
     VkDevice m_Device = VK_NULL_HANDLE;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;
+    std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<VkBuffer> m_Buffers;
     std::vector<VkDeviceMemory> m_BufferMemory;
+    std::vector<std::uint64_t> m_FreeBuffers;
     std::vector<VkImage> m_Textures;
     std::vector<VkDeviceMemory> m_TextureMemory;
+    std::vector<std::uint64_t> m_FreeTextures;
     std::vector<VkImageView> m_TextureViews;
+    std::vector<std::uint64_t> m_FreeTextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<VkDescriptorSetLayout> m_BindGroupLayouts;
     std::vector<VkDescriptorSet> m_BindGroups;

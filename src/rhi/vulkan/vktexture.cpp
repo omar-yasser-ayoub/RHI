@@ -55,16 +55,28 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
         return rhi::TextureHandle{};
     }
 
-    m_Textures.push_back(image);
-    m_TextureMemory.push_back(memory);
     rhi::TextureHandle handle;
-    handle.id = m_Textures.size() - 1;
     handle.desc = desc;
+    if (!m_FreeTextures.empty()) {
+        handle.id = m_FreeTextures.back();
+        m_FreeTextures.pop_back();
+        m_Textures[handle.id] = image;
+        m_TextureMemory[handle.id] = memory;
+    } else {
+        // both vectors grow in lockstep so the new index is the size before push
+        handle.id = m_Textures.size();
+        m_Textures.push_back(image);
+        m_TextureMemory.push_back(memory);
+    }
     return handle;
 }
 
 void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
     if (handle.id >= m_Textures.size() || handle.id >= m_TextureMemory.size()) {
+        return;
+    }
+    if (m_Textures[handle.id] == VK_NULL_HANDLE &&
+        m_TextureMemory[handle.id] == VK_NULL_HANDLE) {
         return;
     }
 
@@ -79,6 +91,7 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
         vkFreeMemory(m_Device, memory, nullptr);
         m_TextureMemory[handle.id] = VK_NULL_HANDLE;
     }
+    m_FreeTextures.push_back(handle.id);
 }
 
 void VulkanRHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
@@ -124,11 +137,16 @@ rhi::TextureViewHandle VulkanRHI::CreateTextureView(const rhi::TextureViewDesc& 
         return rhi::TextureViewHandle{};
     }
 
-    m_TextureViews.push_back(view);
-
     rhi::TextureViewHandle handle;
-    handle.id = m_TextureViews.size() - 1;
     handle.desc = desc;
+    if (!m_FreeTextureViews.empty()) {
+        handle.id = m_FreeTextureViews.back();
+        m_FreeTextureViews.pop_back();
+        m_TextureViews[handle.id] = view;
+    } else {
+        handle.id = m_TextureViews.size();
+        m_TextureViews.push_back(view);
+    }
     return handle;
 }
 
@@ -140,6 +158,7 @@ void VulkanRHI::DestroyTextureView(rhi::TextureViewHandle handle) {
     if (view != VK_NULL_HANDLE) {
         vkDestroyImageView(m_Device, view, nullptr);
         m_TextureViews[handle.id] = VK_NULL_HANDLE;
+        m_FreeTextureViews.push_back(handle.id);
     }
     return;
 }

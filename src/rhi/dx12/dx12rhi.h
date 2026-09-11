@@ -79,6 +79,7 @@ private:
         bool hasSampler = false;
     };
     std::vector<SamplerViewData> m_SamplerViews;
+    std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Buffers;
     struct BufferViewData {
         D3D12_CPU_DESCRIPTOR_HANDLE cbv{};
@@ -94,6 +95,7 @@ private:
         bool hasUav = false;
     };
     std::vector<BufferViewData> m_BufferViews;
+    std::vector<std::uint64_t> m_FreeBuffers;
     std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> m_Textures;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_RtvHeap;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_DsvHeap;
@@ -113,6 +115,8 @@ private:
         bool hasSrv = false, hasUav = false, hasRtv = false, hasDsv = false;
     };
     std::vector<TextureViewData> m_TextureViews;
+    std::vector<std::uint64_t> m_FreeTextures;
+    std::vector<std::uint64_t> m_FreeTextureViews;
         struct DescriptorHandles
     {
         D3D12_CPU_DESCRIPTOR_HANDLE cpu{};

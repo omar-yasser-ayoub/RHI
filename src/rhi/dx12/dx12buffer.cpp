@@ -142,14 +142,18 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
            viewData.hasUav = true;
        }
 
-        const uint64_t id = m_Buffers.size();
-
-        m_Buffers.push_back(std::move(resource));
-        m_BufferViews.push_back(viewData);
-
         rhi::BufferHandle handle;
-        handle.id = id;
         handle.desc = desc;
+        if (!m_FreeBuffers.empty()) {
+            handle.id = m_FreeBuffers.back();
+            m_FreeBuffers.pop_back();
+            m_Buffers[handle.id] = std::move(resource);
+            m_BufferViews[handle.id] = viewData;
+        } else {
+            handle.id = m_Buffers.size();
+            m_Buffers.push_back(std::move(resource));
+            m_BufferViews.push_back(viewData);
+        }
 
         return handle;
 }
@@ -165,6 +169,7 @@ void DX12RHI::DestroyBuffer(rhi::BufferHandle handle)
     }
     m_Buffers[handle.id].Reset();
     m_BufferViews[handle.id] = {};
+    m_FreeBuffers.push_back(handle.id);
 }
 
 void* DX12RHI::MapBuffer(rhi::BufferHandle handle) {

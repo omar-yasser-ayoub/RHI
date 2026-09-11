@@ -35,16 +35,24 @@ rhi::SamplerHandle WebGPURHI::CreateSampler(const rhi::SamplerDesc& desc) {
         printf("[RHI] Failed to create WebGPU sampler\n");
         return handle;
     }
-    handle.id = static_cast<uint64_t>(m_Samplers.size());
     handle.desc = desc;
-    m_Samplers.push_back(sampler);
+    if (!m_FreeSamplers.empty()) {
+        handle.id = m_FreeSamplers.back();
+        m_FreeSamplers.pop_back();
+        m_Samplers[handle.id] = sampler;
+    } else {
+        handle.id = static_cast<uint64_t>(m_Samplers.size());
+        m_Samplers.push_back(sampler);
+    }
 
     return handle;
 }
 
 void WebGPURHI::DestroySampler(rhi::SamplerHandle handle) {
-    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Samplers.size()) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Samplers.size() ||
+        !m_Samplers[handle.id]) {
         return;
     }
     m_Samplers[handle.id] = {};
+    m_FreeSamplers.push_back(handle.id);
 }

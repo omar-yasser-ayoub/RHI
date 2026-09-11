@@ -57,9 +57,13 @@ private:
     wgpu::Device   m_Device;
     wgpu::Queue    m_Queue;
     std::vector<wgpu::Sampler> m_Samplers;
+    std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;
+    std::vector<std::uint64_t> m_FreeBuffers;
     std::vector<wgpu::Texture> m_Textures;
+    std::vector<std::uint64_t> m_FreeTextures;
     std::vector<wgpu::TextureView> m_TextureViews;
+    std::vector<std::uint64_t> m_FreeTextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<wgpu::BindGroupLayout> m_BindGroupLayouts;
     std::vector<wgpu::BindGroup> m_BindGroups;

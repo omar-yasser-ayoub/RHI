@@ -46,9 +46,15 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
     }
 
     rhi::TextureHandle handle;
-    handle.id = static_cast<uint32_t>(m_Textures.size());
     handle.desc = desc;
-    m_Textures.push_back(resource);
+    if (!m_FreeTextures.empty()) {
+        handle.id = m_FreeTextures.back();
+        m_FreeTextures.pop_back();
+        m_Textures[handle.id] = resource;
+    } else {
+        handle.id = static_cast<uint32_t>(m_Textures.size());
+        m_Textures.push_back(resource);
+    }
     return handle;
 }
 
@@ -149,18 +155,35 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
     }
 
     rhi::TextureViewHandle result;
-    result.id = static_cast<uint32_t>(m_TextureViews.size());
     result.desc = desc;
-    m_TextureViews.push_back(viewData);
+    if (!m_FreeTextureViews.empty()) {
+        result.id = m_FreeTextureViews.back();
+        m_FreeTextureViews.pop_back();
+        m_TextureViews[result.id] = viewData;
+    } else {
+        result.id = static_cast<uint32_t>(m_TextureViews.size());
+        m_TextureViews.push_back(viewData);
+    }
     return result;
 }
 
 void DX12RHI::DestroyTextureView(rhi::TextureViewHandle handle) {
-    return;
+    if (!m_Device || handle.id == 0xFFFFFFFF ||
+        handle.id >= m_TextureViews.size()) {
+        return;
+    }
+    m_TextureViews[handle.id] = {};
+    m_FreeTextureViews.push_back(handle.id);
 }
 
 void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
-    return;
+    if (!m_Device || handle.id == 0xFFFFFFFF ||
+        handle.id >= m_Textures.size() ||
+        !m_Textures[handle.id]) {
+        return;
+    }
+    m_Textures[handle.id].Reset();
+    m_FreeTextures.push_back(handle.id);
 }
 
 void DX12RHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {

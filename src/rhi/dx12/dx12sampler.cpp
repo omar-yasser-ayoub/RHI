@@ -31,15 +31,25 @@ rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
 
     m_Device->CreateSampler(&samplerDesc, handles.cpu);
 
-    const auto id = static_cast<std::uint64_t>(m_SamplerViews.size());
-    m_SamplerViews.push_back(viewData);
-
     rhi::SamplerHandle result;
-    result.id = id;
     result.desc = desc;
+    if (!m_FreeSamplers.empty()) {
+        result.id = m_FreeSamplers.back();
+        m_FreeSamplers.pop_back();
+        m_SamplerViews[result.id] = viewData;
+    } else {
+        result.id = static_cast<std::uint64_t>(m_SamplerViews.size());
+        m_SamplerViews.push_back(viewData);
+    }
     return result;
 }
 
 void DX12RHI::DestroySampler(rhi::SamplerHandle handle) {
-    return;
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id >= m_SamplerViews.size() ||
+        !m_SamplerViews[handle.id].hasSampler) {
+        return;
+    }
+    m_SamplerViews[handle.id] = {};
+    m_FreeSamplers.push_back(handle.id);
 }
