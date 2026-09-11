@@ -1,9 +1,7 @@
 #include "rhi/dx12/dx12rhi.h"
-#include "rhi/irhi.h"
 #include <combaseapi.h>
 #include <d3d12.h>
 #include <iostream>
-
 
 
 bool DX12RHI::Initialize() {

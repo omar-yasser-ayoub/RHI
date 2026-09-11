@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rhi/irhi.h"
+#include "rhi/resources/capabilities.h"
 #include "rhi/resources/texture.h"
 #include "rhi/resources/shader.h"
 #include "rhi/resources/bindgroup.h"
@@ -12,11 +12,16 @@
 #include <vector>
 #include <third_party/dxc/inc/dxcapi.h>
 
-class DX12RHI : public IRHI
+class DX12RHI
 {
 public:
     bool Initialize();
     void Shutdown();
+
+    const rhi::Capabilities& GetCapabilities() const
+    {
+        return m_Capabilities;
+    }
 
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
@@ -38,8 +43,6 @@ public:
 
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
-
-
 
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(rhi::AddressMode mode);
@@ -63,6 +66,7 @@ public:
     static D3D12_DSV_DIMENSION toD3D12DsvDimension(rhi::TextureViewDimension dimension);
 
 private:
+    rhi::Capabilities m_Capabilities;
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_Adapter;
     Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
@@ -120,5 +124,21 @@ private:
         uint32_t& offset,
         uint32_t descriptorSize
     );
+    struct BindGroupLayoutData
+    {
+        rhi::BindGroupLayoutDesc desc;
+    };
+
+    struct BindGroupData
+    {
+        rhi::BindGroupDesc desc;
+        D3D12_GPU_DESCRIPTOR_HANDLE cbvSrvUavTable{};
+        D3D12_GPU_DESCRIPTOR_HANDLE samplerTable{};
+        uint32_t cbvSrvUavCount = 0;
+        uint32_t samplerCount = 0;
+    };
+
     std::vector<rhi::ShaderModule> m_ShaderModules;
+    std::vector<BindGroupLayoutData> m_BindGroupLayouts;
+    std::vector<BindGroupData> m_BindGroups;
 };

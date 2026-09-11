@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rhi/irhi.h"
+#include "rhi/resources/capabilities.h"
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/texture.h"
 #include <rhi/resources/shader.h>
@@ -13,11 +13,16 @@
 #include <wrl/client.h>
 
 
-class VulkanRHI : public IRHI
+class VulkanRHI
 {
 public:
     bool Initialize();
     void Shutdown();
+
+    const rhi::Capabilities& GetCapabilities() const
+    {
+        return m_Capabilities;
+    }
 
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
@@ -57,6 +62,7 @@ public:
     VkImageUsageFlags toVk(rhi::TextureUsage usage);
 
 private:
+    rhi::Capabilities m_Capabilities;
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;

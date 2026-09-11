@@ -1,5 +1,5 @@
 #include <gtest/gtest.h>
-#include "rhi/IRHI.h"
+#include "rhi/rhi.h"
 
 #include <array>
 #include <cstdint>
@@ -14,13 +14,10 @@
 
 
 #if defined(RHI_VULKAN)
-    #include "rhi/vulkan/vkrhi.h"
     using RHIImpl = VulkanRHI;
 #elif defined(RHI_DX12)
-    #include "rhi/dx12/dx12rhi.h"
     using RHIImpl = DX12RHI;
 #elif defined(RHI_WEBGPU)
-    #include "rhi/webgpu/wgpurhi.h"
     using RHIImpl = WebGPURHI;
 #else
     #error "No RHI backend selected"

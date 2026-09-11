@@ -1,17 +1,22 @@
 #pragma once
 
-#include "rhi/irhi.h"
+#include "rhi/resources/capabilities.h"
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/shader.h"
 #include "rhi/resources/texture.h"
 #include "rhi/resources/bindgroup.h"
 #include <webgpu/webgpu_cpp.h>
 
-class WebGPURHI : public IRHI
+class WebGPURHI
 {
 public:
     bool Initialize();
     void Shutdown();
+
+    const rhi::Capabilities& GetCapabilities() const
+    {
+        return m_Capabilities;
+    }
 
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
@@ -46,6 +51,7 @@ public:
 
 
 private:
+    rhi::Capabilities m_Capabilities;
     wgpu::Instance m_Instance;
     wgpu::Adapter  m_Adapter;
     wgpu::Device   m_Device;

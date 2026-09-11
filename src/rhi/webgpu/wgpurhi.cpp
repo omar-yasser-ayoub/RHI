@@ -1,5 +1,4 @@
 #include "rhi/webgpu/wgpurhi.h"
-#include "rhi/irhi.h"
 #include <iostream>
 #include <webgpu/webgpu_cpp.h>
 

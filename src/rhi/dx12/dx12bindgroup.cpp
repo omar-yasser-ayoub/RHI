@@ -1,13 +1,189 @@
 #include "rhi/dx12/dx12rhi.h"
 #include "rhi/resources/bindgroup.h"
 
-rhi::BindGroupLayoutHandle CreateBindGroupLayout(rhi::BindGroupLayoutDesc desc)
+#include <algorithm>
+#include <cstdint>
+
+
+const rhi::BindGroupEntry* FindEntry(
+    const rhi::BindGroupDesc& desc,
+    std::uint32_t binding)
+{
+    for (const auto& entry : desc.entries) {
+        if (entry.binding == binding) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+const rhi::ShaderBinding* FindBinding(
+    const rhi::BindGroupLayoutDesc& desc,
+    std::uint32_t binding)
+{
+    for (const auto& shaderBinding : desc.shaderBindings) {
+        if (shaderBinding.binding == binding) {
+            return &shaderBinding;
+        }
+    }
+    return nullptr;
+}
+
+rhi::BindGroupLayoutHandle DX12RHI::CreateBindGroupLayout(
+    const rhi::BindGroupLayoutDesc& desc)
 {
     rhi::BindGroupLayoutHandle handle;
+    handle.id = 0xFFFFFFFF;
 
+    if (desc.shaderBindings.empty()) {
+        return handle;
+    }
+
+    const std::uint32_t set = desc.shaderBindings.front().set;
+    for (const auto& binding : desc.shaderBindings) {
+        if (binding.set != set || binding.arraySize != 1 ||
+            binding.stage == rhi::ShaderStageFlags::None) {
+            return handle;
+        }
+
+        const auto duplicate = std::count_if(
+            desc.shaderBindings.begin(),
+            desc.shaderBindings.end(),
+            [&binding](const rhi::ShaderBinding& other) {
+                return other.binding == binding.binding &&
+                       other.type == binding.type;
+            });
+        if (duplicate != 1) {
+            return handle;
+        }
+    }
+
+    handle.id = static_cast<std::uint64_t>(m_BindGroupLayouts.size());
+    handle.desc = desc;
+    m_BindGroupLayouts.push_back({desc});
     return handle;
 }
-rhi::BindGroupHandle CreateBindGroup(rhi::BindGroupLayoutHandle layout)
-{
 
+rhi::BindGroupHandle DX12RHI::CreateBindGroup(
+    const rhi::BindGroupDesc& desc)
+{
+    rhi::BindGroupHandle handle;
+    handle.id = 0xFFFFFFFF;
+
+    if (desc.layout.id >= m_BindGroupLayouts.size() || desc.entries.empty()) {
+        return handle;
+    }
+
+    const auto& layout = m_BindGroupLayouts[desc.layout.id].desc;
+    for (const auto& shaderBinding : layout.shaderBindings) {
+        const auto* entry = FindEntry(desc, shaderBinding.binding);
+        if (entry == nullptr) {
+            return handle;
+        }
+
+        const bool hasBuffer = entry->buffer.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasTexture = entry->textureView.id != 0xFFFFFFFF;
+        const bool hasSampler = entry->sampler.id != 0xFFFFFFFF;
+        if (static_cast<unsigned>(hasBuffer) +
+                static_cast<unsigned>(hasTexture) +
+                static_cast<unsigned>(hasSampler) != 1) {
+            return handle;
+        }
+    }
+
+    for (const auto& entry : desc.entries) {
+        if (FindBinding(layout, entry.binding) == nullptr) {
+            return handle;
+        }
+    }
+
+    const auto cbvSrvUavOffset = m_CbvSrvUavHeapOffset;
+    const auto samplerOffset = m_SamplerHeapOffset;
+    BindGroupData bindGroup{};
+    bindGroup.desc = desc;
+
+    for (const auto& shaderBinding : layout.shaderBindings) {
+        const auto* entry = FindEntry(desc, shaderBinding.binding);
+        D3D12_CPU_DESCRIPTOR_HANDLE source{};
+        D3D12_DESCRIPTOR_HEAP_TYPE heapType{};
+
+        switch (shaderBinding.type) {
+        case rhi::BindingType::UniformBuffer:
+            if (entry->buffer.id >= m_BufferViews.size() ||
+                !m_BufferViews[entry->buffer.id].hasCbv) {
+                goto fail;
+            }
+            source = m_BufferViews[entry->buffer.id].cbv;
+            heapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            break;
+        case rhi::BindingType::StorageBuffer:
+            if (entry->buffer.id >= m_BufferViews.size() ||
+                !m_BufferViews[entry->buffer.id].hasUav) {
+                goto fail;
+            }
+            source = m_BufferViews[entry->buffer.id].uav;
+            heapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            break;
+        case rhi::BindingType::SampledTexture:
+            if (entry->textureView.id >= m_TextureViews.size() ||
+                !m_TextureViews[entry->textureView.id].hasSrv) {
+                goto fail;
+            }
+            source = m_TextureViews[entry->textureView.id].srv;
+            heapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            break;
+        case rhi::BindingType::StorageTexture:
+            if (entry->textureView.id >= m_TextureViews.size() ||
+                !m_TextureViews[entry->textureView.id].hasUav) {
+                goto fail;
+            }
+            source = m_TextureViews[entry->textureView.id].uav;
+            heapType = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+            break;
+        case rhi::BindingType::Sampler:
+            if (entry->sampler.id >= m_SamplerViews.size() ||
+                !m_SamplerViews[entry->sampler.id].hasSampler) {
+                goto fail;
+            }
+            source = m_SamplerViews[entry->sampler.id].cpu;
+            heapType = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+            break;
+        }
+
+        if (heapType == D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER) {
+            auto destination = AllocateDescriptor(
+                m_SamplerHeap, m_SamplerHeapOffset, m_SamplerDescriptorSize);
+            if (!destination.valid) {
+                goto fail;
+            }
+            if (bindGroup.samplerCount++ == 0) {
+                bindGroup.samplerTable = destination.gpu;
+            }
+            m_Device->CopyDescriptorsSimple(
+                1, destination.cpu, source, heapType);
+        } else {
+            auto destination = AllocateDescriptor(
+                m_CbvSrvUavHeap,
+                m_CbvSrvUavHeapOffset,
+                m_CbvSrvUavDescriptorSize);
+            if (!destination.valid) {
+                goto fail;
+            }
+            if (bindGroup.cbvSrvUavCount++ == 0) {
+                bindGroup.cbvSrvUavTable = destination.gpu;
+            }
+            m_Device->CopyDescriptorsSimple(
+                1, destination.cpu, source, heapType);
+        }
+    }
+
+    handle.id = static_cast<std::uint64_t>(m_BindGroups.size());
+    handle.desc = desc;
+    m_BindGroups.push_back(bindGroup);
+    return handle;
+
+fail:
+    m_CbvSrvUavHeapOffset = cbvSrvUavOffset;
+    m_SamplerHeapOffset = samplerOffset;
+    return handle;
 }
