@@ -11,6 +11,7 @@
 #include <vector>
 #include <Windows.h>
 #include <third_party/dxc/inc/dxcapi.h>
+#include <third_party/vma/vk_mem_alloc.h>
 #include <wrl/client.h>
 
 struct SpvReflectShaderModule;
@@ -54,7 +55,6 @@ public:
     void UnmapBuffer(rhi::BufferHandle handle);
 
 private:
-    uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
     rhi::ShaderReflection ParseReflection(
         SpvReflectShaderModule* reflection,
         rhi::ShaderStageFlags stage);
@@ -80,19 +80,21 @@ private:
     VkBlendFactor toVk(rhi::BlendFactor factor);
     VkBlendOp toVk(rhi::BlendOp op);
     VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
+    VmaAllocationCreateInfo ToVmaAllocInfo(rhi::MemoryUsage memoryUsage);
 
     rhi::Capabilities m_Capabilities;
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;
+    VmaAllocator m_Allocator = nullptr;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<VkBuffer> m_Buffers;
-    std::vector<VkDeviceMemory> m_BufferMemory;
+    std::vector<VmaAllocation> m_BufferMemory;
     std::vector<std::uint64_t> m_FreeBuffers;
     std::vector<VkImage> m_Textures;
-    std::vector<VkDeviceMemory> m_TextureMemory;
+    std::vector<VmaAllocation> m_TextureMemory;
     std::vector<std::uint64_t> m_FreeTextures;
     std::vector<VkImageView> m_TextureViews;
     std::vector<std::uint64_t> m_FreeTextureViews;

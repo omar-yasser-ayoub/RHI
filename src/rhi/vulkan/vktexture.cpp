@@ -26,32 +26,14 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
 
     VkImage image = VK_NULL_HANDLE;
 
-    VkResult result = vkCreateImage(m_Device, &imageInfo, nullptr, &image);
+    VmaAllocationCreateInfo allocInfo = ToVmaAllocInfo(rhi::MemoryUsage::GpuOnly);
+
+    VmaAllocation allocation = nullptr;
+    VkResult result = vmaCreateImage(
+        m_Allocator, &imageInfo, &allocInfo, &image, &allocation, nullptr);
 
     if (result != VK_SUCCESS) {
         printf("[ERROR] Failed to create texture image\n");
-        return rhi::TextureHandle{};
-    }
-
-    VkMemoryRequirements memReqs;
-    vkGetImageMemoryRequirements(m_Device, image, &memReqs);
-
-    VkMemoryAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.memoryTypeIndex = findMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    allocInfo.allocationSize = memReqs.size;
-
-    VkDeviceMemory memory = VK_NULL_HANDLE;
-    if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &memory) != VK_SUCCESS) {
-        printf("[ERROR] Failed to allocate texture memory\n");
-        vkDestroyImage(m_Device, image, nullptr);
-        return rhi::TextureHandle{};
-    }
-
-    if (vkBindImageMemory(m_Device, image, memory, 0) != VK_SUCCESS) {
-        printf("[ERROR] Failed to bind texture memory\n");
-        vkDestroyImage(m_Device, image, nullptr);
-        vkFreeMemory(m_Device, memory, nullptr);
         return rhi::TextureHandle{};
     }
 
@@ -61,12 +43,12 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
         handle.id = m_FreeTextures.back();
         m_FreeTextures.pop_back();
         m_Textures[handle.id] = image;
-        m_TextureMemory[handle.id] = memory;
+        m_TextureMemory[handle.id] = allocation;
     } else {
         // both vectors grow in lockstep so the new index is the size before push
         handle.id = m_Textures.size();
         m_Textures.push_back(image);
-        m_TextureMemory.push_back(memory);
+        m_TextureMemory.push_back(allocation);
     }
     return handle;
 }
@@ -76,20 +58,14 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
         return;
     }
     if (m_Textures[handle.id] == VK_NULL_HANDLE &&
-        m_TextureMemory[handle.id] == VK_NULL_HANDLE) {
+        m_TextureMemory[handle.id] == nullptr) {
         return;
     }
 
-    VkImage image = m_Textures[handle.id];
-    if (image != VK_NULL_HANDLE) {
-        vkDestroyImage(m_Device, image, nullptr);
+    if (m_Textures[handle.id] != VK_NULL_HANDLE) {
+        vmaDestroyImage(m_Allocator, m_Textures[handle.id], m_TextureMemory[handle.id]);
         m_Textures[handle.id] = VK_NULL_HANDLE;
-    }
-
-    VkDeviceMemory memory = m_TextureMemory[handle.id];
-    if (memory != VK_NULL_HANDLE) {
-        vkFreeMemory(m_Device, memory, nullptr);
-        m_TextureMemory[handle.id] = VK_NULL_HANDLE;
+        m_TextureMemory[handle.id] = nullptr;
     }
     m_FreeTextures.push_back(handle.id);
 }

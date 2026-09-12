@@ -1,3 +1,4 @@
+#define VMA_IMPLEMENTATION
 #include "rhi/vulkan/vkrhi.h"
 #include <vulkan/vulkan.h>
 #include <iostream>
@@ -137,6 +138,21 @@ bool VulkanRHI::Initialize() {
         return false;
     }
 
+    VmaAllocatorCreateInfo allocatorInfo{};
+    allocatorInfo.physicalDevice = m_PhysicalDevice;
+    allocatorInfo.device = m_Device;
+    allocatorInfo.instance = m_Instance;
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    if (vmaCreateAllocator(&allocatorInfo, &m_Allocator) != VK_SUCCESS) {
+        std::cerr << "Failed to create VMA allocator\n";
+        vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
+        return false;
+    }
+
     VkDescriptorPoolCreateInfo poolInfo{};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
@@ -169,12 +185,20 @@ void VulkanRHI::Shutdown() {
 
         for (std::size_t i = 0; i < m_Buffers.size(); ++i) {
             if (m_Buffers[i] != VK_NULL_HANDLE) {
-                vkDestroyBuffer(m_Device, m_Buffers[i], nullptr);
+                vmaDestroyBuffer(m_Allocator, m_Buffers[i], m_BufferMemory[i]);
                 m_Buffers[i] = VK_NULL_HANDLE;
+                m_BufferMemory[i] = nullptr;
             }
-            if (i < m_BufferMemory.size() && m_BufferMemory[i] != VK_NULL_HANDLE) {
-                vkFreeMemory(m_Device, m_BufferMemory[i], nullptr);
-                m_BufferMemory[i] = VK_NULL_HANDLE;
+        }
+        for (std::size_t i = 0; i < m_Textures.size(); ++i) {
+            if (m_Textures[i] != VK_NULL_HANDLE) {
+                vmaDestroyImage(m_Allocator, m_Textures[i], m_TextureMemory[i]);
+                m_Textures[i] = VK_NULL_HANDLE;
+                m_TextureMemory[i] = nullptr;
+            }
+            if (i < m_TextureViews.size() && m_TextureViews[i] != VK_NULL_HANDLE) {
+                vkDestroyImageView(m_Device, m_TextureViews[i], nullptr);
+                m_TextureViews[i] = VK_NULL_HANDLE;
             }
         }
         for (VkSampler sampler : m_Samplers) {
@@ -195,9 +219,14 @@ void VulkanRHI::Shutdown() {
 
         m_Buffers.clear();
         m_BufferMemory.clear();
+        m_Textures.clear();
+        m_TextureMemory.clear();
+        m_TextureViews.clear();
         m_Samplers.clear();
         m_Pipelines.clear();
         m_PipelineLayouts.clear();
+        vmaDestroyAllocator(m_Allocator);
+        m_Allocator = nullptr;
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
     }

@@ -1,20 +1,6 @@
 #include "rhi/vulkan/vkrhi.h"
 
-uint32_t VulkanRHI::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
-{
-    VkPhysicalDeviceMemoryProperties memProps;
-    vkGetPhysicalDeviceMemoryProperties(m_PhysicalDevice, &memProps);
-
-    for (uint32_t i = 0; i < memProps.memoryTypeCount; i++)
-    {
-        if ((typeFilter & (1 << i)) &&
-            (memProps.memoryTypes[i].propertyFlags & properties) == properties)
-            return i;
-    }
-
-    printf("[ERROR] Failed to find suitable memory type\n");
-    return UINT32_MAX;
-}
+#include <cstring>
 
 rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     VkBufferCreateInfo bufferDesc{};
@@ -29,38 +15,12 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     bufferDesc.usage = toVk(desc.usage);
     bufferDesc.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkBuffer buffer;
-    if (vkCreateBuffer(m_Device, &bufferDesc, nullptr, &buffer) != VK_SUCCESS) {
+    VmaAllocationCreateInfo allocInfo = ToVmaAllocInfo(desc.memoryUsage);
+
+    VkBuffer buffer = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
+    if (vmaCreateBuffer(m_Allocator, &bufferDesc, &allocInfo, &buffer, &allocation, nullptr) != VK_SUCCESS) {
         printf("[ERROR] Failed to create buffer\n");
-        return rhi::BufferHandle{};
-    }
-
-    VkMemoryRequirements memReqs;
-    vkGetBufferMemoryRequirements(m_Device, buffer, &memReqs);
-
-    VkMemoryAllocateInfo allocInfo{};
-    allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    allocInfo.allocationSize = memReqs.size;
-    uint32_t memTypeIndex = findMemoryType(memReqs.memoryTypeBits, toVk(desc.memoryUsage));
-    if (memTypeIndex == UINT32_MAX)
-    {
-        printf("[ERROR] Failed to find suitable memory type\n");
-        vkDestroyBuffer(m_Device, buffer, nullptr);
-        return rhi::BufferHandle{};
-    }
-    allocInfo.memoryTypeIndex = memTypeIndex;
-
-    VkDeviceMemory bufferMemory;
-    if (vkAllocateMemory(m_Device, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-        printf("[ERROR] Failed to allocate buffer memory\n");
-        vkDestroyBuffer(m_Device, buffer, nullptr);
-        return rhi::BufferHandle{};
-    }
-
-    if (vkBindBufferMemory(m_Device, buffer, bufferMemory, 0) != VK_SUCCESS) {
-        printf("[ERROR] Failed to bind buffer memory\n");
-        vkFreeMemory(m_Device, bufferMemory, nullptr);
-        vkDestroyBuffer(m_Device, buffer, nullptr);
         return rhi::BufferHandle{};
     }
 
@@ -69,11 +29,11 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
     if (!m_FreeBuffers.empty()) {
         handle.id = m_FreeBuffers.back();
         m_FreeBuffers.pop_back();
-        m_BufferMemory[handle.id] = bufferMemory;
+        m_BufferMemory[handle.id] = allocation;
         m_Buffers[handle.id] = buffer;
     } else {
         handle.id = static_cast<uint64_t>(m_Buffers.size());
-        m_BufferMemory.push_back(bufferMemory);
+        m_BufferMemory.push_back(allocation);
         m_Buffers.push_back(buffer);
     }
 
@@ -81,29 +41,26 @@ rhi::BufferHandle VulkanRHI::CreateBuffer(const rhi::BufferDesc& desc) {
 }
 
 void VulkanRHI::DestroyBuffer(rhi::BufferHandle handle) {
-    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE) {
         return;
     }
 
-    vkDestroyBuffer(m_Device, m_Buffers[handle.id], nullptr);
+    vmaDestroyBuffer(m_Allocator, m_Buffers[handle.id], m_BufferMemory[handle.id]);
     m_Buffers[handle.id] = VK_NULL_HANDLE;
-    if (m_BufferMemory[handle.id] != VK_NULL_HANDLE) {
-        vkFreeMemory(m_Device, m_BufferMemory[handle.id], nullptr);
-        m_BufferMemory[handle.id] = VK_NULL_HANDLE;
-    }
+    m_BufferMemory[handle.id] = nullptr;
     m_FreeBuffers.push_back(handle.id);
 }
 
 void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
     void* ptr = nullptr;
-    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE ||
-        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
+        m_BufferMemory[handle.id] == nullptr) {
         return ptr;
     }
     if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
@@ -111,37 +68,37 @@ void* VulkanRHI::MapBuffer(rhi::BufferHandle handle) {
         return nullptr;
     }
 
-    VkDeviceMemory memory = m_BufferMemory[handle.id];
-
-    if (vkMapMemory(m_Device, memory, 0, VK_WHOLE_SIZE, 0, &ptr) != VK_SUCCESS)
-    {
+    if (vmaMapMemory(m_Allocator, m_BufferMemory[handle.id], &ptr) != VK_SUCCESS) {
         printf("[ERROR] Failed to map buffer\n");
         return nullptr;
+    }
+    if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        vmaInvalidateAllocation(m_Allocator, m_BufferMemory[handle.id], 0, VK_WHOLE_SIZE);
     }
 
     return ptr;
 }
 
 void VulkanRHI::UnmapBuffer(rhi::BufferHandle handle) {
-    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFF ||
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_BufferMemory.size() ||
-        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
+        m_BufferMemory[handle.id] == nullptr) {
         return;
     }
     if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[ERROR] Cannot unmap a GPU-only buffer\n");
         return;
     }
-    vkUnmapMemory(m_Device, m_BufferMemory[handle.id]);
+    vmaUnmapMemory(m_Allocator, m_BufferMemory[handle.id]);
 }
 
 void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
     if (!m_Device || !data || size == 0 ||
-        handle.id == 0xFFFFFFFFFFFFFFFF ||
+        handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_Buffers.size() ||
         handle.id >= m_BufferMemory.size() ||
         m_Buffers[handle.id] == VK_NULL_HANDLE ||
-        m_BufferMemory[handle.id] == VK_NULL_HANDLE) {
+        m_BufferMemory[handle.id] == nullptr) {
         return;
     }
 
@@ -155,11 +112,12 @@ void VulkanRHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
     }
 
     void* mapped = nullptr;
-    if (vkMapMemory(m_Device, m_BufferMemory[handle.id], offset, size, 0, &mapped) != VK_SUCCESS) {
+    if (vmaMapMemory(m_Allocator, m_BufferMemory[handle.id], &mapped) != VK_SUCCESS) {
         printf("[ERROR] Failed to map Vulkan buffer for writing\n");
         return;
     }
 
-    std::memcpy(mapped, data, size);
-    vkUnmapMemory(m_Device, m_BufferMemory[handle.id]);
+    std::memcpy(static_cast<std::byte*>(mapped) + offset, data, size);
+    vmaFlushAllocation(m_Allocator, m_BufferMemory[handle.id], offset, size);
+    vmaUnmapMemory(m_Allocator, m_BufferMemory[handle.id]);
 }

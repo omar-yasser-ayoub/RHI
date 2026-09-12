@@ -364,6 +364,23 @@ VkColorComponentFlags VulkanRHI::toVk(rhi::ColorWriteMask mask) {
     return static_cast<VkColorComponentFlags>(static_cast<std::uint8_t>(mask));
 }
 
+VmaAllocationCreateInfo VulkanRHI::ToVmaAllocInfo(rhi::MemoryUsage memoryUsage)
+{
+    VmaAllocationCreateInfo allocInfo{};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    switch (memoryUsage) {
+    case rhi::MemoryUsage::CpuToGpu:
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        break;
+    case rhi::MemoryUsage::GpuToCpu:
+        allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        break;
+    case rhi::MemoryUsage::GpuOnly:
+        break;
+    }
+    return allocInfo;
+}
+
 rhi::ShaderReflection VulkanRHI::ParseReflection(
     SpvReflectShaderModule* reflection,
     rhi::ShaderStageFlags stage)
