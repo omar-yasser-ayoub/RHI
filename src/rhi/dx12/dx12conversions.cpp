@@ -2,6 +2,7 @@
 #include "rhi/resources/texture.h"
 #include <array>
 #include <d3d12.h>
+#include <d3d12shader.h>
 
 D3D12_FILTER DX12RHI::toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare) {
     uint32_t filter = 0;
@@ -434,6 +435,175 @@ UINT8 DX12RHI::toD3D12(rhi::ColorWriteMask mask)
 {
     // Bit values match 1:1 (R=1, G=2, B=4, A=8).
     return static_cast<UINT8>(static_cast<std::uint8_t>(mask));
+}
+
+D3D12_DESCRIPTOR_RANGE_TYPE DX12RHI::toD3D12(rhi::BindingType type)
+{
+    switch (type) {
+    case rhi::BindingType::UniformBuffer:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+    case rhi::BindingType::StorageBuffer:
+        // Happy case: storage buffers are UAVs (matches dx12bindgroup.cpp).
+        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    case rhi::BindingType::SampledTexture:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+    case rhi::BindingType::StorageTexture:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+    case rhi::BindingType::Sampler:
+        return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+    }
+    return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+}
+
+D3D12_SHADER_VISIBILITY DX12RHI::toD3D12(rhi::ShaderStageFlags stage)
+{
+    const bool vertex = rhi::HasFlag(stage, rhi::ShaderStageFlags::Vertex);
+    const bool fragment = rhi::HasFlag(stage, rhi::ShaderStageFlags::Fragment);
+    const bool compute = rhi::HasFlag(stage, rhi::ShaderStageFlags::Compute);
+
+    if (vertex && !fragment && !compute) {
+        return D3D12_SHADER_VISIBILITY_VERTEX;
+    }
+    if (!vertex && fragment && !compute) {
+        return D3D12_SHADER_VISIBILITY_PIXEL;
+    }
+    return D3D12_SHADER_VISIBILITY_ALL;
+}
+
+D3D12_SHADER_VISIBILITY DX12RHI::toD3D12(const rhi::BindGroupLayoutDesc& desc)
+{
+    if (desc.shaderBindings.empty()) {
+        return D3D12_SHADER_VISIBILITY_ALL;
+    }
+    D3D12_SHADER_VISIBILITY visibility = toD3D12(desc.shaderBindings.front().stage);
+    for (const auto& binding : desc.shaderBindings) {
+        if (toD3D12(binding.stage) != visibility) {
+            return D3D12_SHADER_VISIBILITY_ALL;
+        }
+    }
+    return visibility;
+}
+
+const rhi::BindGroupEntry* DX12RHI::FindEntry(
+    const rhi::BindGroupDesc& desc,
+    std::uint32_t binding)
+{
+    for (const auto& entry : desc.entries) {
+        if (entry.binding == binding) {
+            return &entry;
+        }
+    }
+    return nullptr;
+}
+
+const rhi::ShaderBinding* DX12RHI::FindBinding(
+    const rhi::BindGroupLayoutDesc& desc,
+    std::uint32_t binding)
+{
+    for (const auto& shaderBinding : desc.shaderBindings) {
+        if (shaderBinding.binding == binding) {
+            return &shaderBinding;
+        }
+    }
+    return nullptr;
+}
+
+rhi::ShaderReflection DX12RHI::ParseReflection(
+    ID3D12ShaderReflection* reflection,
+    rhi::ShaderStageFlags stage)
+{
+    rhi::ShaderReflection shaderReflection;
+
+    D3D12_SHADER_DESC desc{};
+    reflection->GetDesc(&desc);
+
+    for (uint32_t i = 0; i < desc.BoundResources; ++i) {
+        D3D12_SHADER_INPUT_BIND_DESC binding{};
+        reflection->GetResourceBindingDesc(i, &binding);
+
+        rhi::ShaderBinding bindingResult;
+        bindingResult.set = binding.Space;
+        bindingResult.binding = binding.BindPoint;
+        bindingResult.stage = stage;
+        bindingResult.arraySize = binding.BindCount;
+
+        switch (binding.Type) {
+        case D3D_SIT_CBUFFER:
+            bindingResult.type = rhi::BindingType::UniformBuffer;
+            break;
+
+        case D3D_SIT_STRUCTURED:
+            bindingResult.type = rhi::BindingType::StorageBuffer;
+            break;
+
+        case D3D_SIT_TEXTURE:
+            bindingResult.type = rhi::BindingType::SampledTexture;
+            break;
+
+        case D3D_SIT_UAV_RWTYPED:
+            bindingResult.type = rhi::BindingType::StorageTexture;
+            break;
+
+        case D3D_SIT_SAMPLER:
+            bindingResult.type = rhi::BindingType::Sampler;
+            break;
+        default:
+            continue;
+        }
+        shaderReflection.bindings.push_back(bindingResult);
+    }
+
+    if (stage == rhi::ShaderStageFlags::Vertex) {
+        for (uint32_t i = 0; i < desc.InputParameters; ++i) {
+            D3D12_SIGNATURE_PARAMETER_DESC input{};
+            reflection->GetInputParameterDesc(i, &input);
+
+            rhi::VertexInputAttr attr{};
+            attr.location = input.Register;
+
+            switch (input.ComponentType)
+            {
+            case D3D_REGISTER_COMPONENT_FLOAT32:
+                switch (input.Mask)
+                {
+                case 1:  attr.format = rhi::VertexFormat::Float32;   break;
+                case 3:  attr.format = rhi::VertexFormat::Float32x2; break;
+                case 7:  attr.format = rhi::VertexFormat::Float32x3; break;
+                case 15: attr.format = rhi::VertexFormat::Float32x4; break;
+                default: continue;
+                }
+                break;
+
+            case D3D_REGISTER_COMPONENT_SINT32:
+                switch (input.Mask)
+                {
+                case 1:  attr.format = rhi::VertexFormat::Int32;   break;
+                case 3:  attr.format = rhi::VertexFormat::Int32x2; break;
+                case 7:  attr.format = rhi::VertexFormat::Int32x3; break;
+                case 15: attr.format = rhi::VertexFormat::Int32x4; break;
+                default: continue;
+                }
+                break;
+
+            case D3D_REGISTER_COMPONENT_UINT32:
+                switch (input.Mask)
+                {
+                case 1:  attr.format = rhi::VertexFormat::UInt32;   break;
+                case 3:  attr.format = rhi::VertexFormat::UInt32x2; break;
+                case 7:  attr.format = rhi::VertexFormat::UInt32x3; break;
+                case 15: attr.format = rhi::VertexFormat::UInt32x4; break;
+                default: continue;
+                }
+                break;
+
+            default:
+                continue;
+            }
+
+            shaderReflection.vertexInputs.push_back(attr);
+        }
+    }
+    return shaderReflection;
 }
 
 DX12RHI::DescriptorHandles DX12RHI::AllocateDescriptor(

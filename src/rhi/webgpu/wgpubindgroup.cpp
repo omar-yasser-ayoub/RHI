@@ -7,7 +7,7 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
     // to create the bind group layout, then return the handle
 
     rhi::BindGroupLayoutHandle handle;
-    handle.id = 0xFFFFFFFF;
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
 
     if (desc.shaderBindings.empty())
         return handle;
@@ -98,7 +98,7 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
 rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
 {
     rhi::BindGroupHandle handle;
-    handle.id = 0xFFFFFFFF;
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
 
     if (desc.layout.id >= m_BindGroupLayouts.size())
         return handle;
@@ -111,19 +111,19 @@ rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
         wgpu::BindGroupEntry entry;
         entry.binding = binding.binding;
 
-        if (binding.buffer.id != 0xFFFFFFFF)
+        if (binding.buffer.id != 0xFFFFFFFFFFFFFFFFull)
         {
             if (binding.buffer.id >= m_Buffers.size())
                 return handle;
             entry.buffer = m_Buffers[binding.buffer.id];
         }
-        else if (binding.textureView.id != 0xFFFFFFFF)
+        else if (binding.textureView.id != 0xFFFFFFFFFFFFFFFFull)
         {
             if (binding.textureView.id >= m_TextureViews.size())
                 return handle;
             entry.textureView = m_TextureViews[binding.textureView.id];
         }
-        else if (binding.sampler.id != 0xFFFFFFFF)
+        else if (binding.sampler.id != 0xFFFFFFFFFFFFFFFFull)
         {
             if (binding.sampler.id >= m_Samplers.size())
                 return handle;

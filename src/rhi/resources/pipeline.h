@@ -14,7 +14,7 @@ struct PipelineLayoutDesc {
 };
 
 struct PipelineLayoutHandle {
-    std::uint64_t id = 0xFFFFFFFF;
+    std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
     PipelineLayoutDesc desc{};
 };
 
@@ -138,7 +138,7 @@ struct GraphicsPipelineDesc {
 };
 
 struct GraphicsPipelineHandle {
-    std::uint64_t id = 0xFFFFFFFF;
+    std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
     GraphicsPipelineDesc desc{};
 };
 

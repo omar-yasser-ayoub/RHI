@@ -168,7 +168,7 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
 }
 
 void DX12RHI::DestroyTextureView(rhi::TextureViewHandle handle) {
-    if (!m_Device || handle.id == 0xFFFFFFFF ||
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_TextureViews.size()) {
         return;
     }
@@ -177,7 +177,7 @@ void DX12RHI::DestroyTextureView(rhi::TextureViewHandle handle) {
 }
 
 void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
-    if (!m_Device || handle.id == 0xFFFFFFFF ||
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_Textures.size() ||
         !m_Textures[handle.id]) {
         return;

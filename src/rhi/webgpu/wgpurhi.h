@@ -8,6 +8,8 @@
 #include "rhi/resources/pipeline.h"
 #include <webgpu/webgpu_cpp.h>
 
+struct SpvReflectShaderModule;
+
 class WebGPURHI
 {
 public:
@@ -41,6 +43,7 @@ public:
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
+private:
     static wgpu::FilterMode toWebGPU(rhi::Filter f);
     static wgpu::MipmapFilterMode toWebGPU(rhi::MipmapFilter f);
     static wgpu::AddressMode toWebGPU(rhi::AddressMode f);
@@ -58,9 +61,12 @@ public:
     static wgpu::BlendFactor toWebGPU(rhi::BlendFactor factor);
     static wgpu::BlendOperation toWebGPU(rhi::BlendOp op);
     static wgpu::ColorWriteMask toWebGPU(rhi::ColorWriteMask mask);
+    static rhi::ShaderReflection ParseReflection(
+        SpvReflectShaderModule* reflection,
+        rhi::ShaderStageFlags stage);
+    wgpu::ShaderModule MakeShaderModule(const rhi::ShaderModule& module);
 
 
-private:
     rhi::Capabilities m_Capabilities;
     wgpu::Instance m_Instance;
     wgpu::Adapter  m_Adapter;

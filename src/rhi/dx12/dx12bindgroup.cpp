@@ -4,36 +4,11 @@
 #include <algorithm>
 #include <cstdint>
 
-
-const rhi::BindGroupEntry* FindEntry(
-    const rhi::BindGroupDesc& desc,
-    std::uint32_t binding)
-{
-    for (const auto& entry : desc.entries) {
-        if (entry.binding == binding) {
-            return &entry;
-        }
-    }
-    return nullptr;
-}
-
-const rhi::ShaderBinding* FindBinding(
-    const rhi::BindGroupLayoutDesc& desc,
-    std::uint32_t binding)
-{
-    for (const auto& shaderBinding : desc.shaderBindings) {
-        if (shaderBinding.binding == binding) {
-            return &shaderBinding;
-        }
-    }
-    return nullptr;
-}
-
 rhi::BindGroupLayoutHandle DX12RHI::CreateBindGroupLayout(
     const rhi::BindGroupLayoutDesc& desc)
 {
     rhi::BindGroupLayoutHandle handle;
-    handle.id = 0xFFFFFFFF;
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
 
     if (desc.shaderBindings.empty()) {
         return handle;
@@ -67,7 +42,7 @@ rhi::BindGroupHandle DX12RHI::CreateBindGroup(
     const rhi::BindGroupDesc& desc)
 {
     rhi::BindGroupHandle handle;
-    handle.id = 0xFFFFFFFF;
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
 
     if (desc.layout.id >= m_BindGroupLayouts.size() || desc.entries.empty()) {
         return handle;
@@ -81,8 +56,8 @@ rhi::BindGroupHandle DX12RHI::CreateBindGroup(
         }
 
         const bool hasBuffer = entry->buffer.id != 0xFFFFFFFFFFFFFFFFull;
-        const bool hasTexture = entry->textureView.id != 0xFFFFFFFF;
-        const bool hasSampler = entry->sampler.id != 0xFFFFFFFF;
+        const bool hasTexture = entry->textureView.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasSampler = entry->sampler.id != 0xFFFFFFFFFFFFFFFFull;
         if (static_cast<unsigned>(hasBuffer) +
                 static_cast<unsigned>(hasTexture) +
                 static_cast<unsigned>(hasSampler) != 1) {

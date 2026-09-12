@@ -13,6 +13,8 @@
 #include <third_party/dxc/inc/dxcapi.h>
 #include <wrl/client.h>
 
+struct SpvReflectShaderModule;
+
 
 class VulkanRHI
 {
@@ -47,8 +49,11 @@ public:
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
+private:
     uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
-
+    rhi::ShaderReflection ParseReflection(
+        SpvReflectShaderModule* reflection,
+        rhi::ShaderStageFlags stage);
 
     VkFilter toVk(rhi::Filter mode);
     VkSamplerMipmapMode toVk(rhi::MipmapFilter mode);
@@ -72,7 +77,6 @@ public:
     VkBlendOp toVk(rhi::BlendOp op);
     VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
 
-private:
     rhi::Capabilities m_Capabilities;
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;

@@ -1,4 +1,7 @@
 #include "rhi/vulkan/vkrhi.h"
+#include "third_party/spirv-reflect/spirv_reflect.h"
+
+#include <vector>
 
 VkFilter VulkanRHI::toVk(rhi::Filter mode){
     switch (mode) {
@@ -359,4 +362,144 @@ VkBlendOp VulkanRHI::toVk(rhi::BlendOp op) {
 VkColorComponentFlags VulkanRHI::toVk(rhi::ColorWriteMask mask) {
     // Bit values match 1:1 (R=1, G=2, B=4, A=8).
     return static_cast<VkColorComponentFlags>(static_cast<std::uint8_t>(mask));
+}
+
+rhi::ShaderReflection VulkanRHI::ParseReflection(
+    SpvReflectShaderModule* reflection,
+    rhi::ShaderStageFlags stage)
+{
+    rhi::ShaderReflection result;
+
+    uint32_t bindingCount = 0;
+
+    spvReflectEnumerateDescriptorBindings(reflection, &bindingCount, nullptr);
+
+    std::vector<SpvReflectDescriptorBinding*> bindings(bindingCount);
+    spvReflectEnumerateDescriptorBindings(reflection, &bindingCount, bindings.data());
+
+    for (SpvReflectDescriptorBinding* binding : bindings) {
+        rhi::ShaderBinding bindingResult{};
+
+        bindingResult.set = binding->set;
+        bindingResult.binding = binding->binding;
+        bindingResult.arraySize = binding->count;
+        bindingResult.stage = stage;
+
+        switch (binding->descriptor_type)
+        {
+            case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
+                bindingResult.type = rhi::BindingType::UniformBuffer;
+                break;
+
+            case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
+                bindingResult.type = rhi::BindingType::StorageBuffer;
+                break;
+
+            case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+            case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                bindingResult.type = rhi::BindingType::SampledTexture;
+                break;
+
+            case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+                bindingResult.type = rhi::BindingType::StorageTexture;
+                break;
+
+            case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
+                bindingResult.type = rhi::BindingType::Sampler;
+                break;
+
+            default:
+                continue;
+        }
+
+        result.bindings.push_back(bindingResult);
+    }
+
+    // Vertex inputs
+    if (stage == rhi::ShaderStageFlags::Vertex)
+    {
+        uint32_t inputCount = 0;
+
+        spvReflectEnumerateInputVariables(
+            reflection,
+            &inputCount,
+            nullptr
+        );
+
+        std::vector<SpvReflectInterfaceVariable*> inputs(inputCount);
+
+        spvReflectEnumerateInputVariables(
+            reflection,
+            &inputCount,
+            inputs.data()
+        );
+
+        for (SpvReflectInterfaceVariable* input : inputs)
+        {
+            // Built-in inputs such as gl_VertexIndex aren't vertex attributes.
+            if (input->decoration_flags & SPV_REFLECT_DECORATION_BUILT_IN)
+                continue;
+
+            rhi::VertexInputAttr attr{};
+            attr.location = input->location;
+
+            switch (input->format)
+            {
+            case SPV_REFLECT_FORMAT_R32_SFLOAT:
+                attr.format = rhi::VertexFormat::Float32;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32_SFLOAT:
+                attr.format = rhi::VertexFormat::Float32x2;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT:
+                attr.format = rhi::VertexFormat::Float32x3;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT:
+                attr.format = rhi::VertexFormat::Float32x4;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32_SINT:
+                attr.format = rhi::VertexFormat::Int32;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32_SINT:
+                attr.format = rhi::VertexFormat::Int32x2;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32_SINT:
+                attr.format = rhi::VertexFormat::Int32x3;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32A32_SINT:
+                attr.format = rhi::VertexFormat::Int32x4;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32_UINT:
+                attr.format = rhi::VertexFormat::UInt32;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32_UINT:
+                attr.format = rhi::VertexFormat::UInt32x2;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32_UINT:
+                attr.format = rhi::VertexFormat::UInt32x3;
+                break;
+
+            case SPV_REFLECT_FORMAT_R32G32B32A32_UINT:
+                attr.format = rhi::VertexFormat::UInt32x4;
+                break;
+
+            default:
+                continue;
+            }
+
+            result.vertexInputs.push_back(attr);
+        }
+    }
+
+    return result;
 }

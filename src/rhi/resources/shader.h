@@ -99,6 +99,6 @@ namespace rhi {
 
     struct ShaderModuleHandle
     {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
     };
 }

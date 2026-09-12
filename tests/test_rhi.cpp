@@ -641,7 +641,7 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
 }
 #endif
 
-#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)
 // ============================================================================
 // Bind Group Tests
 // ============================================================================
@@ -666,7 +666,7 @@ TEST_F(RHITest, CreateBindGroupLayout)
     const auto desc = MakeUniformBindGroupLayoutDesc();
     const auto layout = rhi.CreateBindGroupLayout(desc);
 
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
     ASSERT_EQ(layout.desc.shaderBindings.size(), 1u);
     EXPECT_EQ(layout.desc.shaderBindings[0].set, 0u);
     EXPECT_EQ(layout.desc.shaderBindings[0].binding, 0u);
@@ -677,7 +677,7 @@ TEST_F(RHITest, RejectsEmptyBindGroupLayout)
 {
     rhi::BindGroupLayoutDesc desc;
     const auto layout = rhi.CreateBindGroupLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsBindGroupLayoutWithMixedSets)
@@ -691,13 +691,13 @@ TEST_F(RHITest, RejectsBindGroupLayoutWithMixedSets)
         rhi::ShaderStageFlags::Vertex});
 
     const auto layout = rhi.CreateBindGroupLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, CreateBindGroupWithBuffer)
 {
     const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     const auto buffer = rhi.CreateBuffer(MakeBufferDesc(
         256,
@@ -710,7 +710,7 @@ TEST_F(RHITest, CreateBindGroupWithBuffer)
     desc.entries.push_back({ 0, buffer, {}, {} });
 
     const auto bindGroup = rhi.CreateBindGroup(desc);
-    ASSERT_NE(bindGroup.id, 0xFFFFFFFFu);
+    ASSERT_NE(bindGroup.id, 0xFFFFFFFFFFFFFFFFull);
     ASSERT_EQ(bindGroup.desc.layout.id, layout.id);
     ASSERT_EQ(bindGroup.desc.entries.size(), 1u);
     EXPECT_EQ(bindGroup.desc.entries[0].binding, 0u);
@@ -721,22 +721,22 @@ TEST_F(RHITest, CreateBindGroupWithBuffer)
 TEST_F(RHITest, RejectsEmptyBindGroup)
 {
     const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::BindGroupDesc desc;
     desc.layout = layout;
     const auto bindGroup = rhi.CreateBindGroup(desc);
-    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFu);
+    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsBindGroupWithInvalidLayout)
 {
     rhi::BindGroupDesc desc;
-    desc.layout.id = 0xFFFFFFFFu;
+    desc.layout.id = 0xFFFFFFFFFFFFFFFFull;
     desc.entries.push_back({ 0, {}, {}, {} });
 
     const auto bindGroup = rhi.CreateBindGroup(desc);
-    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFu);
+    EXPECT_EQ(bindGroup.id, 0xFFFFFFFFFFFFFFFFull);
 }
 #endif
 
@@ -746,9 +746,9 @@ TEST_F(RHITest, RejectsBindGroupWithInvalidLayout)
 
 namespace
 {
-constexpr std::uint64_t InvalidTextureHandle = 0xFFFFFFFF;
+constexpr std::uint64_t InvalidTextureHandle = 0xFFFFFFFFFFFFFFFFull;
 
-#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)
 #define RHI_HAS_TEXTURE_VIEWS 1
 #endif
 
@@ -1089,13 +1089,13 @@ TEST_F(RHITest, CreatePipelineLayout)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
-    ASSERT_NE(bindLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc desc;
     desc.layouts.push_back(bindLayout);
     const auto layout = rhi.CreatePipelineLayout(desc);
 
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
     ASSERT_EQ(layout.desc.layouts.size(), 1u);
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
@@ -1104,17 +1104,17 @@ TEST_F(RHITest, RejectsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
 {
     rhi::PipelineLayoutDesc desc;
     rhi::BindGroupLayoutHandle bad;
-    bad.id = 0xFFFFFFFFu;
+    bad.id = 0xFFFFFFFFFFFFFFFFull;
     desc.layouts.push_back(bad);
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, CreateTriangleGraphicsPipeline)
@@ -1136,16 +1136,16 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     const auto pipeline = rhi.CreateGraphicsPipeline(
         MakeTrianglePipelineDesc(layout, vs, fs));
-    EXPECT_NE(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
@@ -1167,17 +1167,17 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.fillMode = rhi::FillMode::Wireframe;
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
@@ -1199,17 +1199,17 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.colorTargets.clear();
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 #endif
 
@@ -1253,13 +1253,13 @@ TEST_F(RHITest, CreatePipelineLayout)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
-    ASSERT_NE(bindLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc desc;
     desc.layouts.push_back(bindLayout);
     const auto layout = rhi.CreatePipelineLayout(desc);
 
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
     ASSERT_EQ(layout.desc.layouts.size(), 1u);
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
@@ -1268,17 +1268,17 @@ TEST_F(RHITest, RejectsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
 {
     rhi::PipelineLayoutDesc desc;
     rhi::BindGroupLayoutHandle bad;
-    bad.id = 0xFFFFFFFFu;
+    bad.id = 0xFFFFFFFFFFFFFFFFull;
     desc.layouts.push_back(bad);
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, CreateTriangleGraphicsPipeline)
@@ -1300,16 +1300,16 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     const auto pipeline = rhi.CreateGraphicsPipeline(
         MakeTrianglePipelineDesc(layout, vs, fs));
-    EXPECT_NE(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
@@ -1331,17 +1331,17 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.fillMode = rhi::FillMode::Wireframe;
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
@@ -1363,17 +1363,17 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.colorTargets.clear();
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 #endif
 
@@ -1417,13 +1417,13 @@ TEST_F(RHITest, CreatePipelineLayout)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
-    ASSERT_NE(bindLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc desc;
     desc.layouts.push_back(bindLayout);
     const auto layout = rhi.CreatePipelineLayout(desc);
 
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
     ASSERT_EQ(layout.desc.layouts.size(), 1u);
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
@@ -1432,17 +1432,17 @@ TEST_F(RHITest, RejectsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
 {
     rhi::PipelineLayoutDesc desc;
     rhi::BindGroupLayoutHandle bad;
-    bad.id = 0xFFFFFFFFu;
+    bad.id = 0xFFFFFFFFFFFFFFFFull;
     desc.layouts.push_back(bad);
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFu);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, CreateTriangleGraphicsPipeline)
@@ -1464,16 +1464,16 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     const auto pipeline = rhi.CreateGraphicsPipeline(
         MakeTrianglePipelineDesc(layout, vs, fs));
-    EXPECT_NE(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, AcceptsGraphicsPipelineWithWireframe)
@@ -1495,17 +1495,17 @@ TEST_F(RHITest, AcceptsGraphicsPipelineWithWireframe)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.fillMode = rhi::FillMode::Wireframe;
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_NE(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
 TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
@@ -1527,16 +1527,16 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
         1,
         rhi::ShaderStageFlags::Vertex});
     const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
-    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFu);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
 
     rhi::PipelineLayoutDesc layoutDesc;
     layoutDesc.layouts.push_back(uniformLayout);
     const auto layout = rhi.CreatePipelineLayout(layoutDesc);
-    ASSERT_NE(layout.id, 0xFFFFFFFFu);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
 
     auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
     desc.colorTargets.clear();
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
-    EXPECT_EQ(pipeline.id, 0xFFFFFFFFu);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
 #endif

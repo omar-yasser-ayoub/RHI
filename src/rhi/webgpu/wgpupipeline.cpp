@@ -1,27 +1,5 @@
 #include "rhi/webgpu/wgpurhi.h"
 
-#include <string>
-
-
-wgpu::ShaderModule MakeShaderModule(
-    const wgpu::Device& device,
-    const rhi::ShaderModule& module)
-{
-    if (module.bytecode.empty()) {
-        return nullptr;
-    }
-
-    wgpu::ShaderSourceWGSL wgsl{};
-    wgsl.code = wgpu::StringView(
-        reinterpret_cast<const char*>(module.bytecode.data()),
-        module.bytecode.size());
-
-    wgpu::ShaderModuleDescriptor modDesc{};
-    modDesc.nextInChain = &wgsl;
-    return device.CreateShaderModule(&modDesc);
-}
-
-
 rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
     const rhi::GraphicsPipelineDesc& desc)
 {
@@ -55,8 +33,8 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
         return handle;
     }
 
-    wgpu::ShaderModule vs = MakeShaderModule(m_Device, vsModule);
-    wgpu::ShaderModule fs = MakeShaderModule(m_Device, fsModule);
+    wgpu::ShaderModule vs = MakeShaderModule(vsModule);
+    wgpu::ShaderModule fs = MakeShaderModule(fsModule);
     if (!vs || !fs) {
         return handle;
     }

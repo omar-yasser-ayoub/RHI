@@ -13,6 +13,8 @@
 #include <vector>
 #include <third_party/dxc/inc/dxcapi.h>
 
+struct ID3D12ShaderReflection;
+
 class DX12RHI
 {
 public:
@@ -47,6 +49,7 @@ public:
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
+private:
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
     static D3D12_TEXTURE_ADDRESS_MODE toD3D12(rhi::AddressMode mode);
     static D3D12_COMPARISON_FUNC toD3D12(rhi::CompareOp mode);
@@ -74,8 +77,19 @@ public:
     static D3D12_BLEND toD3D12(rhi::BlendFactor factor);
     static D3D12_BLEND_OP toD3D12(rhi::BlendOp op);
     static UINT8 toD3D12(rhi::ColorWriteMask mask);
+    static D3D12_DESCRIPTOR_RANGE_TYPE toD3D12(rhi::BindingType type);
+    static D3D12_SHADER_VISIBILITY toD3D12(rhi::ShaderStageFlags stage);
+    static D3D12_SHADER_VISIBILITY toD3D12(const rhi::BindGroupLayoutDesc& desc);
+    static const rhi::BindGroupEntry* FindEntry(
+        const rhi::BindGroupDesc& desc,
+        std::uint32_t binding);
+    static const rhi::ShaderBinding* FindBinding(
+        const rhi::BindGroupLayoutDesc& desc,
+        std::uint32_t binding);
+    static rhi::ShaderReflection ParseReflection(
+        ID3D12ShaderReflection* reflection,
+        rhi::ShaderStageFlags stage);
 
-private:
     rhi::Capabilities m_Capabilities;
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_Adapter;

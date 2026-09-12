@@ -1,51 +1,5 @@
 #include "rhi/dx12/dx12rhi.h"
 
-D3D12_DESCRIPTOR_RANGE_TYPE ToRangeType(rhi::BindingType type)
-{
-    switch (type) {
-    case rhi::BindingType::UniformBuffer:
-        return D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-    case rhi::BindingType::StorageBuffer:
-        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-    case rhi::BindingType::SampledTexture:
-        return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    case rhi::BindingType::StorageTexture:
-        return D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
-    case rhi::BindingType::Sampler:
-        return D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
-    }
-    return D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-}
-
-D3D12_SHADER_VISIBILITY ToVisibility(rhi::ShaderStageFlags stage)
-{
-    const bool vertex = rhi::HasFlag(stage, rhi::ShaderStageFlags::Vertex);
-    const bool fragment = rhi::HasFlag(stage, rhi::ShaderStageFlags::Fragment);
-    const bool compute = rhi::HasFlag(stage, rhi::ShaderStageFlags::Compute);
-
-    if (vertex && !fragment && !compute) {
-        return D3D12_SHADER_VISIBILITY_VERTEX;
-    }
-    if (!vertex && fragment && !compute) {
-        return D3D12_SHADER_VISIBILITY_PIXEL;
-    }
-    return D3D12_SHADER_VISIBILITY_ALL;
-}
-
-D3D12_SHADER_VISIBILITY LayoutVisibility(const rhi::BindGroupLayoutDesc& desc)
-{
-    if (desc.shaderBindings.empty()) {
-        return D3D12_SHADER_VISIBILITY_ALL;
-    }
-    D3D12_SHADER_VISIBILITY visibility = ToVisibility(desc.shaderBindings.front().stage);
-    for (const auto& binding : desc.shaderBindings) {
-        if (ToVisibility(binding.stage) != visibility) {
-            return D3D12_SHADER_VISIBILITY_ALL;
-        }
-    }
-    return visibility;
-}
-
 rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
     const rhi::PipelineLayoutDesc& desc)
 {
@@ -67,11 +21,11 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
 
     for (std::size_t i = 0; i < desc.layouts.size(); ++i) {
         const auto& layoutDesc = m_BindGroupLayouts[desc.layouts[i].id].desc;
-        const auto visibility = LayoutVisibility(layoutDesc);
+        const auto visibility = toD3D12(layoutDesc);
 
         for (const auto& binding : layoutDesc.shaderBindings) {
             D3D12_DESCRIPTOR_RANGE1 range{};
-            range.RangeType = ToRangeType(binding.type);
+            range.RangeType = toD3D12(binding.type);
             range.NumDescriptors = binding.arraySize == 0 ? 1 : binding.arraySize;
             range.BaseShaderRegister = binding.binding;
             range.RegisterSpace = binding.set;

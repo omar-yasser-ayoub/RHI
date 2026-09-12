@@ -213,13 +213,13 @@ namespace rhi
 
     struct TextureHandle
     {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
         TextureDesc desc{};
     };
 
     struct TextureViewHandle
     {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
         TextureViewDesc desc{};
     };
 }

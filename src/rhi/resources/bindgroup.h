@@ -19,7 +19,7 @@ namespace rhi {
 
     struct BindGroupLayoutHandle
     {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
         BindGroupLayoutDesc desc;
     };
 
@@ -31,7 +31,7 @@ namespace rhi {
 
     struct BindGroupHandle
     {
-        std::uint64_t id = 0xFFFFFFFF;
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
         BindGroupDesc desc;
     };
 
