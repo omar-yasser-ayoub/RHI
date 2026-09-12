@@ -82,8 +82,3 @@ void WebGPURHI::DestroyTextureView(rhi::TextureViewHandle handle) {
     m_FreeTextureViews.push_back(handle.id);
     return;
 }
-
-void WebGPURHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-    // TODO: Implement texture write
-    return;
-}

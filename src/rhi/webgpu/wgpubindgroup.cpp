@@ -29,6 +29,11 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
         else if (currentSet != shaderBinding.set)
             return handle;
 
+        for (const auto& other : desc.shaderBindings) {
+            if (&other != &shaderBinding && other.binding == shaderBinding.binding)
+                return handle;
+        }
+
         wgpu::BindGroupLayoutEntry entry{};
 
         wgpu::ShaderStage visibility = wgpu::ShaderStage::None;

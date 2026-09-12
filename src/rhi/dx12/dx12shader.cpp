@@ -130,6 +130,7 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
             module.reflection = ParseReflection(shaderReflection.Get(), source.stage);
         }
     }
+    module.entryPoint = source.entryPoint.empty() ? "main" : source.entryPoint;
 
     rhi::ShaderModuleHandle handle;
     if (!m_FreeShaderModules.empty()) {

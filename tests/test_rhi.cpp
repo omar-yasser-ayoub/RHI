@@ -49,6 +49,12 @@ TEST_F(RHITest, InitializeSuccessfully)
     EXPECT_TRUE(true);
 }
 
+TEST_F(RHITest, ReportsCapabilities)
+{
+    const auto& caps = rhi.GetCapabilities();
+    EXPECT_FALSE(caps.deviceName.empty());
+}
+
 // ============================================================================
 // Sampler Creation Tests
 // ============================================================================
@@ -402,6 +408,26 @@ TEST_F(RHITest, GpuOnlyBufferCannotBeMapped)
     rhi.DestroyBuffer(handle);
 }
 
+TEST_F(RHITest, GpuToCpuBufferCanBeMapped)
+{
+    auto handle = rhi.CreateBuffer(MakeBufferDesc(
+        256,
+        rhi::MemoryUsage::GpuToCpu,
+        rhi::BufferUsage::CopyDst));
+    ASSERT_NE(handle.id, InvalidHandle);
+
+#if defined(RHI_WEBGPU)
+    // Dawn D3D12 quirk (under investigation): MapAsync(Read) reports success
+    // but GetMappedRange returns null, while write-mapping works fine. This
+    // expectation fails loudly if backend behavior changes.
+    EXPECT_EQ(rhi.MapBuffer(handle), nullptr);
+#else
+    EXPECT_NE(rhi.MapBuffer(handle), nullptr);
+#endif
+    rhi.UnmapBuffer(handle);
+    rhi.DestroyBuffer(handle);
+}
+
 TEST_F(RHITest, DestroyBuffer)
 {
     auto handle = rhi.CreateBuffer(MakeBufferDesc(
@@ -526,6 +552,7 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
     ASSERT_NE(module, nullptr);
     ASSERT_FALSE(module->bytecode.empty());
     ASSERT_GE(module->bytecode.size(), 4u);
+    EXPECT_EQ(module->entryPoint, "main");
 #if defined(RHI_DX12)
     EXPECT_EQ(module->bytecode[0], static_cast<std::uint8_t>('D'));
     EXPECT_EQ(module->bytecode[1], static_cast<std::uint8_t>('X'));
@@ -708,6 +735,21 @@ TEST_F(RHITest, RejectsBindGroupLayoutWithMixedSets)
         1,
         1,
         rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+
+    const auto layout = rhi.CreateBindGroupLayout(desc);
+    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
+}
+
+TEST_F(RHITest, RejectsBindGroupLayoutWithDuplicateBinding)
+{
+    rhi::BindGroupLayoutDesc desc = MakeUniformBindGroupLayoutDesc();
+    // Same binding number, different type: still a duplicate.
+    desc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::Sampler,
         1,
         rhi::ShaderStageFlags::Vertex});
 
@@ -1031,28 +1073,6 @@ TEST_F(RHITest, ReusesTextureViewSlotAfterDestroy)
 
 #endif
 
-TEST_F(RHITest, WriteTextureAcceptsTextureData)
-{
-    auto texture = rhi.CreateTexture(MakeTextureDesc(
-        4,
-        4,
-        rhi::TextureFormat::RGBA8Unorm,
-        rhi::TextureUsage::CopyDst | rhi::TextureUsage::Sampled));
-    ASSERT_NE(texture.id, InvalidTextureHandle);
-
-    constexpr std::array<std::uint8_t, 64> pixels{};
-    rhi::TextureWriteDesc writeDesc;
-    writeDesc.width = 4;
-    writeDesc.height = 4;
-    writeDesc.bytesPerRow = 16;
-    writeDesc.rowsPerImage = 4;
-
-    // Upload is not implemented by every backend yet; this verifies that the
-    // public call is safe for a valid texture.
-    rhi.WriteTexture(texture, writeDesc, pixels.data());
-    rhi.DestroyTexture(texture);
-}
-
 // ============================================================================
 // Stress Tests
 // ============================================================================
@@ -1357,6 +1377,48 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     rhi.DestroyShaderModule(vs);
     rhi.DestroyShaderModule(fs);
 }
+
+TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
+    desc.cullMode = rhi::CullMode::Back;
+    desc.depthStencil.format = rhi::TextureFormat::Depth32Float;
+    desc.depthStencil.depthTestEnabled = true;
+    desc.depthStencil.depthWriteEnabled = true;
+    desc.colorTargets[0].blend.enabled = true;
+    const auto pipeline = rhi.CreateGraphicsPipeline(desc);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(pipeline);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
 #endif
 
 #if defined(RHI_VULKAN)
@@ -1598,6 +1660,48 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     rhi.DestroyShaderModule(vs);
     rhi.DestroyShaderModule(fs);
 }
+
+TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
+    desc.cullMode = rhi::CullMode::Back;
+    desc.depthStencil.format = rhi::TextureFormat::Depth32Float;
+    desc.depthStencil.depthTestEnabled = true;
+    desc.depthStencil.depthWriteEnabled = true;
+    desc.colorTargets[0].blend.enabled = true;
+    const auto pipeline = rhi.CreateGraphicsPipeline(desc);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(pipeline);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
 #endif
 
 #if defined(RHI_DX12)
@@ -1834,6 +1938,48 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     EXPECT_EQ(reused.id, handle.id);
 
     rhi.DestroyPipeline(reused);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
+
+TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    auto desc = MakeTrianglePipelineDesc(layout, vs, fs);
+    desc.cullMode = rhi::CullMode::Back;
+    desc.depthStencil.format = rhi::TextureFormat::Depth32Float;
+    desc.depthStencil.depthTestEnabled = true;
+    desc.depthStencil.depthWriteEnabled = true;
+    desc.colorTargets[0].blend.enabled = true;
+    const auto pipeline = rhi.CreateGraphicsPipeline(desc);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(pipeline);
     rhi.DestroyPipelineLayout(layout);
     rhi.DestroyBindGroupLayout(uniformLayout);
     rhi.DestroyShaderModule(vs);

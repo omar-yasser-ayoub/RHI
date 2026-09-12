@@ -94,10 +94,6 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
     m_FreeTextures.push_back(handle.id);
 }
 
-void VulkanRHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-    // TODO: Implement texture write
-}
-
 rhi::TextureViewHandle VulkanRHI::CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture) {
     if (texture.id >= m_Textures.size() || texture.id >= m_TextureMemory.size()) {
         printf("[ERROR] Texture handle out of bounds\n");

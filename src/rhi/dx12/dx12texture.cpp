@@ -185,7 +185,3 @@ void DX12RHI::DestroyTexture(rhi::TextureHandle handle) {
     m_Textures[handle.id].Reset();
     m_FreeTextures.push_back(handle.id);
 }
-
-void DX12RHI::WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data) {
-    return;
-}

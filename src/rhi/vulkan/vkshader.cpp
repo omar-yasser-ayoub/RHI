@@ -124,6 +124,7 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     rhi::ShaderReflection shaderReflection = ParseReflection(&reflectModule, source.stage);
 
     module.reflection = shaderReflection;
+    module.entryPoint = source.entryPoint.empty() ? "main" : source.entryPoint;
 
     spvReflectDestroyShaderModule(&reflectModule);
 

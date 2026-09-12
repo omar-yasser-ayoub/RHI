@@ -25,6 +25,11 @@ rhi::BindGroupLayoutHandle VulkanRHI::CreateBindGroupLayout(const rhi::BindGroup
         else if (currentSet != shaderBinding.set)
             return handle;
 
+        for (const auto& other : desc.shaderBindings) {
+            if (&other != &shaderBinding && other.binding == shaderBinding.binding)
+                return handle;
+        }
+
         VkDescriptorSetLayoutBinding vkBinding;
         vkBinding.binding = shaderBinding.binding;
         vkBinding.descriptorCount = shaderBinding.arraySize;
