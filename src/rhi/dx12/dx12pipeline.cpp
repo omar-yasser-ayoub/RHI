@@ -9,7 +9,8 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
         return handle;
     }
     for (const auto& layout : desc.layouts) {
-        if (layout.id >= m_BindGroupLayouts.size()) {
+        if (layout.id >= m_BindGroupLayouts.size() ||
+            m_BindGroupLayouts[layout.id].desc.shaderBindings.empty()) {
             return rhi::PipelineLayoutHandle{};
         }
     }
@@ -84,9 +85,16 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
         return rhi::PipelineLayoutHandle{};
     }
 
-    handle.id = static_cast<std::uint64_t>(m_PipelineLayouts.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_PipelineLayouts.push_back(rootSignature);
+    if (!m_FreePipelineLayouts.empty()) {
+        handle.id = m_FreePipelineLayouts.back();
+        m_FreePipelineLayouts.pop_back();
+        m_PipelineLayouts[handle.id] = rootSignature;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_PipelineLayouts.size());
+        m_PipelineLayouts.push_back(rootSignature);
+    }
     return handle;
 }
 
@@ -218,8 +226,35 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
         return handle;
     }
 
-    handle.id = static_cast<std::uint64_t>(m_Pipelines.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_Pipelines.push_back(pipeline);
+    if (!m_FreePipelines.empty()) {
+        handle.id = m_FreePipelines.back();
+        m_FreePipelines.pop_back();
+        m_Pipelines[handle.id] = pipeline;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_Pipelines.size());
+        m_Pipelines.push_back(pipeline);
+    }
     return handle;
+}
+
+void DX12RHI::DestroyPipelineLayout(rhi::PipelineLayoutHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_PipelineLayouts.size() ||
+        !m_PipelineLayouts[handle.id]) {
+        return;
+    }
+    m_PipelineLayouts[handle.id].Reset();
+    m_FreePipelineLayouts.push_back(handle.id);
+}
+
+void DX12RHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_Pipelines.size() ||
+        !m_Pipelines[handle.id]) {
+        return;
+    }
+    m_Pipelines[handle.id].Reset();
+    m_FreePipelines.push_back(handle.id);
 }

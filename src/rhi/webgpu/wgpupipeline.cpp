@@ -147,9 +147,16 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
         return handle;
     }
 
-    handle.id = m_Pipelines.size();
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_Pipelines.push_back(pipeline);
+    if (!m_FreePipelines.empty()) {
+        handle.id = m_FreePipelines.back();
+        m_FreePipelines.pop_back();
+        m_Pipelines[handle.id] = pipeline;
+    } else {
+        handle.id = m_Pipelines.size();
+        m_Pipelines.push_back(pipeline);
+    }
     return handle;
 }
 
@@ -181,8 +188,35 @@ rhi::PipelineLayoutHandle WebGPURHI::CreatePipelineLayout(
         return rhi::PipelineLayoutHandle{};
     }
 
-    handle.id = m_PipelineLayouts.size();
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_PipelineLayouts.push_back(pipelineLayout);
+    if (!m_FreePipelineLayouts.empty()) {
+        handle.id = m_FreePipelineLayouts.back();
+        m_FreePipelineLayouts.pop_back();
+        m_PipelineLayouts[handle.id] = pipelineLayout;
+    } else {
+        handle.id = m_PipelineLayouts.size();
+        m_PipelineLayouts.push_back(pipelineLayout);
+    }
     return handle;
+}
+
+void WebGPURHI::DestroyPipelineLayout(rhi::PipelineLayoutHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_PipelineLayouts.size() ||
+        !m_PipelineLayouts[handle.id]) {
+        return;
+    }
+    m_PipelineLayouts[handle.id] = {};
+    m_FreePipelineLayouts.push_back(handle.id);
+}
+
+void WebGPURHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_Pipelines.size() ||
+        !m_Pipelines[handle.id]) {
+        return;
+    }
+    m_Pipelines[handle.id] = {};
+    m_FreePipelines.push_back(handle.id);
 }

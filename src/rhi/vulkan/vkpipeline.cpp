@@ -29,9 +29,16 @@ rhi::PipelineLayoutHandle VulkanRHI::CreatePipelineLayout(
         return rhi::PipelineLayoutHandle{};
     }
 
-    handle.id = static_cast<std::uint64_t>(m_PipelineLayouts.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_PipelineLayouts.push_back(layout);
+    if (!m_FreePipelineLayouts.empty()) {
+        handle.id = m_FreePipelineLayouts.back();
+        m_FreePipelineLayouts.pop_back();
+        m_PipelineLayouts[handle.id] = layout;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_PipelineLayouts.size());
+        m_PipelineLayouts.push_back(layout);
+    }
     return handle;
 }
 
@@ -242,8 +249,37 @@ rhi::GraphicsPipelineHandle VulkanRHI::CreateGraphicsPipeline(
         return handle;
     }
 
-    handle.id = static_cast<std::uint64_t>(m_Pipelines.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_Pipelines.push_back(pipeline);
+    if (!m_FreePipelines.empty()) {
+        handle.id = m_FreePipelines.back();
+        m_FreePipelines.pop_back();
+        m_Pipelines[handle.id] = pipeline;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_Pipelines.size());
+        m_Pipelines.push_back(pipeline);
+    }
     return handle;
+}
+
+void VulkanRHI::DestroyPipelineLayout(rhi::PipelineLayoutHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_PipelineLayouts.size() ||
+        m_PipelineLayouts[handle.id] == VK_NULL_HANDLE) {
+        return;
+    }
+    vkDestroyPipelineLayout(m_Device, m_PipelineLayouts[handle.id], nullptr);
+    m_PipelineLayouts[handle.id] = VK_NULL_HANDLE;
+    m_FreePipelineLayouts.push_back(handle.id);
+}
+
+void VulkanRHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_Pipelines.size() ||
+        m_Pipelines[handle.id] == VK_NULL_HANDLE) {
+        return;
+    }
+    vkDestroyPipeline(m_Device, m_Pipelines[handle.id], nullptr);
+    m_Pipelines[handle.id] = VK_NULL_HANDLE;
+    m_FreePipelines.push_back(handle.id);
 }

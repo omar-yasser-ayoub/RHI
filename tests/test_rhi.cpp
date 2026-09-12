@@ -639,6 +639,27 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
     EXPECT_TRUE(module->reflection.bindings.empty());
     EXPECT_TRUE(module->reflection.vertexInputs.empty());
 }
+
+TEST_F(RHITest, DestroyAndReuseShaderModule)
+{
+    const auto handle = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    ASSERT_NE(rhi.GetShaderModule(handle), nullptr);
+
+    rhi.DestroyShaderModule(handle);
+    EXPECT_EQ(rhi.GetShaderModule(handle), nullptr);
+
+    // Double destroy is safe.
+    rhi.DestroyShaderModule(handle);
+
+    const auto reused = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    ASSERT_NE(rhi.GetShaderModule(reused), nullptr);
+    EXPECT_EQ(reused.id, handle.id);
+    rhi.DestroyShaderModule(reused);
+}
 #endif
 
 #if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)
@@ -694,6 +715,22 @@ TEST_F(RHITest, RejectsBindGroupLayoutWithMixedSets)
     EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
 }
 
+TEST_F(RHITest, DestroyAndReuseBindGroupLayout)
+{
+    const auto handle = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyBindGroupLayout(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyBindGroupLayout(handle);
+
+    const auto reused = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+    rhi.DestroyBindGroupLayout(reused);
+}
+
 TEST_F(RHITest, CreateBindGroupWithBuffer)
 {
     const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
@@ -737,6 +774,38 @@ TEST_F(RHITest, RejectsBindGroupWithInvalidLayout)
 
     const auto bindGroup = rhi.CreateBindGroup(desc);
     EXPECT_EQ(bindGroup.id, 0xFFFFFFFFFFFFFFFFull);
+}
+
+TEST_F(RHITest, DestroyAndReuseBindGroup)
+{
+    const auto layout = rhi.CreateBindGroupLayout(MakeUniformBindGroupLayoutDesc());
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    const auto buffer = rhi.CreateBuffer(MakeBufferDesc(
+        256,
+        rhi::MemoryUsage::CpuToGpu,
+        rhi::BufferUsage::Uniform));
+    ASSERT_NE(buffer.id, InvalidHandle);
+
+    rhi::BindGroupDesc desc;
+    desc.layout = layout;
+    desc.entries.push_back({ 0, buffer, {}, {} });
+
+    const auto handle = rhi.CreateBindGroup(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyBindGroup(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyBindGroup(handle);
+
+    const auto reused = rhi.CreateBindGroup(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyBindGroup(reused);
+    rhi.DestroyBuffer(buffer);
+    rhi.DestroyBindGroupLayout(layout);
 }
 #endif
 
@@ -1211,6 +1280,83 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
     EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
+
+TEST_F(RHITest, DestroyAndReusePipelineLayout)
+{
+    rhi::BindGroupLayoutDesc bindDesc;
+    bindDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc desc;
+    desc.layouts.push_back(bindLayout);
+    const auto handle = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipelineLayout(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipelineLayout(handle);
+
+    const auto reused = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipelineLayout(reused);
+    rhi.DestroyBindGroupLayout(bindLayout);
+}
+
+TEST_F(RHITest, DestroyAndReusePipeline)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    const auto handle = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipeline(handle);
+
+    const auto reused = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipeline(reused);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
 #endif
 
 #if defined(RHI_VULKAN)
@@ -1375,6 +1521,83 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
     EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
 }
+
+TEST_F(RHITest, DestroyAndReusePipelineLayout)
+{
+    rhi::BindGroupLayoutDesc bindDesc;
+    bindDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc desc;
+    desc.layouts.push_back(bindLayout);
+    const auto handle = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipelineLayout(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipelineLayout(handle);
+
+    const auto reused = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipelineLayout(reused);
+    rhi.DestroyBindGroupLayout(bindLayout);
+}
+
+TEST_F(RHITest, DestroyAndReusePipeline)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    const auto handle = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipeline(handle);
+
+    const auto reused = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipeline(reused);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
 #endif
 
 #if defined(RHI_DX12)
@@ -1538,5 +1761,82 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     desc.colorTargets.clear();
     const auto pipeline = rhi.CreateGraphicsPipeline(desc);
     EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+}
+
+TEST_F(RHITest, DestroyAndReusePipelineLayout)
+{
+    rhi::BindGroupLayoutDesc bindDesc;
+    bindDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto bindLayout = rhi.CreateBindGroupLayout(bindDesc);
+    ASSERT_NE(bindLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc desc;
+    desc.layouts.push_back(bindLayout);
+    const auto handle = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipelineLayout(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipelineLayout(handle);
+
+    const auto reused = rhi.CreatePipelineLayout(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipelineLayout(reused);
+    rhi.DestroyBindGroupLayout(bindLayout);
+}
+
+TEST_F(RHITest, DestroyAndReusePipeline)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "basic.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
+    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+
+    rhi::BindGroupLayoutDesc uniformDesc;
+    uniformDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::UniformBuffer,
+        1,
+        rhi::ShaderStageFlags::Vertex});
+    const auto uniformLayout = rhi.CreateBindGroupLayout(uniformDesc);
+    ASSERT_NE(uniformLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(uniformLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    const auto handle = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipeline(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyPipeline(handle);
+
+    const auto reused = rhi.CreateGraphicsPipeline(
+        MakeTrianglePipelineDesc(layout, vs, fs));
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyPipeline(reused);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(uniformLayout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
 }
 #endif

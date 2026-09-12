@@ -32,9 +32,16 @@ rhi::BindGroupLayoutHandle DX12RHI::CreateBindGroupLayout(
         }
     }
 
-    handle.id = static_cast<std::uint64_t>(m_BindGroupLayouts.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_BindGroupLayouts.push_back({desc});
+    if (!m_FreeBindGroupLayouts.empty()) {
+        handle.id = m_FreeBindGroupLayouts.back();
+        m_FreeBindGroupLayouts.pop_back();
+        m_BindGroupLayouts[handle.id] = {desc};
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_BindGroupLayouts.size());
+        m_BindGroupLayouts.push_back({desc});
+    }
     return handle;
 }
 
@@ -44,7 +51,8 @@ rhi::BindGroupHandle DX12RHI::CreateBindGroup(
     rhi::BindGroupHandle handle;
     handle.id = 0xFFFFFFFFFFFFFFFFull;
 
-    if (desc.layout.id >= m_BindGroupLayouts.size() || desc.entries.empty()) {
+    if (desc.layout.id >= m_BindGroupLayouts.size() || desc.entries.empty() ||
+        m_BindGroupLayouts[desc.layout.id].desc.shaderBindings.empty()) {
         return handle;
     }
 
@@ -151,13 +159,40 @@ rhi::BindGroupHandle DX12RHI::CreateBindGroup(
         }
     }
 
-    handle.id = static_cast<std::uint64_t>(m_BindGroups.size());
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_BindGroups.push_back(bindGroup);
+    if (!m_FreeBindGroups.empty()) {
+        handle.id = m_FreeBindGroups.back();
+        m_FreeBindGroups.pop_back();
+        m_BindGroups[handle.id] = bindGroup;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_BindGroups.size());
+        m_BindGroups.push_back(bindGroup);
+    }
     return handle;
 
 fail:
     m_CbvSrvUavHeapOffset = cbvSrvUavOffset;
     m_SamplerHeapOffset = samplerOffset;
     return handle;
+}
+
+void DX12RHI::DestroyBindGroupLayout(rhi::BindGroupLayoutHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_BindGroupLayouts.size() ||
+        m_BindGroupLayouts[handle.id].desc.shaderBindings.empty()) {
+        return;
+    }
+    m_BindGroupLayouts[handle.id] = {};
+    m_FreeBindGroupLayouts.push_back(handle.id);
+}
+
+void DX12RHI::DestroyBindGroup(rhi::BindGroupHandle handle) {
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_BindGroups.size() ||
+        m_BindGroups[handle.id].desc.entries.empty()) {
+        return;
+    }
+    m_BindGroups[handle.id] = {};
+    m_FreeBindGroups.push_back(handle.id);
 }

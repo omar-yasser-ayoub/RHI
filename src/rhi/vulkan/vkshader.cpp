@@ -127,16 +127,32 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
 
     spvReflectDestroyShaderModule(&reflectModule);
 
-    m_ShaderModules.push_back(module);
-
     rhi::ShaderModuleHandle handle;
-    handle.id = static_cast<uint64_t>(m_ShaderModules.size() - 1);
+    if (!m_FreeShaderModules.empty()) {
+        handle.id = m_FreeShaderModules.back();
+        m_FreeShaderModules.pop_back();
+        m_ShaderModules[handle.id] = module;
+    } else {
+        handle.id = static_cast<uint64_t>(m_ShaderModules.size());
+        m_ShaderModules.push_back(module);
+    }
     return handle;
+}
+
+void VulkanRHI::DestroyShaderModule(rhi::ShaderModuleHandle handle)
+{
+    if (handle.id >= m_ShaderModules.size() ||
+        m_ShaderModules[handle.id].bytecode.empty()) {
+        return;
+    }
+    m_ShaderModules[handle.id] = {};
+    m_FreeShaderModules.push_back(handle.id);
 }
 
 const rhi::ShaderModule* VulkanRHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
 {
-    if (handle.id >= m_ShaderModules.size()) {
+    if (handle.id >= m_ShaderModules.size() ||
+        m_ShaderModules[handle.id].bytecode.empty()) {
         return nullptr;
     }
     return &m_ShaderModules[handle.id];

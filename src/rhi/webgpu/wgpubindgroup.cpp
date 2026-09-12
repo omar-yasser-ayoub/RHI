@@ -88,9 +88,16 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
     if (!bindGroupLayout)
         return handle;
 
-    handle.id = m_BindGroupLayouts.size();
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_BindGroupLayouts.push_back(bindGroupLayout);
+    if (!m_FreeBindGroupLayouts.empty()) {
+        handle.id = m_FreeBindGroupLayouts.back();
+        m_FreeBindGroupLayouts.pop_back();
+        m_BindGroupLayouts[handle.id] = bindGroupLayout;
+    } else {
+        handle.id = m_BindGroupLayouts.size();
+        m_BindGroupLayouts.push_back(bindGroupLayout);
+    }
 
     return handle;
 }
@@ -100,7 +107,8 @@ rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
     rhi::BindGroupHandle handle;
     handle.id = 0xFFFFFFFFFFFFFFFFull;
 
-    if (desc.layout.id >= m_BindGroupLayouts.size())
+    if (desc.layout.id >= m_BindGroupLayouts.size() ||
+        !m_BindGroupLayouts[desc.layout.id])
         return handle;
     if (desc.entries.empty())
         return handle;
@@ -143,8 +151,35 @@ rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
     if (!bindGroup)
         return handle;
 
-    handle.id = m_BindGroups.size();
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
-    m_BindGroups.push_back(bindGroup);
+    if (!m_FreeBindGroups.empty()) {
+        handle.id = m_FreeBindGroups.back();
+        m_FreeBindGroups.pop_back();
+        m_BindGroups[handle.id] = bindGroup;
+    } else {
+        handle.id = m_BindGroups.size();
+        m_BindGroups.push_back(bindGroup);
+    }
     return handle;
+}
+
+void WebGPURHI::DestroyBindGroupLayout(rhi::BindGroupLayoutHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_BindGroupLayouts.size() ||
+        !m_BindGroupLayouts[handle.id]) {
+        return;
+    }
+    m_BindGroupLayouts[handle.id] = {};
+    m_FreeBindGroupLayouts.push_back(handle.id);
+}
+
+void WebGPURHI::DestroyBindGroup(rhi::BindGroupHandle handle) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_BindGroups.size() ||
+        !m_BindGroups[handle.id]) {
+        return;
+    }
+    m_BindGroups[handle.id] = {};
+    m_FreeBindGroups.push_back(handle.id);
 }

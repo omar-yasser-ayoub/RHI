@@ -42,6 +42,11 @@ public:
     void DestroyTexture(rhi::TextureHandle handle);
     void DestroyBuffer(rhi::BufferHandle handle);
     void DestroyTextureView(rhi::TextureViewHandle handle);
+    void DestroyBindGroupLayout(rhi::BindGroupLayoutHandle handle);
+    void DestroyBindGroup(rhi::BindGroupHandle handle);
+    void DestroyShaderModule(rhi::ShaderModuleHandle handle);
+    void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
+    void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
 
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
     void WriteTexture(rhi::TextureHandle handle, const rhi::TextureWriteDesc& desc, const void* data);
@@ -93,8 +98,13 @@ private:
     std::vector<VkImageView> m_TextureViews;
     std::vector<std::uint64_t> m_FreeTextureViews;
     std::vector<rhi::ShaderModule> m_ShaderModules;
+    std::vector<std::uint64_t> m_FreeShaderModules;
     std::vector<VkDescriptorSetLayout> m_BindGroupLayouts;
+    std::vector<std::uint64_t> m_FreeBindGroupLayouts;
     std::vector<VkDescriptorSet> m_BindGroups;
+    std::vector<std::uint64_t> m_FreeBindGroups;
     std::vector<VkPipelineLayout> m_PipelineLayouts;
+    std::vector<std::uint64_t> m_FreePipelineLayouts;
     std::vector<VkPipeline> m_Pipelines;
+    std::vector<std::uint64_t> m_FreePipelines;
 };
