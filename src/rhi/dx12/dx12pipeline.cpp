@@ -5,9 +5,6 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
 {
     rhi::PipelineLayoutHandle handle;
 
-    if (desc.layouts.empty()) {
-        return handle;
-    }
     for (const auto& layout : desc.layouts) {
         if (layout.id >= m_BindGroupLayouts.size() ||
             m_BindGroupLayouts[layout.id].desc.shaderBindings.empty()) {
@@ -58,10 +55,6 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
             param.DescriptorTable.pDescriptorRanges = samplerRanges[i].data();
             params.push_back(param);
         }
-    }
-
-    if (params.empty()) {
-        return handle;
     }
 
     D3D12_VERSIONED_ROOT_SIGNATURE_DESC versionedDesc{};

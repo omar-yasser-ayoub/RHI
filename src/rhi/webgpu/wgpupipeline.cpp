@@ -165,10 +165,6 @@ rhi::PipelineLayoutHandle WebGPURHI::CreatePipelineLayout(
 {
     rhi::PipelineLayoutHandle handle;
 
-    if (desc.layouts.empty()) {
-        return handle;
-    }
-
     std::vector<wgpu::BindGroupLayout> layouts;
     layouts.reserve(desc.layouts.size());
     for (const auto& layout : desc.layouts) {

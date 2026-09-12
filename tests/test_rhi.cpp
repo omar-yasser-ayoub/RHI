@@ -1189,11 +1189,13 @@ TEST_F(RHITest, CreatePipelineLayout)
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
 
-TEST_F(RHITest, RejectsEmptyPipelineLayout)
+TEST_F(RHITest, AcceptsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_TRUE(layout.desc.layouts.empty());
+    rhi.DestroyPipelineLayout(layout);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
@@ -1472,11 +1474,13 @@ TEST_F(RHITest, CreatePipelineLayout)
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
 
-TEST_F(RHITest, RejectsEmptyPipelineLayout)
+TEST_F(RHITest, AcceptsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_TRUE(layout.desc.layouts.empty());
+    rhi.DestroyPipelineLayout(layout);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)
@@ -1755,11 +1759,13 @@ TEST_F(RHITest, CreatePipelineLayout)
     EXPECT_EQ(layout.desc.layouts[0].id, bindLayout.id);
 }
 
-TEST_F(RHITest, RejectsEmptyPipelineLayout)
+TEST_F(RHITest, AcceptsEmptyPipelineLayout)
 {
     rhi::PipelineLayoutDesc desc;
     const auto layout = rhi.CreatePipelineLayout(desc);
-    EXPECT_EQ(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_TRUE(layout.desc.layouts.empty());
+    rhi.DestroyPipelineLayout(layout);
 }
 
 TEST_F(RHITest, RejectsPipelineLayoutWithInvalidLayout)

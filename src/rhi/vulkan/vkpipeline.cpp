@@ -5,10 +5,6 @@ rhi::PipelineLayoutHandle VulkanRHI::CreatePipelineLayout(
 {
     rhi::PipelineLayoutHandle handle;
 
-    if (desc.layouts.empty()) {
-        return handle;
-    }
-
     std::vector<VkDescriptorSetLayout> setLayouts;
     setLayouts.reserve(desc.layouts.size());
     for (const auto& layout : desc.layouts) {
