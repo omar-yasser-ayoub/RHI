@@ -106,13 +106,13 @@ bool VulkanRHI::Initialize() {
         return false;
     }
 
-    float priority = 1.0f;
+    float priorities[] = { 1.0f, 1.0f };
 
     VkDeviceQueueCreateInfo queueInfo{};
     queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queueInfo.queueFamilyIndex = graphicsQueueFamily;
-    queueInfo.queueCount = 1;
-    queueInfo.pQueuePriorities = &priority;
+    queueInfo.queueCount = 2;
+    queueInfo.pQueuePriorities = priorities;
 
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -137,6 +137,8 @@ bool VulkanRHI::Initialize() {
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
+
+    vkGetDeviceQueue(m_Device, graphicsQueueFamily, 0, &m_GraphicsQueue);
 
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice = m_PhysicalDevice;
@@ -229,6 +231,7 @@ void VulkanRHI::Shutdown() {
         m_Allocator = nullptr;
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
+        m_GraphicsQueue = VK_NULL_HANDLE;
     }
 
     if (m_Instance) {

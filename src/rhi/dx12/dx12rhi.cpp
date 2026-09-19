@@ -51,6 +51,28 @@ bool DX12RHI::Initialize() {
         m_Capabilities.SupportsRayTracing = (options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
     }
 
+    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+    queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    queueDesc.NodeMask = 0;
+    result = m_Device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_CommandQueue));
+    if (FAILED(result)) {
+        std::cerr << "Failed to create command queue: " << result << std::endl;
+        return false;
+    }
+
+    D3D12_COMMAND_QUEUE_DESC computeQueueDesc = {};
+    computeQueueDesc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+    computeQueueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
+    computeQueueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    computeQueueDesc.NodeMask = 0;
+    result = m_Device->CreateCommandQueue(&computeQueueDesc, IID_PPV_ARGS(&m_ComputeQueue));
+    if (FAILED(result)) {
+        std::cerr << "Failed to create compute command queue: " << result << std::endl;
+        return false;
+    }
+
     //create sampler descriptor heap
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
     heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;

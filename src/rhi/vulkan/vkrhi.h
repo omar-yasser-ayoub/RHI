@@ -92,6 +92,7 @@ private:
     VkInstance m_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;
+    VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
     VmaAllocator m_Allocator = nullptr;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;

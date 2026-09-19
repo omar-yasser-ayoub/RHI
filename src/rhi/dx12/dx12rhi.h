@@ -104,6 +104,8 @@ private:
     Microsoft::WRL::ComPtr<IDXGIFactory6> m_Factory;
     Microsoft::WRL::ComPtr<IDXGIAdapter1> m_Adapter;
     Microsoft::WRL::ComPtr<ID3D12Device> m_Device;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_CommandQueue;
+    Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_ComputeQueue;
     Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_SamplerHeap;
     uint32_t m_SamplerHeapOffset = 0;
     uint32_t m_SamplerDescriptorSize = 0;
