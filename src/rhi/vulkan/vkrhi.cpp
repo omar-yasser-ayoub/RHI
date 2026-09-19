@@ -237,3 +237,21 @@ void VulkanRHI::Shutdown() {
     }
     m_PhysicalDevice = VK_NULL_HANDLE;
 }
+
+rhi::SwapchainHandle VulkanRHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
+{
+    return {};
+}
+
+void VulkanRHI::DestroySwapchain(rhi::SwapchainHandle handle)
+{
+}
+
+rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
+{
+    return {};
+}
+
+void VulkanRHI::Present(rhi::SwapchainHandle handle)
+{
+}

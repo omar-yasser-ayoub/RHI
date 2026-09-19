@@ -1,0 +1,49 @@
+#pragma once
+
+#include "rhi/resources/texture.h"
+
+#include <cstdint>
+
+namespace rhi
+{
+    enum class PresentMode
+    {
+        Fifo,
+        FifoRelaxed,
+        Mailbox,
+        Immediate,
+    };
+
+    enum class AlphaMode
+    {
+        Opaque,
+        Premultiplied,
+    };
+
+    struct SwapchainDesc
+    {
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+
+        TextureFormat format = TextureFormat::BGRA8Unorm;
+        PresentMode presentMode = PresentMode::Fifo;
+
+        std::uint32_t imageCount = 3;
+        std::uint32_t maxFramesInFlight = 3;
+
+        TextureUsage usage = TextureUsage::RenderTarget;
+        AlphaMode alphaMode = AlphaMode::Opaque;
+    };
+
+    struct SwapchainHandle
+    {
+        std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
+        SwapchainDesc desc{};
+    };
+
+    struct AcquireResult
+    {
+        std::uint32_t imageIndex = 0xFFFFFFFF;
+        TextureViewHandle view{};
+    };
+}

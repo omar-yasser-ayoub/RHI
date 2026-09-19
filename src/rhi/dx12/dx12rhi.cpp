@@ -86,3 +86,21 @@ bool DX12RHI::Initialize() {
 void DX12RHI::Shutdown() {
     // ComPtr handles lifecycles, no need to manually clean up
 }
+
+rhi::SwapchainHandle DX12RHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
+{
+    return {};
+}
+
+void DX12RHI::DestroySwapchain(rhi::SwapchainHandle handle)
+{
+}
+
+rhi::AcquireResult DX12RHI::AcquireNextImage(rhi::SwapchainHandle handle)
+{
+    return {};
+}
+
+void DX12RHI::Present(rhi::SwapchainHandle handle)
+{
+}

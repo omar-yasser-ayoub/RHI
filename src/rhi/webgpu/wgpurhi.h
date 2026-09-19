@@ -6,6 +6,7 @@
 #include "rhi/resources/texture.h"
 #include "rhi/resources/bindgroup.h"
 #include "rhi/resources/pipeline.h"
+#include "rhi/resources/swapchain.h"
 #include <webgpu/webgpu_cpp.h>
 
 struct SpvReflectShaderModule;
@@ -31,6 +32,10 @@ public:
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
+    rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
+
+    rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
+    void Present(rhi::SwapchainHandle handle);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -41,6 +46,7 @@ public:
     void DestroyShaderModule(rhi::ShaderModuleHandle handle);
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
+    void DestroySwapchain(rhi::SwapchainHandle handle);
 
     void WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset = 0);
 
