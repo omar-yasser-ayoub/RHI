@@ -90,6 +90,8 @@ void WebGPURHI::Shutdown()
 
     m_Buffers.clear();
     m_Samplers.clear();
+    m_Surfaces.clear();
+    m_FreeSurfaces.clear();
     m_Queue = {};
     m_Device = {};
     m_Adapter = {};

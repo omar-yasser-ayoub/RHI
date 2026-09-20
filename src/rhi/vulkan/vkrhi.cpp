@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <third_party/glfw/include/GLFW/glfw3.h>
 #include <iostream>
+#include <cstdint>
 #include <cstring>
 #include <vector>
 
@@ -19,6 +20,20 @@ bool VulkanRHI::Initialize() {
     VkInstanceCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
+
+    std::uint32_t surfaceExtensionCount = 0;
+    const char** surfaceExtensions =
+        glfwGetRequiredInstanceExtensions(&surfaceExtensionCount);
+    const char* fallbackExtensions[] = {
+        VK_KHR_SURFACE_EXTENSION_NAME,
+        "VK_KHR_win32_surface",
+    };
+    if (surfaceExtensions == nullptr || surfaceExtensionCount == 0) {
+        surfaceExtensions = fallbackExtensions;
+        surfaceExtensionCount = 2;
+    }
+    createInfo.enabledExtensionCount = surfaceExtensionCount;
+    createInfo.ppEnabledExtensionNames = surfaceExtensions;
 
     VkResult result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
     if (result != VK_SUCCESS) {
@@ -236,6 +251,13 @@ void VulkanRHI::Shutdown() {
     }
 
     if (m_Instance) {
+        for (VkSurfaceKHR surface : m_Surfaces) {
+            if (surface != VK_NULL_HANDLE) {
+                vkDestroySurfaceKHR(m_Instance, surface, nullptr);
+            }
+        }
+        m_Surfaces.clear();
+        m_FreeSurfaces.clear();
         vkDestroyInstance(m_Instance, nullptr);
         m_Instance = VK_NULL_HANDLE;
     }

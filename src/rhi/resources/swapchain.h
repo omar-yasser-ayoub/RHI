@@ -1,6 +1,7 @@
 #pragma once
 
 #include "rhi/resources/texture.h"
+#include "rhi/resources/surface.h"
 
 #include <cstdint>
 
@@ -22,6 +23,8 @@ namespace rhi
 
     struct SwapchainDesc
     {
+        SurfaceHandle surface{};
+
         std::uint32_t width = 0;
         std::uint32_t height = 0;
 

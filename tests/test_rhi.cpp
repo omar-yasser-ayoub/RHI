@@ -2072,3 +2072,101 @@ TEST_F(RHITest, ReusesWindowSlotAfterDestroy)
 
     rhi.DestroyNativeWindow(reused);
 }
+
+
+// ============================================================================
+// Surface Tests (all backends; surfaces are built over hidden windows)
+// ============================================================================
+
+namespace
+{
+rhi::SurfaceDesc MakeSurfaceDesc(rhi::WindowHandle window)
+{
+    rhi::SurfaceDesc desc;
+    desc.window = window;
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreateSurfaceFromHiddenWindow)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+
+    ASSERT_NE(surface.id, InvalidHandle);
+    EXPECT_EQ(surface.desc.window.id, window.id);
+
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, RejectsSurfaceWithInvalidWindow)
+{
+    rhi::SurfaceDesc desc;
+    auto surface = rhi.CreateSurface(desc);
+
+    EXPECT_EQ(surface.id, InvalidHandle);
+}
+
+TEST_F(RHITest, RejectsSurfaceAfterWindowDestroyed)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    rhi.DestroyNativeWindow(window);
+
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+
+    EXPECT_EQ(surface.id, InvalidHandle);
+}
+
+TEST_F(RHITest, CreateMultipleSurfaces)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+
+    auto surface1 = rhi.CreateSurface(MakeSurfaceDesc(window));
+    auto surface2 = rhi.CreateSurface(MakeSurfaceDesc(window));
+
+    ASSERT_NE(surface1.id, InvalidHandle);
+    ASSERT_NE(surface2.id, InvalidHandle);
+    EXPECT_NE(surface1.id, surface2.id);
+
+    rhi.DestroySurface(surface2);
+    rhi.DestroySurface(surface1);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, DestroySurfaceIsIdempotent)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+
+    rhi.DestroySurface(surface);
+
+    // Double destroy should not crash.
+    rhi.DestroySurface(surface);
+
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, ReusesSurfaceSlotAfterDestroy)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+    rhi.DestroySurface(surface);
+
+    auto reused = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(reused.id, InvalidHandle);
+    EXPECT_EQ(reused.id, surface.id);
+
+    rhi.DestroySurface(reused);
+    rhi.DestroyNativeWindow(window);
+}
