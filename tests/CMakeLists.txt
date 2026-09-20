@@ -18,6 +18,7 @@ target_link_libraries(rhi_tests
     PRIVATE
         gtest
         gtest_main
+        glfw
 )
 
 # Include directories
@@ -42,6 +43,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkwindow.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -66,6 +68,7 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12shader.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12bindgroup.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12pipeline.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12window.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -91,6 +94,7 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpushader.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpubindgroup.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpupipeline.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuwindow.cpp
             ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
     )
     target_link_libraries(rhi_tests

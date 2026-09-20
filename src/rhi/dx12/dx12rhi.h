@@ -6,6 +6,7 @@
 #include "rhi/resources/bindgroup.h"
 #include "rhi/resources/pipeline.h"
 #include "rhi/resources/swapchain.h"
+#include "rhi/resources/window.h"
 
 
 #include <d3d12.h>
@@ -37,6 +38,7 @@ public:
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
+    rhi::WindowHandle CreateNativeWindow(const rhi::WindowDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
@@ -51,6 +53,7 @@ public:
     void DestroyShaderModule(rhi::ShaderModuleHandle handle);
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
+    void DestroyNativeWindow(rhi::WindowHandle handle);
     void DestroySwapchain(rhi::SwapchainHandle handle);
 
 
@@ -188,4 +191,7 @@ private:
     std::vector<std::uint64_t> m_FreePipelineLayouts;
     std::vector<Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_Pipelines;
     std::vector<std::uint64_t> m_FreePipelines;
+    std::vector<struct GLFWwindow*> m_Windows;
+    std::vector<std::uint64_t> m_FreeWindows;
+    bool m_GlfwInitialized = false;
 };

@@ -1992,3 +1992,83 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
     rhi.DestroyShaderModule(fs);
 }
 #endif
+
+
+// ============================================================================
+// Native Window Tests (all backends, hidden windows so tests stay headless)
+// ============================================================================
+
+namespace
+{
+rhi::WindowDesc MakeHiddenWindowDesc(
+    std::uint32_t width = 640,
+    std::uint32_t height = 480)
+{
+    rhi::WindowDesc desc;
+    desc.title = "rhi_test";
+    desc.width = width;
+    desc.height = height;
+    desc.visible = false;
+    return desc;
+}
+}
+
+TEST_F(RHITest, CreateHiddenNativeWindow)
+{
+    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+
+    ASSERT_NE(handle.id, InvalidHandle);
+    EXPECT_EQ(handle.desc.width, 640u);
+    EXPECT_EQ(handle.desc.height, 480u);
+    EXPECT_EQ(handle.desc.title, "rhi_test");
+
+    rhi.DestroyNativeWindow(handle);
+}
+
+TEST_F(RHITest, RejectsZeroSizedWindow)
+{
+    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc(0, 0));
+
+    EXPECT_EQ(handle.id, InvalidHandle);
+}
+
+TEST_F(RHITest, CreateMultipleNativeWindows)
+{
+    auto handle1 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    auto handle2 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    auto handle3 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+
+    ASSERT_NE(handle1.id, InvalidHandle);
+    ASSERT_NE(handle2.id, InvalidHandle);
+    ASSERT_NE(handle3.id, InvalidHandle);
+    EXPECT_NE(handle1.id, handle2.id);
+    EXPECT_NE(handle2.id, handle3.id);
+
+    rhi.DestroyNativeWindow(handle3);
+    rhi.DestroyNativeWindow(handle2);
+    rhi.DestroyNativeWindow(handle1);
+}
+
+TEST_F(RHITest, DestroyNativeWindowIsIdempotent)
+{
+    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(handle.id, InvalidHandle);
+
+    rhi.DestroyNativeWindow(handle);
+
+    // Double destroy should not crash.
+    rhi.DestroyNativeWindow(handle);
+}
+
+TEST_F(RHITest, ReusesWindowSlotAfterDestroy)
+{
+    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(handle.id, InvalidHandle);
+    rhi.DestroyNativeWindow(handle);
+
+    auto reused = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(reused.id, InvalidHandle);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyNativeWindow(reused);
+}

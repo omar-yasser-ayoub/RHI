@@ -1,6 +1,7 @@
 #include "rhi/dx12/dx12rhi.h"
 #include <combaseapi.h>
 #include <d3d12.h>
+#include <third_party/glfw/include/GLFW/glfw3.h>
 #include <iostream>
 
 
@@ -107,6 +108,17 @@ bool DX12RHI::Initialize() {
 
 void DX12RHI::Shutdown() {
     // ComPtr handles lifecycles, no need to manually clean up
+    for (struct GLFWwindow* window : m_Windows) {
+        if (window != nullptr) {
+            glfwDestroyWindow(window);
+        }
+    }
+    m_Windows.clear();
+    m_FreeWindows.clear();
+    if (m_GlfwInitialized) {
+        glfwTerminate();
+        m_GlfwInitialized = false;
+    }
 }
 
 rhi::SwapchainHandle DX12RHI::CreateSwapchain(const rhi::SwapchainDesc& desc)

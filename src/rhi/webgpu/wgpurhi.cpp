@@ -1,6 +1,7 @@
 #include "rhi/webgpu/wgpurhi.h"
 #include <iostream>
 #include <webgpu/webgpu_cpp.h>
+#include <third_party/glfw/include/GLFW/glfw3.h>
 
 bool WebGPURHI::Initialize()
 {
@@ -93,6 +94,18 @@ void WebGPURHI::Shutdown()
     m_Device = {};
     m_Adapter = {};
     m_Instance = {};
+
+    for (struct GLFWwindow* window : m_Windows) {
+        if (window != nullptr) {
+            glfwDestroyWindow(window);
+        }
+    }
+    m_Windows.clear();
+    m_FreeWindows.clear();
+    if (m_GlfwInitialized) {
+        glfwTerminate();
+        m_GlfwInitialized = false;
+    }
 }
 
 rhi::SwapchainHandle WebGPURHI::CreateSwapchain(const rhi::SwapchainDesc& desc)

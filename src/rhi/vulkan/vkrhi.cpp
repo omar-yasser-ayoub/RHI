@@ -1,6 +1,7 @@
 #define VMA_IMPLEMENTATION
 #include "rhi/vulkan/vkrhi.h"
 #include <vulkan/vulkan.h>
+#include <third_party/glfw/include/GLFW/glfw3.h>
 #include <iostream>
 #include <cstring>
 #include <vector>
@@ -239,6 +240,18 @@ void VulkanRHI::Shutdown() {
         m_Instance = VK_NULL_HANDLE;
     }
     m_PhysicalDevice = VK_NULL_HANDLE;
+
+    for (struct GLFWwindow* window : m_Windows) {
+        if (window != nullptr) {
+            glfwDestroyWindow(window);
+        }
+    }
+    m_Windows.clear();
+    m_FreeWindows.clear();
+    if (m_GlfwInitialized) {
+        glfwTerminate();
+        m_GlfwInitialized = false;
+    }
 }
 
 rhi::SwapchainHandle VulkanRHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
