@@ -130,10 +130,16 @@ bool VulkanRHI::Initialize() {
     queueInfo.queueCount = 2;
     queueInfo.pQueuePriorities = priorities;
 
+    const char* deviceExtensions[] = {
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    };
+
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     deviceInfo.queueCreateInfoCount = 1;
     deviceInfo.pQueueCreateInfos = &queueInfo;
+    deviceInfo.enabledExtensionCount = 1;
+    deviceInfo.ppEnabledExtensionNames = deviceExtensions;
 
     VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
     dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
@@ -200,6 +206,23 @@ bool VulkanRHI::Initialize() {
 void VulkanRHI::Shutdown() {
     if (m_Device) {
         vkDeviceWaitIdle(m_Device);
+
+        for (auto& data : m_Swapchains) {
+            if (data.swapchain == VK_NULL_HANDLE) {
+                continue;
+            }
+            for (VkImageView view : data.views) {
+                if (view != VK_NULL_HANDLE) {
+                    vkDestroyImageView(m_Device, view, nullptr);
+                }
+            }
+            if (data.acquireFence != VK_NULL_HANDLE) {
+                vkDestroyFence(m_Device, data.acquireFence, nullptr);
+            }
+            vkDestroySwapchainKHR(m_Device, data.swapchain, nullptr);
+        }
+        m_Swapchains.clear();
+        m_FreeSwapchains.clear();
 
         for (std::size_t i = 0; i < m_Buffers.size(); ++i) {
             if (m_Buffers[i] != VK_NULL_HANDLE) {

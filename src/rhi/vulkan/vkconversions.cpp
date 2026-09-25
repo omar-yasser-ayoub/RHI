@@ -8,6 +8,7 @@ VkFilter VulkanRHI::toVk(rhi::Filter mode){
         case rhi::Filter::Nearest: return VK_FILTER_NEAREST;
         case rhi::Filter::Linear: return VK_FILTER_LINEAR;
     }
+    return VK_FILTER_NEAREST;
 }
 
 VkSamplerMipmapMode VulkanRHI::toVk(rhi::MipmapFilter mode){
@@ -15,6 +16,7 @@ VkSamplerMipmapMode VulkanRHI::toVk(rhi::MipmapFilter mode){
         case rhi::MipmapFilter::Nearest: return VK_SAMPLER_MIPMAP_MODE_NEAREST;
         case rhi::MipmapFilter::Linear: return VK_SAMPLER_MIPMAP_MODE_LINEAR;
     }
+    return VK_SAMPLER_MIPMAP_MODE_NEAREST;
 }
 
 VkSamplerAddressMode VulkanRHI::toVk(rhi::AddressMode mode){
@@ -25,6 +27,7 @@ VkSamplerAddressMode VulkanRHI::toVk(rhi::AddressMode mode){
         case rhi::AddressMode::ClampToBorder: return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         case rhi::AddressMode::MirrorClampToEdge: return VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE;
     }
+    return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 }
 
 VkCompareOp VulkanRHI::toVk(rhi::CompareOp mode){
@@ -38,6 +41,7 @@ VkCompareOp VulkanRHI::toVk(rhi::CompareOp mode){
         case rhi::CompareOp::GreaterEqual: return VK_COMPARE_OP_GREATER_OR_EQUAL;
         case rhi::CompareOp::Always: return VK_COMPARE_OP_ALWAYS;
     }
+    return VK_COMPARE_OP_NEVER;
 }
 
 VkBorderColor VulkanRHI::toVk(rhi::BorderColor mode){
@@ -46,6 +50,7 @@ VkBorderColor VulkanRHI::toVk(rhi::BorderColor mode){
         case rhi::BorderColor::OpaqueBlack: return VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
         case rhi::BorderColor::OpaqueWhite: return VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
     }
+    return VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK;
 }
 
 VkBufferUsageFlags VulkanRHI::toVk(rhi::BufferUsage usage) {
@@ -356,12 +361,22 @@ VkBlendOp VulkanRHI::toVk(rhi::BlendOp op) {
     case rhi::BlendOp::Min:             return VK_BLEND_OP_MIN;
     case rhi::BlendOp::Max:             return VK_BLEND_OP_MAX;
     }
-    return VK_BLEND_OP_ADD; // unreachable
+    return VK_BLEND_OP_ADD;
 }
 
 VkColorComponentFlags VulkanRHI::toVk(rhi::ColorWriteMask mask) {
     // Bit values match 1:1 (R=1, G=2, B=4, A=8).
     return static_cast<VkColorComponentFlags>(static_cast<std::uint8_t>(mask));
+}
+
+VkPresentModeKHR VulkanRHI::toVk(rhi::PresentMode mode) {
+    switch (mode) {
+    case rhi::PresentMode::Fifo:        return VK_PRESENT_MODE_FIFO_KHR;
+    case rhi::PresentMode::FifoRelaxed: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+    case rhi::PresentMode::Mailbox:     return VK_PRESENT_MODE_MAILBOX_KHR;
+    case rhi::PresentMode::Immediate:   return VK_PRESENT_MODE_IMMEDIATE_KHR;
+    }
+    return VK_PRESENT_MODE_FIFO_KHR;
 }
 
 VmaAllocationCreateInfo VulkanRHI::ToVmaAllocInfo(rhi::MemoryUsage memoryUsage)

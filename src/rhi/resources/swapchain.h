@@ -44,9 +44,18 @@ namespace rhi
         SwapchainDesc desc{};
     };
 
+    enum class AcquireStatus
+    {
+        Success,
+        Suboptimal,
+        OutOfDate,
+        Timeout,
+        Failed,
+    };
+
     struct AcquireResult
     {
+        AcquireStatus status = AcquireStatus::Failed;
         std::uint32_t imageIndex = 0xFFFFFFFF;
-        TextureViewHandle view{};
     };
 }

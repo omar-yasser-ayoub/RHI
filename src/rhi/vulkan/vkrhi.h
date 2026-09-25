@@ -46,6 +46,8 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
+    VkImage GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
+    VkImageView GetSwapchainImageView(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     void Present(rhi::SwapchainHandle handle);
 
     void DestroySampler(rhi::SamplerHandle handle);
@@ -92,6 +94,7 @@ private:
     VkBlendFactor toVk(rhi::BlendFactor factor);
     VkBlendOp toVk(rhi::BlendOp op);
     VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
+    VkPresentModeKHR toVk(rhi::PresentMode mode);
     VmaAllocationCreateInfo ToVmaAllocInfo(rhi::MemoryUsage memoryUsage);
 
     rhi::Capabilities m_Capabilities;
@@ -125,5 +128,16 @@ private:
     std::vector<std::uint64_t> m_FreeSurfaces;
     std::vector<struct GLFWwindow*> m_Windows;
     std::vector<std::uint64_t> m_FreeWindows;
+    struct VkSwapchainData {
+        VkSwapchainKHR swapchain = VK_NULL_HANDLE;
+        std::vector<VkImage> images;
+        std::vector<VkImageView> views;
+        VkFence acquireFence = VK_NULL_HANDLE;
+        std::uint32_t lastImageIndex = 0xFFFFFFFF;
+        VkFormat format = VK_FORMAT_UNDEFINED;
+        VkExtent2D extent{};
+    };
+    std::vector<VkSwapchainData> m_Swapchains;
+    std::vector<uint64_t> m_FreeSwapchains;
     bool m_GlfwInitialized = false;
 };
