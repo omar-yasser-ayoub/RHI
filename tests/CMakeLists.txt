@@ -45,6 +45,7 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksurface.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkwindow.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkswapchain.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -71,6 +72,7 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12pipeline.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12surface.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12window.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12swapchain.cpp
     )
     target_link_libraries(rhi_tests
         PRIVATE
@@ -98,6 +100,7 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpupipeline.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpusurface.cpp
             ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuwindow.cpp
+            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuswapchain.cpp
             ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
     )
     target_link_libraries(rhi_tests
