@@ -2171,7 +2171,7 @@ TEST_F(RHITest, ReusesSurfaceSlotAfterDestroy)
     rhi.DestroyNativeWindow(window);
 }
 
-#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)
 namespace
 {
 rhi::SwapchainDesc MakeSwapchainDesc(rhi::SurfaceHandle surface)
@@ -2253,6 +2253,115 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 
     EXPECT_NE(rhi.GetSwapchainImage(swapchain, acquired.imageIndex), VK_NULL_HANDLE);
     EXPECT_NE(rhi.GetSwapchainImageView(swapchain, acquired.imageIndex), VK_NULL_HANDLE);
+
+    // Should not crash.
+    rhi.Present(swapchain);
+
+    rhi.DestroySwapchain(swapchain);
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, DestroySwapchainIsIdempotent)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+    auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
+    ASSERT_NE(swapchain.id, InvalidHandle);
+
+    rhi.DestroySwapchain(swapchain);
+
+    // Double destroy should not crash.
+    rhi.DestroySwapchain(swapchain);
+
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+
+    auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
+    ASSERT_NE(swapchain.id, InvalidHandle);
+    rhi.DestroySwapchain(swapchain);
+
+    auto reused = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
+    ASSERT_NE(reused.id, InvalidHandle);
+    EXPECT_EQ(reused.id, swapchain.id);
+
+    rhi.DestroySwapchain(reused);
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+#endif
+
+#if defined(RHI_DX12)
+// ============================================================================
+// Swapchain Tests (DirectX 12; surfaces are built over hidden windows)
+// ============================================================================
+
+TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+
+    auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
+
+    ASSERT_NE(swapchain.id, InvalidHandle);
+    EXPECT_EQ(swapchain.desc.surface.id, surface.id);
+
+    rhi.DestroySwapchain(swapchain);
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
+{
+    rhi::SwapchainDesc desc;
+    auto swapchain = rhi.CreateSwapchain(desc);
+
+    EXPECT_EQ(swapchain.id, InvalidHandle);
+}
+
+TEST_F(RHITest, RejectsZeroSizedSwapchain)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+
+    auto desc = MakeSwapchainDesc(surface);
+    desc.width = 0;
+    desc.height = 0;
+    auto swapchain = rhi.CreateSwapchain(desc);
+
+    EXPECT_EQ(swapchain.id, InvalidHandle);
+
+    rhi.DestroySurface(surface);
+    rhi.DestroyNativeWindow(window);
+}
+
+TEST_F(RHITest, AcquireAndPresentSwapchainImage)
+{
+    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
+    ASSERT_NE(window.id, InvalidHandle);
+    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
+    ASSERT_NE(surface.id, InvalidHandle);
+    auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
+    ASSERT_NE(swapchain.id, InvalidHandle);
+
+    auto acquired = rhi.AcquireNextImage(swapchain);
+    EXPECT_EQ(acquired.status, rhi::AcquireStatus::Success);
+    ASSERT_NE(acquired.imageIndex, 0xFFFFFFFFu);
+    EXPECT_NE(rhi.GetSwapchainBuffer(swapchain, acquired.imageIndex), nullptr);
 
     // Should not crash.
     rhi.Present(swapchain);

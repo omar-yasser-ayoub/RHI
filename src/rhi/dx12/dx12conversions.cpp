@@ -63,6 +63,26 @@ D3D12_HEAP_PROPERTIES DX12RHI::toD3D12(rhi::MemoryUsage usage) {
     }
 }
 
+DXGI_ALPHA_MODE DX12RHI::toD3D12(rhi::AlphaMode mode) {
+    switch (mode) {
+        case rhi::AlphaMode::Opaque: return DXGI_ALPHA_MODE_IGNORE;
+        case rhi::AlphaMode::Premultiplied: return DXGI_ALPHA_MODE_PREMULTIPLIED;
+        default: return DXGI_ALPHA_MODE_IGNORE;
+    }
+}
+
+UINT DX12RHI::toD3D12SyncInterval(rhi::PresentMode mode) {
+    // DXGI has no mailbox or relaxed modes: anything vsynced presents every
+    // vertical blank, and only Immediate presents immediately.
+    switch (mode) {
+        case rhi::PresentMode::Immediate: return 0;
+        case rhi::PresentMode::Fifo:
+        case rhi::PresentMode::FifoRelaxed:
+        case rhi::PresentMode::Mailbox:
+        default: return 1;
+    }
+}
+
 D3D12_RESOURCE_DIMENSION DX12RHI::toD3D12(rhi::TextureDimension dimension) {
     switch (dimension)
     {
@@ -196,6 +216,7 @@ DXGI_FORMAT DX12RHI::toD3D12(rhi::TextureFormat format)
         case rhi::TextureFormat::ASTC12x12UnormSrgb:
             return DXGI_FORMAT_UNKNOWN;
     }
+    return DXGI_FORMAT_UNKNOWN;
 }
 
 

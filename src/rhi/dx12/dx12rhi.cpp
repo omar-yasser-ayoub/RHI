@@ -107,7 +107,8 @@ bool DX12RHI::Initialize() {
 }
 
 void DX12RHI::Shutdown() {
-    // ComPtr handles lifecycles, no need to manually clean up
+    m_Swapchains.clear();
+    m_FreeSwapchains.clear();
     m_Surfaces.clear();
     m_FreeSurfaces.clear();
     for (struct GLFWwindow* window : m_Windows) {
@@ -122,5 +123,3 @@ void DX12RHI::Shutdown() {
         m_GlfwInitialized = false;
     }
 }
-
-

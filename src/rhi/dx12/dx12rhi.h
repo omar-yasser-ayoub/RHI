@@ -44,6 +44,7 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
+    ID3D12Resource* GetSwapchainBuffer(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     void Present(rhi::SwapchainHandle handle);
 
     void DestroySampler(rhi::SamplerHandle handle);
@@ -76,6 +77,8 @@ private:
         rhi::BufferUsage bufferUsage);
     static D3D12_RESOURCE_DIMENSION toD3D12(rhi::TextureDimension dimension);
     static DXGI_FORMAT toD3D12(rhi::TextureFormat format);
+    static DXGI_ALPHA_MODE toD3D12(rhi::AlphaMode mode);
+    static UINT toD3D12SyncInterval(rhi::PresentMode mode);
     static uint32_t toD3D12(rhi::SampleCount count);
     static D3D12_RESOURCE_FLAGS toD3D12(rhi::TextureUsage usage);
     static DXGI_FORMAT toD3D12Typeless(rhi::TextureFormat format);
@@ -194,7 +197,19 @@ private:
     std::vector<std::uint64_t> m_FreePipelineLayouts;
     std::vector<Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_Pipelines;
     std::vector<std::uint64_t> m_FreePipelines;
-    // DX12 has no surface object: a surface just borrows the window's HWND.
+    struct DX12SwapchainData {
+        Microsoft::WRL::ComPtr<IDXGISwapChain4> swapchain;
+        std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> buffers;
+        std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
+        DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+        UINT syncInterval = 1;
+        std::uint32_t lastImageIndex = 0xFFFFFFFF;
+    };
+    std::vector<DX12SwapchainData> m_Swapchains;
+    std::vector<std::uint64_t> m_FreeSwapchains;
+    // DX12 has no surface object, so a surface just borrows the window's HWND
     std::vector<HWND> m_Surfaces;
     std::vector<std::uint64_t> m_FreeSurfaces;
     std::vector<struct GLFWwindow*> m_Windows;
