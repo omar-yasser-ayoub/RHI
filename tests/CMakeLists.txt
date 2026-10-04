@@ -111,6 +111,15 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
         PRIVATE
             RHI_WEBGPU
     )
+    # Dawn needs its backend DLLs next to the test binary (same as build_webgpu.bat does for RHI.exe).
+    add_custom_command(TARGET rhi_tests POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DAWN_SDK_ROOT}/bin/d3dcompiler_47.dll"
+            "$<TARGET_FILE_DIR:rhi_tests>"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${DAWN_SDK_ROOT}/bin/vulkan-1.dll"
+            "$<TARGET_FILE_DIR:rhi_tests>"
+    )
 else()
     message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()

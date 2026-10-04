@@ -238,6 +238,24 @@ wgpu::TextureUsage WebGPURHI::toWebGPU(rhi::TextureUsage usage) {
     return result;
 }
 
+wgpu::PresentMode WebGPURHI::toWebGPU(rhi::PresentMode mode) {
+    switch (mode) {
+    case rhi::PresentMode::Fifo: return wgpu::PresentMode::Fifo;
+    case rhi::PresentMode::FifoRelaxed: return wgpu::PresentMode::FifoRelaxed;
+    case rhi::PresentMode::Mailbox: return wgpu::PresentMode::Mailbox;
+    case rhi::PresentMode::Immediate: return wgpu::PresentMode::Immediate;
+    default: return wgpu::PresentMode::Fifo;
+    }
+}
+
+wgpu::CompositeAlphaMode WebGPURHI::toWebGPU(rhi::AlphaMode mode) {
+    switch (mode) {
+    case rhi::AlphaMode::Opaque: return wgpu::CompositeAlphaMode::Opaque;
+    case rhi::AlphaMode::Premultiplied: return wgpu::CompositeAlphaMode::Premultiplied;
+    default: return wgpu::CompositeAlphaMode::Auto;
+    }
+}
+
 wgpu::VertexFormat WebGPURHI::toWebGPU(rhi::VertexFormat format) {
     switch (format) {
     case rhi::VertexFormat::Float32:   return wgpu::VertexFormat::Float32;

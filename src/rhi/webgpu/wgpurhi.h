@@ -39,6 +39,7 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
+    wgpu::Texture GetSwapchainTexture(rhi::SwapchainHandle handle) const;
     void Present(rhi::SwapchainHandle handle);
 
     void DestroySampler(rhi::SamplerHandle handle);
@@ -70,6 +71,8 @@ private:
     static wgpu::TextureFormat toWebGPU(rhi::TextureFormat usage);
     static uint32_t toWebGPU(rhi::SampleCount count);
     static wgpu::TextureUsage toWebGPU(rhi::TextureUsage usage);
+    static wgpu::PresentMode toWebGPU(rhi::PresentMode mode);
+    static wgpu::CompositeAlphaMode toWebGPU(rhi::AlphaMode mode);
     static wgpu::VertexFormat toWebGPU(rhi::VertexFormat format);
     static wgpu::PrimitiveTopology toWebGPU(rhi::PrimitiveTopology topology);
     static wgpu::CullMode toWebGPU(rhi::CullMode mode);
@@ -108,6 +111,15 @@ private:
     std::vector<std::uint64_t> m_FreePipelines;
     std::vector<wgpu::Surface> m_Surfaces;
     std::vector<std::uint64_t> m_FreeSurfaces;
+    struct WebGPUSwapchainData {
+        wgpu::Surface surface;
+        wgpu::Texture currentTexture;
+        wgpu::TextureFormat format = wgpu::TextureFormat::Undefined;
+        std::uint32_t width = 0;
+        std::uint32_t height = 0;
+    };
+    std::vector<WebGPUSwapchainData> m_Swapchains;
+    std::vector<std::uint64_t> m_FreeSwapchains;
     std::vector<struct GLFWwindow*> m_Windows;
     std::vector<std::uint64_t> m_FreeWindows;
     bool m_GlfwInitialized = false;

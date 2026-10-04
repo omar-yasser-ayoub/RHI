@@ -90,6 +90,14 @@ void WebGPURHI::Shutdown()
 
     m_Buffers.clear();
     m_Samplers.clear();
+    for (auto& data : m_Swapchains) {
+        if (data.surface) {
+            data.currentTexture = {};
+            data.surface.Unconfigure();
+        }
+    }
+    m_Swapchains.clear();
+    m_FreeSwapchains.clear();
     m_Surfaces.clear();
     m_FreeSurfaces.clear();
     m_Queue = {};
