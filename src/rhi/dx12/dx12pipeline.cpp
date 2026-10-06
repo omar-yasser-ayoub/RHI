@@ -251,3 +251,19 @@ void DX12RHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
     m_Pipelines[handle.id].Reset();
     m_FreePipelines.push_back(handle.id);
 }
+
+rhi::ComputePipelineHandle DX12RHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
+{
+    return {};
+}
+
+void DX12RHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)
+{
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_ComputePipelines.size() ||
+        !m_ComputePipelines[handle.id]) {
+        return;
+    }
+    m_ComputePipelines[handle.id].Reset();
+    m_FreeComputePipelines.push_back(handle.id);
+}

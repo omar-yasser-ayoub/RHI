@@ -279,3 +279,20 @@ void VulkanRHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
     m_Pipelines[handle.id] = VK_NULL_HANDLE;
     m_FreePipelines.push_back(handle.id);
 }
+
+rhi::ComputePipelineHandle VulkanRHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
+{
+    return {};
+}
+
+void VulkanRHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)
+{
+    if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_ComputePipelines.size() ||
+        m_ComputePipelines[handle.id] == VK_NULL_HANDLE) {
+        return;
+    }
+    vkDestroyPipeline(m_Device, m_ComputePipelines[handle.id], nullptr);
+    m_ComputePipelines[handle.id] = VK_NULL_HANDLE;
+    m_FreeComputePipelines.push_back(handle.id);
+}

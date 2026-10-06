@@ -142,4 +142,14 @@ struct GraphicsPipelineHandle {
     GraphicsPipelineDesc desc{};
 };
 
+struct ComputePipelineDesc {
+    PipelineLayoutHandle layout;
+    ShaderModuleHandle computeShader;
+};
+
+struct ComputePipelineHandle {
+    std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
+    ComputePipelineDesc desc{};
+};
+
 }

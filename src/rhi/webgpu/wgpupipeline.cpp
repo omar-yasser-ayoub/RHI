@@ -216,3 +216,19 @@ void WebGPURHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
     m_Pipelines[handle.id] = {};
     m_FreePipelines.push_back(handle.id);
 }
+
+rhi::ComputePipelineHandle WebGPURHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
+{
+    return {};
+}
+
+void WebGPURHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)
+{
+    if (handle.id == 0xFFFFFFFFFFFFFFFFull ||
+        handle.id >= m_ComputePipelines.size() ||
+        !m_ComputePipelines[handle.id]) {
+        return;
+    }
+    m_ComputePipelines[handle.id] = {};
+    m_FreeComputePipelines.push_back(handle.id);
+}

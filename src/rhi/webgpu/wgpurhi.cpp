@@ -90,6 +90,8 @@ void WebGPURHI::Shutdown()
 
     m_Buffers.clear();
     m_Samplers.clear();
+    m_ComputePipelines.clear();
+    m_FreeComputePipelines.clear();
     for (auto& data : m_Swapchains) {
         if (data.surface) {
             data.currentTexture = {};

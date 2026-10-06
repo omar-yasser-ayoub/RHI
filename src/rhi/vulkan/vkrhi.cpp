@@ -289,6 +289,11 @@ void VulkanRHI::Shutdown() {
                 vkDestroyPipeline(m_Device, pipeline, nullptr);
             }
         }
+        for (VkPipeline pipeline : m_ComputePipelines) {
+            if (pipeline != VK_NULL_HANDLE) {
+                vkDestroyPipeline(m_Device, pipeline, nullptr);
+            }
+        }
         for (VkPipelineLayout layout : m_PipelineLayouts) {
             if (layout != VK_NULL_HANDLE) {
                 vkDestroyPipelineLayout(m_Device, layout, nullptr);
@@ -302,6 +307,8 @@ void VulkanRHI::Shutdown() {
         m_TextureViews.clear();
         m_Samplers.clear();
         m_Pipelines.clear();
+        m_ComputePipelines.clear();
+        m_FreeComputePipelines.clear();
         m_PipelineLayouts.clear();
         vmaDestroyAllocator(m_Allocator);
         m_Allocator = nullptr;

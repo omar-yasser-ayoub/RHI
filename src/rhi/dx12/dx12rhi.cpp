@@ -107,6 +107,8 @@ bool DX12RHI::Initialize() {
 }
 
 void DX12RHI::Shutdown() {
+    m_ComputePipelines.clear();
+    m_FreeComputePipelines.clear();
     m_Swapchains.clear();
     m_FreeSwapchains.clear();
     m_Surfaces.clear();

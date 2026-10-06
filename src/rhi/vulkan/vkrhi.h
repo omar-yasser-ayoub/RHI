@@ -9,6 +9,7 @@
 #include <rhi/resources/swapchain.h>
 #include <rhi/resources/surface.h>
 #include <rhi/resources/window.h>
+#include "rhi/resources/renderpass.h"
 
 #include <vulkan/vulkan.h>
 #include <cstdint>
@@ -42,6 +43,7 @@ public:
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
+    rhi::ComputePipelineHandle CreateComputePipeline(const rhi::ComputePipelineDesc& desc);
     rhi::WindowHandle CreateNativeWindow(const rhi::WindowDesc& desc);
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
@@ -50,6 +52,39 @@ public:
     VkImage GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     VkImageView GetSwapchainImageView(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     void Present(rhi::SwapchainHandle handle);
+
+    void BeginRenderPass(const rhi::RenderPassDesc& desc);
+    void EndPass();
+
+    void SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle);
+    void SetComputePipeline(rhi::ComputePipelineHandle handle);
+    void SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle);
+    void SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset = 0);
+    void SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset = 0);
+    void SetViewport(float x, float y, float width, float height);
+    void SetScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
+
+    void Draw(std::uint32_t vertexCount, std::uint32_t instanceCount,
+              std::uint32_t firstVertex, std::uint32_t firstInstance);
+    void DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount,
+                     std::uint32_t firstIndex, std::int32_t baseVertex,
+                     std::uint32_t firstInstance);
+    void DrawIndirect(rhi::BufferHandle params, std::size_t offset,
+                      std::uint32_t drawCount, std::uint32_t stride);
+    void DrawIndexedIndirect(rhi::BufferHandle params, std::size_t offset,
+                             std::uint32_t drawCount, std::uint32_t stride);
+
+    void Dispatch(std::uint32_t x, std::uint32_t y, std::uint32_t z);
+    void DispatchIndirect(rhi::BufferHandle params, std::size_t offset);
+
+    void CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+                            std::size_t srcOffset = 0, std::size_t dstOffset = 0);
+    void CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
+                             const rhi::TextureWriteDesc& region);
+    void CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
+                             const rhi::TextureWriteDesc& region);
+
+    void Submit();
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -60,6 +95,7 @@ public:
     void DestroyShaderModule(rhi::ShaderModuleHandle handle);
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
+    void DestroyComputePipeline(rhi::ComputePipelineHandle handle);
     void DestroyNativeWindow(rhi::WindowHandle handle);
     void DestroySurface(rhi::SurfaceHandle handle);
     void DestroySwapchain(rhi::SwapchainHandle handle);
@@ -128,6 +164,8 @@ private:
     std::vector<std::uint64_t> m_FreePipelineLayouts;
     std::vector<VkPipeline> m_Pipelines;
     std::vector<std::uint64_t> m_FreePipelines;
+    std::vector<VkPipeline> m_ComputePipelines;
+    std::vector<std::uint64_t> m_FreeComputePipelines;
     std::vector<VkSurfaceKHR> m_Surfaces;
     std::vector<std::uint64_t> m_FreeSurfaces;
     std::vector<struct GLFWwindow*> m_Windows;
