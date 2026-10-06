@@ -11,6 +11,7 @@
 #include <rhi/resources/window.h>
 
 #include <vulkan/vulkan.h>
+#include <cstdint>
 #include <vector>
 #include <Windows.h>
 #include <third_party/dxc/inc/dxcapi.h>
@@ -102,6 +103,9 @@ private:
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;
     VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
+    VkQueue m_ComputeQueue = VK_NULL_HANDLE;
+    std::uint32_t m_GraphicsQueueFamily = UINT32_MAX;
+    std::uint32_t m_ComputeQueueFamily = UINT32_MAX;
     VmaAllocator m_Allocator = nullptr;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;

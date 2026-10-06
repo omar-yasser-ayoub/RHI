@@ -104,13 +104,19 @@ bool VulkanRHI::Initialize() {
         queueFamilies.data());
 
     uint32_t graphicsQueueFamily = UINT32_MAX;
+    uint32_t computeQueueFamily = UINT32_MAX;
 
     for (uint32_t i = 0; i < queueFamilyCount; ++i)
     {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        if (graphicsQueueFamily == UINT32_MAX &&
+            (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT))
         {
             graphicsQueueFamily = i;
-            break;
+        }
+        if (computeQueueFamily == UINT32_MAX &&
+            (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT))
+        {
+            computeQueueFamily = i;
         }
     }
 
@@ -121,23 +127,47 @@ bool VulkanRHI::Initialize() {
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
+    if (computeQueueFamily == UINT32_MAX) {
+        std::cerr << "No dedicated compute queue family found, sharing the graphics queue.\n";
+        computeQueueFamily = graphicsQueueFamily;
+    }
+
+    m_GraphicsQueueFamily = graphicsQueueFamily;
+    m_ComputeQueueFamily = computeQueueFamily;
 
     float priorities[] = { 1.0f, 1.0f };
-
-    VkDeviceQueueCreateInfo queueInfo{};
-    queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueInfo.queueFamilyIndex = graphicsQueueFamily;
-    queueInfo.queueCount = 2;
-    queueInfo.pQueuePriorities = priorities;
 
     const char* deviceExtensions[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     };
 
+    VkDeviceQueueCreateInfo queueInfos[2]{};
+    uint32_t queueInfoCount = 0;
+
+    if (graphicsQueueFamily == computeQueueFamily) {
+        const uint32_t available = queueFamilies[graphicsQueueFamily].queueCount;
+        const uint32_t requested = available >= 2 ? 2 : 1;
+        queueInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfos[0].queueFamilyIndex = graphicsQueueFamily;
+        queueInfos[0].queueCount = requested;
+        queueInfos[0].pQueuePriorities = priorities;
+        queueInfoCount = 1;
+    } else {
+        queueInfos[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfos[0].queueFamilyIndex = graphicsQueueFamily;
+        queueInfos[0].queueCount = 1;
+        queueInfos[0].pQueuePriorities = &priorities[0];
+        queueInfos[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueInfos[1].queueFamilyIndex = computeQueueFamily;
+        queueInfos[1].queueCount = 1;
+        queueInfos[1].pQueuePriorities = &priorities[1];
+        queueInfoCount = 2;
+    }
+
     VkDeviceCreateInfo deviceInfo{};
     deviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceInfo.queueCreateInfoCount = 1;
-    deviceInfo.pQueueCreateInfos = &queueInfo;
+    deviceInfo.queueCreateInfoCount = queueInfoCount;
+    deviceInfo.pQueueCreateInfos = queueInfos;
     deviceInfo.enabledExtensionCount = 1;
     deviceInfo.ppEnabledExtensionNames = deviceExtensions;
 
@@ -161,6 +191,13 @@ bool VulkanRHI::Initialize() {
     }
 
     vkGetDeviceQueue(m_Device, graphicsQueueFamily, 0, &m_GraphicsQueue);
+    if (graphicsQueueFamily == computeQueueFamily) {
+        const uint32_t computeIndex =
+            queueFamilies[graphicsQueueFamily].queueCount >= 2 ? 1 : 0;
+        vkGetDeviceQueue(m_Device, computeQueueFamily, computeIndex, &m_ComputeQueue);
+    } else {
+        vkGetDeviceQueue(m_Device, computeQueueFamily, 0, &m_ComputeQueue);
+    }
 
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.physicalDevice = m_PhysicalDevice;
@@ -271,6 +308,9 @@ void VulkanRHI::Shutdown() {
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
         m_GraphicsQueue = VK_NULL_HANDLE;
+        m_ComputeQueue = VK_NULL_HANDLE;
+        m_GraphicsQueueFamily = UINT32_MAX;
+        m_ComputeQueueFamily = UINT32_MAX;
     }
 
     if (m_Instance) {
