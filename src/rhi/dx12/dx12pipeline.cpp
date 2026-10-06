@@ -254,7 +254,47 @@ void DX12RHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
 
 rhi::ComputePipelineHandle DX12RHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
 {
-    return {};
+    rhi::ComputePipelineHandle handle;
+
+    if (!m_Device) {
+        return handle;
+    }
+    if (desc.layout.id >= m_PipelineLayouts.size() ||
+        !m_PipelineLayouts[desc.layout.id]) {
+        return handle;
+    }
+    if (desc.computeShader.id >= m_ShaderModules.size()) {
+        return handle;
+    }
+
+    const rhi::ShaderModule& csModule = m_ShaderModules[desc.computeShader.id];
+    if (csModule.bytecode.empty()) {
+        return handle;
+    }
+
+    D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
+    psoDesc.pRootSignature = m_PipelineLayouts[desc.layout.id].Get();
+    psoDesc.CS.pShaderBytecode = csModule.bytecode.data();
+    psoDesc.CS.BytecodeLength = csModule.bytecode.size();
+    psoDesc.NodeMask = 0;
+    psoDesc.Flags = D3D12_PIPELINE_STATE_FLAG_NONE;
+
+    Microsoft::WRL::ComPtr<ID3D12PipelineState> pipeline;
+    if (FAILED(m_Device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pipeline)))) {
+        return handle;
+    }
+
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
+    handle.desc = desc;
+    if (!m_FreeComputePipelines.empty()) {
+        handle.id = m_FreeComputePipelines.back();
+        m_FreeComputePipelines.pop_back();
+        m_ComputePipelines[handle.id] = pipeline;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_ComputePipelines.size());
+        m_ComputePipelines.push_back(pipeline);
+    }
+    return handle;
 }
 
 void DX12RHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)

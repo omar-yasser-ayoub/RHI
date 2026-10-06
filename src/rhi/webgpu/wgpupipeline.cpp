@@ -219,7 +219,51 @@ void WebGPURHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
 
 rhi::ComputePipelineHandle WebGPURHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
 {
-    return {};
+    rhi::ComputePipelineHandle handle;
+
+    if (!m_Device) {
+        return handle;
+    }
+    if (desc.layout.id >= m_PipelineLayouts.size() ||
+        !m_PipelineLayouts[desc.layout.id]) {
+        return handle;
+    }
+    if (desc.computeShader.id >= m_ShaderModules.size()) {
+        return handle;
+    }
+
+    const rhi::ShaderModule& csModule = m_ShaderModules[desc.computeShader.id];
+    if (csModule.bytecode.empty()) {
+        return handle;
+    }
+
+    wgpu::ShaderModule cs = MakeShaderModule(csModule);
+    if (!cs) {
+        return handle;
+    }
+
+    wgpu::ComputePipelineDescriptor pipelineDesc{};
+    pipelineDesc.layout = m_PipelineLayouts[desc.layout.id];
+    pipelineDesc.compute.module = cs;
+    pipelineDesc.compute.entryPoint = wgpu::StringView(
+        csModule.entryPoint.data(), csModule.entryPoint.size());
+
+    wgpu::ComputePipeline pipeline = m_Device.CreateComputePipeline(&pipelineDesc);
+    if (!pipeline) {
+        return handle;
+    }
+
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
+    handle.desc = desc;
+    if (!m_FreeComputePipelines.empty()) {
+        handle.id = m_FreeComputePipelines.back();
+        m_FreeComputePipelines.pop_back();
+        m_ComputePipelines[handle.id] = pipeline;
+    } else {
+        handle.id = m_ComputePipelines.size();
+        m_ComputePipelines.push_back(pipeline);
+    }
+    return handle;
 }
 
 void WebGPURHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)

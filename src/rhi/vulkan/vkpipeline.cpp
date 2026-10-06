@@ -282,7 +282,59 @@ void VulkanRHI::DestroyPipeline(rhi::GraphicsPipelineHandle handle) {
 
 rhi::ComputePipelineHandle VulkanRHI::CreateComputePipeline(const rhi::ComputePipelineDesc& desc)
 {
-    return {};
+    rhi::ComputePipelineHandle handle;
+
+    if (desc.layout.id >= m_PipelineLayouts.size() ||
+        m_PipelineLayouts[desc.layout.id] == VK_NULL_HANDLE) {
+        return handle;
+    }
+    if (desc.computeShader.id >= m_ShaderModules.size()) {
+        return handle;
+    }
+
+    const rhi::ShaderModule& csModule = m_ShaderModules[desc.computeShader.id];
+    if (csModule.bytecode.empty() || csModule.bytecode.size() % 4 != 0) {
+        return handle;
+    }
+
+    VkShaderModule cs = VK_NULL_HANDLE;
+    VkShaderModuleCreateInfo moduleInfo{};
+    moduleInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    moduleInfo.codeSize = csModule.bytecode.size();
+    moduleInfo.pCode = reinterpret_cast<const std::uint32_t*>(csModule.bytecode.data());
+    if (vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &cs) != VK_SUCCESS) {
+        return handle;
+    }
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    pipelineInfo.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    pipelineInfo.stage.module = cs;
+    pipelineInfo.stage.pName = csModule.entryPoint.c_str();
+    pipelineInfo.layout = m_PipelineLayouts[desc.layout.id];
+
+    VkPipeline pipeline = VK_NULL_HANDLE;
+    const VkResult result = vkCreateComputePipelines(
+        m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline);
+
+    vkDestroyShaderModule(m_Device, cs, nullptr);
+
+    if (result != VK_SUCCESS) {
+        return handle;
+    }
+
+    handle.id = 0xFFFFFFFFFFFFFFFFull;
+    handle.desc = desc;
+    if (!m_FreeComputePipelines.empty()) {
+        handle.id = m_FreeComputePipelines.back();
+        m_FreeComputePipelines.pop_back();
+        m_ComputePipelines[handle.id] = pipeline;
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_ComputePipelines.size());
+        m_ComputePipelines.push_back(pipeline);
+    }
+    return handle;
 }
 
 void VulkanRHI::DestroyComputePipeline(rhi::ComputePipelineHandle handle)

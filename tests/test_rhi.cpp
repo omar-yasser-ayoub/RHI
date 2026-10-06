@@ -1993,6 +1993,131 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
 }
 #endif
 
+#if defined(RHI_DX12) || defined(RHI_VULKAN) || defined(RHI_WEBGPU)
+// ============================================================================
+// Compute Pipeline Tests (all backends)
+// ============================================================================
+
+namespace
+{
+rhi::ShaderSource MakeComputeShaderSource()
+{
+    rhi::ShaderSource source;
+#ifdef RHI_SHADER_DIR
+    source.path = std::filesystem::path(RHI_SHADER_DIR) / "basic.comp.hlsl";
+#else
+    source.path = std::filesystem::path("src/shaders") / "basic.comp.hlsl";
+#endif
+    source.stage = rhi::ShaderStageFlags::Compute;
+    source.entryPoint = "main";
+    return source;
+}
+}
+
+TEST_F(RHITest, CreateComputePipeline)
+{
+    const auto cs = rhi.CompileShader(MakeComputeShaderSource());
+    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+
+    // basic.comp.hlsl writes a storage texture at set 0, binding 0.
+    rhi::BindGroupLayoutDesc storageDesc;
+    storageDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::StorageTexture,
+        1,
+        rhi::ShaderStageFlags::Compute});
+    const auto storageLayout = rhi.CreateBindGroupLayout(storageDesc);
+    ASSERT_NE(storageLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(storageLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::ComputePipelineDesc desc;
+    desc.layout = layout;
+    desc.computeShader = cs;
+    const auto pipeline = rhi.CreateComputePipeline(desc);
+    EXPECT_NE(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyComputePipeline(pipeline);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(storageLayout);
+    rhi.DestroyShaderModule(cs);
+}
+
+TEST_F(RHITest, RejectsComputePipelineWithInvalidLayout)
+{
+    const auto cs = rhi.CompileShader(MakeComputeShaderSource());
+    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+
+    rhi::ComputePipelineDesc desc;
+    desc.layout.id = 0xFFFFFFFFFFFFFFFFull;
+    desc.computeShader = cs;
+    const auto pipeline = rhi.CreateComputePipeline(desc);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyShaderModule(cs);
+}
+
+TEST_F(RHITest, RejectsComputePipelineWithInvalidShader)
+{
+    rhi::PipelineLayoutDesc layoutDesc;
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::ComputePipelineDesc desc;
+    desc.layout = layout;
+    const auto pipeline = rhi.CreateComputePipeline(desc);
+    EXPECT_EQ(pipeline.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyPipelineLayout(layout);
+}
+
+TEST_F(RHITest, DestroyAndReuseComputePipeline)
+{
+    const auto cs = rhi.CompileShader(MakeComputeShaderSource());
+    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+
+    // basic.comp.hlsl writes a storage texture at set 0, binding 0.
+    rhi::BindGroupLayoutDesc storageDesc;
+    storageDesc.shaderBindings.push_back({
+        0,
+        0,
+        rhi::BindingType::StorageTexture,
+        1,
+        rhi::ShaderStageFlags::Compute});
+    const auto storageLayout = rhi.CreateBindGroupLayout(storageDesc);
+    ASSERT_NE(storageLayout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::PipelineLayoutDesc layoutDesc;
+    layoutDesc.layouts.push_back(storageLayout);
+    const auto layout = rhi.CreatePipelineLayout(layoutDesc);
+    ASSERT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi::ComputePipelineDesc desc;
+    desc.layout = layout;
+    desc.computeShader = cs;
+    const auto handle = rhi.CreateComputePipeline(desc);
+    ASSERT_NE(handle.id, 0xFFFFFFFFFFFFFFFFull);
+
+    rhi.DestroyComputePipeline(handle);
+
+    // Double destroy is safe.
+    rhi.DestroyComputePipeline(handle);
+
+    const auto reused = rhi.CreateComputePipeline(desc);
+    ASSERT_NE(reused.id, 0xFFFFFFFFFFFFFFFFull);
+    EXPECT_EQ(reused.id, handle.id);
+
+    rhi.DestroyComputePipeline(reused);
+    rhi.DestroyPipelineLayout(layout);
+    rhi.DestroyBindGroupLayout(storageLayout);
+    rhi.DestroyShaderModule(cs);
+}
+#endif
+
 
 // ============================================================================
 // Native Window Tests (all backends, hidden windows so tests stay headless)
