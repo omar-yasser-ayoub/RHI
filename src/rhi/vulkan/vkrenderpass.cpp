@@ -4,6 +4,10 @@ void VulkanRHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
 {
 }
 
+void VulkanRHI::BeginComputePass()
+{
+}
+
 void VulkanRHI::EndPass()
 {
 }

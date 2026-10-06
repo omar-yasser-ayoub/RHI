@@ -4,6 +4,10 @@ void WebGPURHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
 {
 }
 
+void WebGPURHI::BeginComputePass()
+{
+}
+
 void WebGPURHI::EndPass()
 {
 }

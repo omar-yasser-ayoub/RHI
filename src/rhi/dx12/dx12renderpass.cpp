@@ -4,6 +4,10 @@ void DX12RHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
 {
 }
 
+void DX12RHI::BeginComputePass()
+{
+}
+
 void DX12RHI::EndPass()
 {
 }

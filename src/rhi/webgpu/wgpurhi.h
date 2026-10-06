@@ -45,6 +45,7 @@ public:
     void Present(rhi::SwapchainHandle handle);
 
     void BeginRenderPass(const rhi::RenderPassDesc& desc);
+    void BeginComputePass();
     void EndPass();
 
     void SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle);
