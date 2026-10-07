@@ -2,8 +2,6 @@
 
 #include "rhi/rhi.h"
 
-namespace
-{
 constexpr std::uint32_t kWidth = 1280;
 constexpr std::uint32_t kHeight = 720;
 
@@ -26,11 +24,11 @@ rhi::SwapchainHandle RecreateSwapchain(RHI& rhi, rhi::SwapchainHandle old, rhi::
     desc.imageCount = 3;
     return rhi.CreateSwapchain(desc);
 }
-} // namespace
 
 int main()
 {
     RHI rhi;
+
     if (!rhi.Initialize()) {
         std::cerr << "Failed to initialize RHI.\n";
         return 1;

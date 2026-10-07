@@ -141,8 +141,7 @@ private:
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;
     std::vector<std::uint64_t> m_FreeBuffers;
-    std::unordered_map<std::uint64_t, wgpu::Buffer> m_StagingBuffers;
-    std::unordered_map<std::uint64_t, bool> m_StagingMapped;
+
     std::vector<wgpu::Texture> m_Textures;
     std::vector<std::uint64_t> m_FreeTextures;
     std::vector<wgpu::TextureView> m_TextureViews;

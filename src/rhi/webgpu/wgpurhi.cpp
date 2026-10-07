@@ -94,8 +94,6 @@ void WebGPURHI::Shutdown()
     }
 
     m_Buffers.clear();
-    m_StagingBuffers.clear();
-    m_StagingMapped.clear();
     m_Samplers.clear();
     m_ComputePipelines.clear();
     m_FreeComputePipelines.clear();
