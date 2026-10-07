@@ -1996,24 +1996,41 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
 #endif
 
 #if defined(RHI_DX12) || defined(RHI_VULKAN) || defined(RHI_WEBGPU)
-#if defined(RHI_WEBGPU)
 // ============================================================================
-// WebGPU rejects CPU-visible buffers that also bind to the pipeline.
-// WebGPU forbids map flags alongside bind usages, so callers stage through
-// a plain mappable buffer plus a device buffer and a copy instead.
+// CpuToGpu vertex buffer write path. Vulkan and DirectX 12 map these
+// directly; WebGPU stages through a throwaway upload buffer, so mapping one
+// is rejected and writes go through instead.
 // ============================================================================
 
-TEST_F(RHITest, RejectsCpuToGpuVertexBuffer)
+TEST_F(RHITest, WriteThenMapCpuToGpuVertexBuffer)
 {
+    constexpr std::uint64_t kSize = 64;
+    std::uint8_t pattern[kSize];
+    for (std::uint64_t i = 0; i < kSize; ++i) {
+        pattern[i] = static_cast<std::uint8_t>(i * 5 + 3);
+    }
+
     rhi::BufferDesc desc;
-    desc.size = 64;
+    desc.size = kSize;
     desc.memoryUsage = rhi::MemoryUsage::CpuToGpu;
     desc.usage = rhi::BufferUsage::Vertex;
     auto buffer = rhi.CreateBuffer(desc);
+    ASSERT_NE(buffer.id, InvalidHandle);
 
-    EXPECT_EQ(buffer.id, InvalidHandle);
-}
+    // Must not crash on any backend.
+    rhi.WriteBuffer(buffer, pattern, sizeof(pattern));
+
+#if defined(RHI_WEBGPU)
+    EXPECT_EQ(rhi.MapBuffer(buffer), nullptr);
+#else
+    auto* mapped = static_cast<std::uint8_t*>(rhi.MapBuffer(buffer));
+    ASSERT_NE(mapped, nullptr);
+    EXPECT_EQ(std::memcmp(mapped, pattern, kSize), 0);
+    rhi.UnmapBuffer(buffer);
 #endif
+
+    rhi.DestroyBuffer(buffer);
+}
 
 // ============================================================================
 // Compute Pipeline Tests (all backends)

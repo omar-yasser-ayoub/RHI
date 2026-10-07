@@ -64,7 +64,7 @@ wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::BufferUsage usage) {
 wgpu::BufferUsage WebGPURHI::toWebGPU(rhi::MemoryUsage usage) {
     switch (usage) {
         case rhi::MemoryUsage::GpuOnly:
-            return wgpu::BufferUsage::None;
+            return wgpu::BufferUsage::CopyDst;
         case rhi::MemoryUsage::CpuToGpu:
             return wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc;
         case rhi::MemoryUsage::GpuToCpu:

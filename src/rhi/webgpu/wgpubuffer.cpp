@@ -1,5 +1,17 @@
 #include "rhi/webgpu/wgpurhi.h"
 
+
+bool NeedsStagingWrite(const rhi::BufferDesc& desc)
+{
+    if (desc.memoryUsage != rhi::MemoryUsage::CpuToGpu) {
+        return false;
+    }
+    const rhi::BufferUsage bindMask =
+        rhi::BufferUsage::Vertex | rhi::BufferUsage::Index | rhi::BufferUsage::Uniform |
+        rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect;
+    return (desc.usage & bindMask) != rhi::BufferUsage::None;
+}
+
 rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
 
     rhi::BufferHandle handle;
@@ -9,19 +21,13 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return handle;
     }
 
-    if (desc.memoryUsage != rhi::MemoryUsage::GpuOnly) {
-        const rhi::BufferUsage bindMask =
-            rhi::BufferUsage::Vertex | rhi::BufferUsage::Index | rhi::BufferUsage::Uniform |
-            rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect;
-        if ((desc.usage & bindMask) != rhi::BufferUsage::None) {
-            printf("[RHI] CpuToGpu/GpuToCpu buffers cannot bind to the pipeline; stage explicitly\n");
-            return handle;
-        }
-    }
-
     wgpu::BufferDescriptor bufferDesc{};
     bufferDesc.size = desc.size;
-    bufferDesc.usage = toWebGPU(desc.usage) | toWebGPU(desc.memoryUsage);
+    if (NeedsStagingWrite(desc)) {
+        bufferDesc.usage = toWebGPU(desc.usage) | wgpu::BufferUsage::CopyDst;
+    } else {
+        bufferDesc.usage = toWebGPU(desc.usage) | toWebGPU(desc.memoryUsage);
+    }
 
     wgpu::Buffer buffer = m_Device.CreateBuffer(&bufferDesc);
     if (!buffer) {
@@ -50,6 +56,10 @@ void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
     }
     if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuOnly) {
         printf("[RHI] Cannot map a GPU-only buffer\n");
+        return nullptr;
+    }
+    if (NeedsStagingWrite(handle.desc)) {
+        printf("[RHI] Cannot map a buffer that binds to the pipeline; stage explicitly\n");
         return nullptr;
     }
     wgpu::Buffer buffer = m_Buffers[handle.id];
@@ -106,6 +116,52 @@ void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
     }
     if (handle.desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
         printf("[RHI] Cannot write directly to a GPU-to-CPU WebGPU buffer\n");
+        return;
+    }
+
+    if (NeedsStagingWrite(handle.desc)) {
+        wgpu::BufferDescriptor stagingDesc{};
+        stagingDesc.size = size;
+        stagingDesc.usage = wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc;
+        wgpu::Buffer staging = m_Device.CreateBuffer(&stagingDesc);
+        if (!staging) {
+            printf("[RHI] Failed to create WebGPU staging buffer\n");
+            return;
+        }
+        bool success = false;
+        auto future = staging.MapAsync(
+            wgpu::MapMode::Write,
+            0,
+            size,
+            wgpu::CallbackMode::WaitAnyOnly,
+            [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
+                if (status != wgpu::MapAsyncStatus::Success) {
+                    printf("[RHI] MapBuffer failed: %.*s\n",
+                           static_cast<int>(message.length),
+                           message.data ? message.data : "");
+                    return;
+                }
+                success = true;
+            });
+        m_Instance.WaitAny(future, UINT64_MAX);
+        if (!success) {
+            return;
+        }
+
+        void* mapped = staging.GetMappedRange(0, size);
+        if (!mapped) {
+            printf("[RHI] Failed to get mapped WebGPU staging range\n");
+            staging.Unmap();
+            return;
+        }
+        std::memcpy(mapped, data, size);
+        staging.Unmap();
+
+        wgpu::CommandEncoderDescriptor encoderDesc{};
+        wgpu::CommandEncoder encoder = m_Device.CreateCommandEncoder(&encoderDesc);
+        encoder.CopyBufferToBuffer(staging, 0, m_Buffers[handle.id], offset, size);
+        wgpu::CommandBuffer commands = encoder.Finish();
+        m_Queue.Submit(1, &commands);
         return;
     }
 
