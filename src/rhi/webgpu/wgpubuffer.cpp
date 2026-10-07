@@ -9,9 +9,6 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return handle;
     }
 
-    // WebGPU forbids map flags alongside bind usages, so a buffer that is
-    // both CPU-visible and bound to the pipeline cannot exist. Callers stage
-    // through a plain mappable buffer plus a device buffer and a copy.
     if (desc.memoryUsage != rhi::MemoryUsage::GpuOnly) {
         const rhi::BufferUsage bindMask =
             rhi::BufferUsage::Vertex | rhi::BufferUsage::Index | rhi::BufferUsage::Uniform |
