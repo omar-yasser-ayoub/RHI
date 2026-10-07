@@ -40,6 +40,9 @@ public:
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
+    void PollEvents();
+    bool WindowShouldClose(rhi::WindowHandle handle) const;
+
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
     wgpu::Texture GetSwapchainTexture(rhi::SwapchainHandle handle) const;
     void Present(rhi::SwapchainHandle handle);

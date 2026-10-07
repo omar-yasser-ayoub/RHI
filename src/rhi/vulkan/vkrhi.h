@@ -48,6 +48,9 @@ public:
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
+    void PollEvents();
+    bool WindowShouldClose(rhi::WindowHandle handle) const;
+
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
     VkImage GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     VkImageView GetSwapchainImageView(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;

@@ -84,6 +84,22 @@ rhi::WindowHandle VulkanRHI::CreateNativeWindow(const rhi::WindowDesc& desc)
     return handle;
 }
 
+void VulkanRHI::PollEvents()
+{
+    if (m_GlfwInitialized) {
+        glfwPollEvents();
+    }
+}
+
+bool VulkanRHI::WindowShouldClose(rhi::WindowHandle handle) const
+{
+    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Windows.size() ||
+        m_Windows[handle.id] == nullptr) {
+        return true;
+    }
+    return glfwWindowShouldClose(m_Windows[handle.id]) != 0;
+}
+
 void VulkanRHI::DestroyNativeWindow(rhi::WindowHandle handle)
 {
     if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Windows.size() ||
