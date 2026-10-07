@@ -12,11 +12,11 @@ void DX12RHI::EndPass()
 {
 }
 
-void DX12RHI::SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle)
+void DX12RHI::SetPipeline(rhi::GraphicsPipelineHandle handle)
 {
 }
 
-void DX12RHI::SetComputePipeline(rhi::ComputePipelineHandle handle)
+void DX12RHI::SetPipeline(rhi::ComputePipelineHandle handle)
 {
 }
 

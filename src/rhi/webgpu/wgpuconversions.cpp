@@ -238,6 +238,14 @@ wgpu::TextureUsage WebGPURHI::toWebGPU(rhi::TextureUsage usage) {
     return result;
 }
 
+wgpu::IndexFormat WebGPURHI::toWebGPU(rhi::IndexFormat format) {
+    switch (format) {
+    case rhi::IndexFormat::Uint16: return wgpu::IndexFormat::Uint16;
+    case rhi::IndexFormat::Uint32: return wgpu::IndexFormat::Uint32;
+    default: return wgpu::IndexFormat::Uint32;
+    }
+}
+
 wgpu::PresentMode WebGPURHI::toWebGPU(rhi::PresentMode mode) {
     switch (mode) {
     case rhi::PresentMode::Fifo: return wgpu::PresentMode::Fifo;

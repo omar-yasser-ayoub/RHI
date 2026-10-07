@@ -152,6 +152,27 @@ ID3D12Resource* DX12RHI::GetSwapchainBuffer(
     return data.buffers[imageIndex].Get();
 }
 
+void DX12RHI::WaitForIdle()
+{
+    if (!m_Device || !m_CommandQueue) {
+        return;
+    }
+    Microsoft::WRL::ComPtr<ID3D12Fence> fence;
+    if (FAILED(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)))) {
+        return;
+    }
+    HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (event == nullptr) {
+        return;
+    }
+    m_CommandQueue->Signal(fence.Get(), 1);
+    if (fence->GetCompletedValue() < 1) {
+        fence->SetEventOnCompletion(1, event);
+        WaitForSingleObject(event, INFINITE);
+    }
+    CloseHandle(event);
+}
+
 void DX12RHI::Present(rhi::SwapchainHandle handle)
 {
     if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Swapchains.size()) {

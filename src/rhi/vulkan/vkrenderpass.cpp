@@ -12,11 +12,11 @@ void VulkanRHI::EndPass()
 {
 }
 
-void VulkanRHI::SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle)
+void VulkanRHI::SetPipeline(rhi::GraphicsPipelineHandle handle)
 {
 }
 
-void VulkanRHI::SetComputePipeline(rhi::ComputePipelineHandle handle)
+void VulkanRHI::SetPipeline(rhi::ComputePipelineHandle handle)
 {
 }
 

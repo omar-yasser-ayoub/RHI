@@ -302,6 +302,14 @@ VkImageView VulkanRHI::GetSwapchainImageView(
     return data.views[imageIndex];
 }
 
+void VulkanRHI::WaitForIdle()
+{
+    if (!m_Device || m_GraphicsQueue == VK_NULL_HANDLE) {
+        return;
+    }
+    vkQueueWaitIdle(m_GraphicsQueue);
+}
+
 void VulkanRHI::Present(rhi::SwapchainHandle handle)
 {
     if (m_GraphicsQueue == VK_NULL_HANDLE || handle.id == 0xFFFFFFFFFFFFFFFF ||

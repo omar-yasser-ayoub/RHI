@@ -77,6 +77,11 @@ bool WebGPURHI::Initialize()
 
 void WebGPURHI::Shutdown()
 {
+    m_RenderPassEncoder = nullptr;
+    m_ComputePassEncoder = nullptr;
+    m_CommandEncoder = nullptr;
+    m_CurrentPass = currentPass::None;
+
     for (auto& buffer : m_Buffers) {
         if (buffer) {
             buffer.Unmap();
@@ -89,6 +94,8 @@ void WebGPURHI::Shutdown()
     }
 
     m_Buffers.clear();
+    m_StagingBuffers.clear();
+    m_StagingMapped.clear();
     m_Samplers.clear();
     m_ComputePipelines.clear();
     m_FreeComputePipelines.clear();

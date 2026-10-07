@@ -1995,6 +1995,35 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
 
 #if defined(RHI_DX12) || defined(RHI_VULKAN) || defined(RHI_WEBGPU)
 // ============================================================================
+// CpuToGpu bindable buffer write/map round trip (shadow staging on WebGPU)
+// ============================================================================
+
+TEST_F(RHITest, WriteThenMapCpuToGpuVertexBuffer)
+{
+    constexpr std::uint64_t kSize = 64;
+    std::uint8_t pattern[kSize];
+    for (std::uint64_t i = 0; i < kSize; ++i) {
+        pattern[i] = static_cast<std::uint8_t>(i * 5 + 3);
+    }
+
+    rhi::BufferDesc desc;
+    desc.size = kSize;
+    desc.memoryUsage = rhi::MemoryUsage::CpuToGpu;
+    desc.usage = rhi::BufferUsage::Vertex;
+    auto buffer = rhi.CreateBuffer(desc);
+    ASSERT_NE(buffer.id, InvalidHandle);
+
+    rhi.WriteBuffer(buffer, pattern, sizeof(pattern));
+
+    auto* mapped = static_cast<std::uint8_t*>(rhi.MapBuffer(buffer));
+    ASSERT_NE(mapped, nullptr);
+    EXPECT_EQ(std::memcmp(mapped, pattern, kSize), 0);
+    rhi.UnmapBuffer(buffer);
+
+    rhi.DestroyBuffer(buffer);
+}
+
+// ============================================================================
 // Compute Pipeline Tests (all backends)
 // ============================================================================
 

@@ -18,9 +18,7 @@ namespace rhi
 
     struct RenderPassColorAttachment
     {
-        // Offscreen target. Ignored when useSwapchain is true.
         TextureViewHandle view{};
-        // True means draw into the acquired swapchain image instead of view.
         bool useSwapchain = false;
         float clearColor[4] = { 0.0f, 0.0f, 0.0f, 1.0f };
         bool clear = true;
@@ -38,9 +36,7 @@ namespace rhi
 
     struct RenderPassDesc
     {
-        // Valid only when an attachment uses the swapchain.
         SwapchainHandle swapchain{};
-        // From AcquireNextImage. Valid only when an attachment uses the swapchain.
         std::uint32_t imageIndex = 0xFFFFFFFF;
         std::vector<RenderPassColorAttachment> colors;
         RenderPassDepthAttachment depth;

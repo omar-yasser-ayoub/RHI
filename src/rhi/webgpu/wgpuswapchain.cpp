@@ -124,6 +124,7 @@ rhi::AcquireResult WebGPURHI::AcquireNextImage(rhi::SwapchainHandle handle)
     }
 
     data.currentTexture = {};
+    data.currentView = {};
     wgpu::SurfaceTexture surfaceTexture{};
     data.surface.GetCurrentTexture(&surfaceTexture);
 
@@ -152,6 +153,12 @@ rhi::AcquireResult WebGPURHI::AcquireNextImage(rhi::SwapchainHandle handle)
     }
 
     data.currentTexture = surfaceTexture.texture;
+    data.currentView = surfaceTexture.texture.CreateView();
+    if (!data.currentView) {
+        data.currentTexture = {};
+        result.status = rhi::AcquireStatus::Failed;
+        return result;
+    }
     result.imageIndex = 0;
     return result;
 }
@@ -162,6 +169,14 @@ wgpu::Texture WebGPURHI::GetSwapchainTexture(rhi::SwapchainHandle handle) const
         return {};
     }
     return m_Swapchains[handle.id].currentTexture;
+}
+
+void WebGPURHI::WaitForIdle()
+{
+    if (!m_Device || !m_Instance) {
+        return;
+    }
+    m_Instance.ProcessEvents();
 }
 
 void WebGPURHI::Present(rhi::SwapchainHandle handle)
@@ -175,4 +190,5 @@ void WebGPURHI::Present(rhi::SwapchainHandle handle)
     }
     data.surface.Present();
     data.currentTexture = {};
+    data.currentView = {};
 }

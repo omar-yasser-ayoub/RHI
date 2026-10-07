@@ -12,6 +12,9 @@
 #include "rhi/resources/renderpass.h"
 #include <webgpu/webgpu_cpp.h>
 
+#include <cstdint>
+#include <unordered_map>
+
 struct SpvReflectShaderModule;
 
 class WebGPURHI
@@ -51,8 +54,8 @@ public:
     void BeginComputePass();
     void EndPass();
 
-    void SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle);
-    void SetComputePipeline(rhi::ComputePipelineHandle handle);
+    void SetPipeline(rhi::GraphicsPipelineHandle handle);
+    void SetPipeline(rhi::ComputePipelineHandle handle);
     void SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle);
     void SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset = 0);
     void SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset = 0);
@@ -100,6 +103,8 @@ public:
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
 
+    void WaitForIdle();
+
 private:
     static wgpu::FilterMode toWebGPU(rhi::Filter f);
     static wgpu::MipmapFilterMode toWebGPU(rhi::MipmapFilter f);
@@ -111,6 +116,7 @@ private:
     static wgpu::TextureFormat toWebGPU(rhi::TextureFormat usage);
     static uint32_t toWebGPU(rhi::SampleCount count);
     static wgpu::TextureUsage toWebGPU(rhi::TextureUsage usage);
+    static wgpu::IndexFormat toWebGPU(rhi::IndexFormat format);
     static wgpu::PresentMode toWebGPU(rhi::PresentMode mode);
     static wgpu::CompositeAlphaMode toWebGPU(rhi::AlphaMode mode);
     static wgpu::VertexFormat toWebGPU(rhi::VertexFormat format);
@@ -125,16 +131,18 @@ private:
         rhi::ShaderStageFlags stage);
     wgpu::ShaderModule MakeShaderModule(const rhi::ShaderModule& module);
 
-
     rhi::Capabilities m_Capabilities;
     wgpu::Instance m_Instance;
     wgpu::Adapter  m_Adapter;
     wgpu::Device   m_Device;
     wgpu::Queue    m_Queue;
+    wgpu::CommandEncoder m_CommandEncoder;
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;
     std::vector<std::uint64_t> m_FreeBuffers;
+    std::unordered_map<std::uint64_t, wgpu::Buffer> m_StagingBuffers;
+    std::unordered_map<std::uint64_t, bool> m_StagingMapped;
     std::vector<wgpu::Texture> m_Textures;
     std::vector<std::uint64_t> m_FreeTextures;
     std::vector<wgpu::TextureView> m_TextureViews;
@@ -156,6 +164,7 @@ private:
     struct WebGPUSwapchainData {
         wgpu::Surface surface;
         wgpu::Texture currentTexture;
+        wgpu::TextureView currentView;
         wgpu::TextureFormat format = wgpu::TextureFormat::Undefined;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
@@ -165,4 +174,12 @@ private:
     std::vector<struct GLFWwindow*> m_Windows;
     std::vector<std::uint64_t> m_FreeWindows;
     bool m_GlfwInitialized = false;
+    enum class currentPass {
+        None,
+        Graphics,
+        Compute,
+    };
+    currentPass m_CurrentPass = currentPass::None;
+    wgpu::ComputePassEncoder m_ComputePassEncoder;
+    wgpu::RenderPassEncoder m_RenderPassEncoder;
 };

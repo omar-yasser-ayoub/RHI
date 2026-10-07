@@ -56,8 +56,8 @@ public:
     void BeginComputePass();
     void EndPass();
 
-    void SetGraphicsPipeline(rhi::GraphicsPipelineHandle handle);
-    void SetComputePipeline(rhi::ComputePipelineHandle handle);
+    void SetPipeline(rhi::GraphicsPipelineHandle handle);
+    void SetPipeline(rhi::ComputePipelineHandle handle);
     void SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle);
     void SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset = 0);
     void SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset = 0);
@@ -105,6 +105,8 @@ public:
 
     void* MapBuffer(rhi::BufferHandle handle);
     void UnmapBuffer(rhi::BufferHandle handle);
+
+    void WaitForIdle();
 
 private:
     static D3D12_FILTER toD3D12(rhi::Filter min, rhi::Filter mag, rhi::MipmapFilter mip, bool anisotropic, bool compare);
