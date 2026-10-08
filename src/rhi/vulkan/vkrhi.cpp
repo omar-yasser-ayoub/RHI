@@ -63,7 +63,94 @@ bool VulkanRHI::Initialize() {
         return false;
     }
 
-    m_PhysicalDevice = devices[0];
+    VkPhysicalDevice bestDevice = VK_NULL_HANDLE;
+    int bestScore = -1;
+    for (VkPhysicalDevice candidate : devices) {
+        VkPhysicalDeviceProperties props{};
+        vkGetPhysicalDeviceProperties(candidate, &props);
+
+        std::uint32_t extCount = 0;
+        vkEnumerateDeviceExtensionProperties(candidate, nullptr, &extCount, nullptr);
+        std::vector<VkExtensionProperties> exts(extCount);
+        vkEnumerateDeviceExtensionProperties(
+            candidate, nullptr, &extCount, exts.data());
+        bool hasSwapchain = false;
+        for (const auto& ext : exts) {
+            if (std::strcmp(ext.extensionName, VK_KHR_SWAPCHAIN_EXTENSION_NAME) == 0) {
+                hasSwapchain = true;
+                break;
+            }
+        }
+        if (!hasSwapchain) {
+            continue;
+        }
+
+        std::uint32_t qCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &qCount, nullptr);
+        std::vector<VkQueueFamilyProperties> qProps(qCount);
+        vkGetPhysicalDeviceQueueFamilyProperties(candidate, &qCount, qProps.data());
+        bool hasGraphics = false;
+        bool hasDedicatedCompute = false;
+        for (const auto& q : qProps) {
+            if ((q.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+                hasGraphics = true;
+            }
+            if ((q.queueFlags & VK_QUEUE_COMPUTE_BIT) != 0 &&
+                (q.queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) {
+                hasDedicatedCompute = true;
+            }
+        }
+        if (!hasGraphics) {
+            continue;
+        }
+
+        VkPhysicalDeviceDynamicRenderingFeatures dynCheck{};
+        dynCheck.sType =
+            VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
+        VkPhysicalDeviceFeatures2 featCheck{};
+        featCheck.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+        featCheck.pNext = &dynCheck;
+        vkGetPhysicalDeviceFeatures2(candidate, &featCheck);
+        if (dynCheck.dynamicRendering == VK_FALSE) {
+            continue;
+        }
+
+        int score = 0;
+        switch (props.deviceType) {
+        case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:   score += 4000; break;
+        case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU: score += 3000; break;
+        case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:    score += 2000; break;
+        case VK_PHYSICAL_DEVICE_TYPE_CPU:            score += 1000; break;
+        default: break;
+        }
+        if (hasDedicatedCompute) {
+            score += 100;
+        }
+
+        VkPhysicalDeviceMemoryProperties memProps{};
+        vkGetPhysicalDeviceMemoryProperties(candidate, &memProps);
+        for (std::uint32_t i = 0; i < memProps.memoryHeapCount; ++i) {
+            if ((memProps.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0) {
+                score += static_cast<int>(
+                    memProps.memoryHeaps[i].size >> 30); // +1 per GiB
+                break;
+            }
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestDevice = candidate;
+        }
+    }
+
+    if (bestDevice == VK_NULL_HANDLE) {
+        std::cerr << "No suitable Vulkan device found (need graphics queue + "
+                     "swapchain extension + dynamic rendering).\n";
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        return false;
+    }
+    m_PhysicalDevice = bestDevice;
 
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(m_PhysicalDevice, &deviceProperties);
