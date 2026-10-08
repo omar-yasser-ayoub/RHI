@@ -230,14 +230,102 @@ bool VulkanRHI::Initialize() {
     poolInfo.poolSizeCount = 5;
     poolInfo.pPoolSizes = poolSizes;
 
-    vkCreateDescriptorPool(
-        m_Device,
-        &poolInfo,
-        nullptr,
-        &m_DescriptorPool
-    );
+    if (vkCreateDescriptorPool(
+            m_Device,
+            &poolInfo,
+            nullptr,
+            &m_DescriptorPool) != VK_SUCCESS) {
+        std::cerr << "Failed to create descriptor pool\n";
+        vmaDestroyAllocator(m_Allocator);
+        m_Allocator = nullptr;
+        vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
+        return false;
+    }
+
+    if (!CreateFrameContexts()) {
+        vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+        m_DescriptorPool = VK_NULL_HANDLE;
+        vmaDestroyAllocator(m_Allocator);
+        m_Allocator = nullptr;
+        vkDestroyDevice(m_Device, nullptr);
+        m_Device = VK_NULL_HANDLE;
+        vkDestroyInstance(m_Instance, nullptr);
+        m_Instance = VK_NULL_HANDLE;
+        m_PhysicalDevice = VK_NULL_HANDLE;
+        return false;
+    }
 
     return true;
+}
+
+bool VulkanRHI::CreateFrameContexts()
+{
+    for (std::uint32_t i = 0; i < 2; ++i) {
+        FrameContext& frame = m_Frames[i];
+
+        VkCommandPoolCreateInfo poolInfo{};
+        poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        poolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT |
+                         VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+        poolInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+        if (vkCreateCommandPool(m_Device, &poolInfo, nullptr, &frame.pool) != VK_SUCCESS) {
+            std::cerr << "Failed to create frame command pool\n";
+            DestroyFrameContexts();
+            return false;
+        }
+
+        VkSemaphoreCreateInfo semInfo{};
+        semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+        if (vkCreateSemaphore(m_Device, &semInfo, nullptr, &frame.imageAvailable) != VK_SUCCESS ||
+            vkCreateSemaphore(m_Device, &semInfo, nullptr, &frame.renderFinished) != VK_SUCCESS) {
+            std::cerr << "Failed to create frame semaphores\n";
+            DestroyFrameContexts();
+            return false;
+        }
+
+        VkFenceCreateInfo fenceInfo{};
+        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+        if (vkCreateFence(m_Device, &fenceInfo, nullptr, &frame.inFlight) != VK_SUCCESS) {
+            std::cerr << "Failed to create frame fence\n";
+            DestroyFrameContexts();
+            return false;
+        }
+    }
+    return true;
+}
+
+void VulkanRHI::DestroyFrameContexts()
+{
+    if (m_Device == VK_NULL_HANDLE) {
+        return;
+    }
+    for (FrameContext& frame : m_Frames) {
+        if (frame.inFlight != VK_NULL_HANDLE) {
+            vkDestroyFence(m_Device, frame.inFlight, nullptr);
+            frame.inFlight = VK_NULL_HANDLE;
+        }
+        if (frame.renderFinished != VK_NULL_HANDLE) {
+            vkDestroySemaphore(m_Device, frame.renderFinished, nullptr);
+            frame.renderFinished = VK_NULL_HANDLE;
+        }
+        if (frame.imageAvailable != VK_NULL_HANDLE) {
+            vkDestroySemaphore(m_Device, frame.imageAvailable, nullptr);
+            frame.imageAvailable = VK_NULL_HANDLE;
+        }
+        if (frame.pool != VK_NULL_HANDLE) {
+            vkDestroyCommandPool(m_Device, frame.pool, nullptr);
+            frame.pool = VK_NULL_HANDLE;
+        }
+        frame.cmds.clear();
+    }
+    m_CommandLists.clear();
+    m_FreeCommandLists.clear();
+    m_CurrentFrame = 0xFFFFFFFF;
 }
 
 void VulkanRHI::Shutdown() {
@@ -310,6 +398,20 @@ void VulkanRHI::Shutdown() {
         m_ComputePipelines.clear();
         m_FreeComputePipelines.clear();
         m_PipelineLayouts.clear();
+        for (VkDescriptorSetLayout layout : m_BindGroupLayouts) {
+            if (layout != VK_NULL_HANDLE) {
+                vkDestroyDescriptorSetLayout(m_Device, layout, nullptr);
+            }
+        }
+        m_BindGroupLayouts.clear();
+        m_FreeBindGroupLayouts.clear();
+        m_BindGroups.clear();
+        m_FreeBindGroups.clear();
+        if (m_DescriptorPool != VK_NULL_HANDLE) {
+            vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+            m_DescriptorPool = VK_NULL_HANDLE;
+        }
+        DestroyFrameContexts();
         vmaDestroyAllocator(m_Allocator);
         m_Allocator = nullptr;
         vkDestroyDevice(m_Device, nullptr);
@@ -345,5 +447,3 @@ void VulkanRHI::Shutdown() {
         m_GlfwInitialized = false;
     }
 }
-
-

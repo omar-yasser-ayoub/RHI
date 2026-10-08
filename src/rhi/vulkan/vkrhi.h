@@ -14,6 +14,7 @@
 
 #include <vulkan/vulkan.h>
 #include <cstdint>
+#include <array>
 #include <span>
 #include <vector>
 #include <Windows.h>
@@ -191,4 +192,27 @@ private:
     std::vector<VkSwapchainData> m_Swapchains;
     std::vector<uint64_t> m_FreeSwapchains;
     bool m_GlfwInitialized = false;
+
+    struct FrameContext {
+        VkCommandPool pool = VK_NULL_HANDLE;
+        std::vector<VkCommandBuffer> cmds;
+        VkSemaphore imageAvailable = VK_NULL_HANDLE;
+        VkSemaphore renderFinished = VK_NULL_HANDLE;
+        VkFence inFlight = VK_NULL_HANDLE;
+    };
+    std::array<FrameContext, 2> m_Frames;
+    std::uint64_t m_FrameCounter = 0;
+    std::uint32_t m_CurrentFrame = 0xFFFFFFFF;
+
+    struct VulkanCommandList {
+        std::uint32_t frame = 0xFFFFFFFF;
+        std::uint32_t bufferIndex = 0xFFFFFFFF;
+        bool open = false;
+    };
+
+    std::vector<VulkanCommandList> m_CommandLists;
+    std::vector<std::uint64_t> m_FreeCommandLists;
+
+    bool CreateFrameContexts();
+    void DestroyFrameContexts();
 };
