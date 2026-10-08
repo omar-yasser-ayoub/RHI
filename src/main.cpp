@@ -142,14 +142,15 @@ int main()
         pass.swapchain = swapchain;
         pass.imageIndex = acquired.imageIndex;
 
-        rhi.BeginRenderPass(pass);
-        rhi.SetPipeline(pipeline);
-        rhi.SetVertexBuffer(0, vertexBuffer, 0);
-        rhi.SetViewport(0, 0, static_cast<float>(width), static_cast<float>(height));
-        rhi.SetScissor(0, 0, width, height);
-        rhi.Draw(3, 1, 0, 0);
-        rhi.EndPass();
-        rhi.Submit();
+        rhi::CommandListHandle cmd = rhi.BeginCommandList();
+        rhi.BeginRenderPass(cmd, pass);
+        rhi.SetPipeline(cmd, pipeline);
+        rhi.SetVertexBuffer(cmd, 0, vertexBuffer, 0);
+        rhi.SetViewport(cmd, 0, 0, static_cast<float>(width), static_cast<float>(height));
+        rhi.SetScissor(cmd, 0, 0, width, height);
+        rhi.Draw(cmd, 3, 1, 0, 0);
+        rhi.EndPass(cmd);
+        rhi.Submit({&cmd, 1});
         rhi.Present(swapchain);
     }
 

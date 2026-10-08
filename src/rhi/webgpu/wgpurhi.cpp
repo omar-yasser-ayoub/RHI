@@ -77,10 +77,8 @@ bool WebGPURHI::Initialize()
 
 void WebGPURHI::Shutdown()
 {
-    m_RenderPassEncoder = nullptr;
-    m_ComputePassEncoder = nullptr;
-    m_CommandEncoder = nullptr;
-    m_CurrentPass = currentPass::None;
+    m_CommandLists.clear();
+    m_FreeCommandLists.clear();
 
     for (auto& buffer : m_Buffers) {
         if (buffer) {

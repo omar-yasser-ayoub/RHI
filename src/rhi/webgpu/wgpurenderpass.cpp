@@ -2,17 +2,49 @@
 
 #include <vector>
 
-void WebGPURHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
+WebGPURHI::WebGPUCommandList* WebGPURHI::GetCommandList(rhi::CommandListHandle handle)
 {
-    if (m_CurrentPass != currentPass::None) {
+    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_CommandLists.size()) {
+        return nullptr;
+    }
+    WebGPUCommandList& list = m_CommandLists[handle.id];
+    if (!list.encoder) {
+        return nullptr;
+    }
+    return &list;
+}
+
+rhi::CommandListHandle WebGPURHI::BeginCommandList()
+{
+    rhi::CommandListHandle handle;
+    WebGPUCommandList list;
+    list.encoder = m_Device.CreateCommandEncoder();
+    if (!list.encoder) {
+        return handle;
+    }
+    if (!m_FreeCommandLists.empty()) {
+        handle.id = m_FreeCommandLists.back();
+        m_FreeCommandLists.pop_back();
+        m_CommandLists[handle.id] = std::move(list);
+    } else {
+        handle.id = static_cast<std::uint64_t>(m_CommandLists.size());
+        m_CommandLists.push_back(std::move(list));
+    }
+    return handle;
+}
+
+void WebGPURHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc)
+{
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        printf("BeginRenderPass invalid command list\n");
+        return;
+    }
+    if (list->pass != CurrentPass::None) {
         printf("Another pass is currently running. End it before beginning a new pass.");
         return;
     }
-    if (!m_CommandEncoder) {
-        m_CommandEncoder = m_Device.CreateCommandEncoder();
-    }
 
-    // Get the swapchain's current texture, if we're actually rendering into it
     wgpu::TextureView swapchainView;
     for (const auto& attachment : desc.colors) {
         if (!attachment.useSwapchain) {
@@ -92,45 +124,48 @@ void WebGPURHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
     if (hasDepth) {
         pass.depthStencilAttachment = &depthAttachment;
     }
-    wgpu::RenderPassEncoder renderPass = m_CommandEncoder.BeginRenderPass(&pass);
-    m_RenderPassEncoder = renderPass;
-
-    m_CurrentPass = currentPass::Graphics;
+    list->renderPass = list->encoder.BeginRenderPass(&pass);
+    list->pass = CurrentPass::Graphics;
 }
 
-void WebGPURHI::BeginComputePass()
+void WebGPURHI::BeginComputePass(rhi::CommandListHandle cmd)
 {
-    if (m_CurrentPass != currentPass::None) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        printf("BeginComputePass invalid command list\n");
+        return;
+    }
+    if (list->pass != CurrentPass::None) {
         printf("Another pass is currently running. End it before beginning a new pass.");
         return;
     }
-    if (!m_CommandEncoder) {
-        m_CommandEncoder = m_Device.CreateCommandEncoder();
-    }
     wgpu::ComputePassDescriptor pass{};
-    wgpu::ComputePassEncoder computePass = m_CommandEncoder.BeginComputePass(&pass);
-    m_ComputePassEncoder = computePass;
-
-    m_CurrentPass = currentPass::Compute;
+    list->computePass = list->encoder.BeginComputePass(&pass);
+    list->pass = CurrentPass::Compute;
 }
 
-void WebGPURHI::EndPass()
+void WebGPURHI::EndPass(rhi::CommandListHandle cmd)
 {
-    if (m_ComputePassEncoder) {
-        m_ComputePassEncoder.End();
-        m_ComputePassEncoder = nullptr;
-        m_CurrentPass = currentPass::None;
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
     }
-    if (m_RenderPassEncoder) {
-        m_RenderPassEncoder.End();
-        m_RenderPassEncoder = nullptr;
-        m_CurrentPass = currentPass::None;
+    if (list->computePass) {
+        list->computePass.End();
+        list->computePass = nullptr;
+        list->pass = CurrentPass::None;
+    }
+    if (list->renderPass) {
+        list->renderPass.End();
+        list->renderPass = nullptr;
+        list->pass = CurrentPass::None;
     }
 }
 
-void WebGPURHI::SetPipeline(rhi::GraphicsPipelineHandle handle)
+void WebGPURHI::SetPipeline(rhi::CommandListHandle cmd, rhi::GraphicsPipelineHandle handle)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot set graphics pipeline\n");
         return;
     }
@@ -138,17 +173,17 @@ void WebGPURHI::SetPipeline(rhi::GraphicsPipelineHandle handle)
         printf("Invalid pipeline handle\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
-    wgpu::RenderPipeline pipeline = m_Pipelines[handle.id];
-    m_RenderPassEncoder.SetPipeline(pipeline);
+    list->renderPass.SetPipeline(m_Pipelines[handle.id]);
 }
 
-void WebGPURHI::SetPipeline(rhi::ComputePipelineHandle handle)
+void WebGPURHI::SetPipeline(rhi::CommandListHandle cmd, rhi::ComputePipelineHandle handle)
 {
-    if (m_CurrentPass != currentPass::Compute) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Compute) {
         printf("Currently not in compute pass, cannot set compute pipeline\n");
         return;
     }
@@ -156,42 +191,42 @@ void WebGPURHI::SetPipeline(rhi::ComputePipelineHandle handle)
         printf("Invalid pipeline handle\n");
         return;
     }
-    if (!m_ComputePassEncoder) {
+    if (!list->computePass) {
         printf("No compute pass encoder\n");
         return;
     }
-    wgpu::ComputePipeline pipeline = m_ComputePipelines[handle.id];
-    m_ComputePassEncoder.SetPipeline(pipeline);
+    list->computePass.SetPipeline(m_ComputePipelines[handle.id]);
 }
 
-void WebGPURHI::SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle)
+void WebGPURHI::SetBindGroup(rhi::CommandListHandle cmd, std::uint32_t slot, rhi::BindGroupHandle handle)
 {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
+    }
     if (handle.id >= m_BindGroups.size() || !m_BindGroups[handle.id]) {
         printf("Invalid bind group handle\n");
         return;
     }
-    if (m_CurrentPass == currentPass::None) {
+    if (list->pass == CurrentPass::None) {
         printf("No current pass\n");
         return;
     }
-    if (m_CurrentPass == currentPass::Compute) {
-        if (m_ComputePassEncoder) {
-                wgpu::BindGroup bindGroup = m_BindGroups[handle.id];
-                m_ComputePassEncoder.SetBindGroup(slot, bindGroup);
+    if (list->pass == CurrentPass::Compute) {
+        if (list->computePass) {
+            list->computePass.SetBindGroup(slot, m_BindGroups[handle.id]);
+        }
+    } else {
+        if (list->renderPass) {
+            list->renderPass.SetBindGroup(slot, m_BindGroups[handle.id]);
         }
     }
-    else {
-        if (m_RenderPassEncoder) {
-            wgpu::BindGroup bindGroup = m_BindGroups[handle.id];
-            m_RenderPassEncoder.SetBindGroup(slot, bindGroup);
-        }
-    }
-
 }
 
-void WebGPURHI::SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset)
+void WebGPURHI::SetVertexBuffer(rhi::CommandListHandle cmd, std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot set vertex buffer\n");
         return;
     }
@@ -199,7 +234,7 @@ void WebGPURHI::SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, st
         printf("Invalid buffer handle\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
@@ -207,13 +242,13 @@ void WebGPURHI::SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, st
         printf("SetVertexBuffer offset is out of range\n");
         return;
     }
-    wgpu::Buffer buffer = m_Buffers[handle.id];
-    m_RenderPassEncoder.SetVertexBuffer(slot, buffer, offset);
+    list->renderPass.SetVertexBuffer(slot, m_Buffers[handle.id], offset);
 }
 
-void WebGPURHI::SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset)
+void WebGPURHI::SetIndexBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot set index buffer\n");
         return;
     }
@@ -221,7 +256,7 @@ void WebGPURHI::SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format
         printf("Invalid buffer handle\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
@@ -229,69 +264,73 @@ void WebGPURHI::SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format
         printf("SetIndexBuffer offset is out of range\n");
         return;
     }
-    wgpu::Buffer buffer = m_Buffers[handle.id];
-    m_RenderPassEncoder.SetIndexBuffer(buffer, toWebGPU(format), offset);
+    list->renderPass.SetIndexBuffer(m_Buffers[handle.id], toWebGPU(format), offset);
 }
 
-void WebGPURHI::SetViewport(float x, float y, float width, float height)
+void WebGPURHI::SetViewport(rhi::CommandListHandle cmd, float x, float y, float width, float height)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot set viewport\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
-    m_RenderPassEncoder.SetViewport(x, y, width, height, 0.0f, 1.0f);
+    list->renderPass.SetViewport(x, y, width, height, 0.0f, 1.0f);
 }
 
-void WebGPURHI::SetScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height)
+void WebGPURHI::SetScissor(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot set scissor\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
-    m_RenderPassEncoder.SetScissorRect(x, y, width, height);
+    list->renderPass.SetScissorRect(x, y, width, height);
 }
 
-void WebGPURHI::Draw(std::uint32_t vertexCount, std::uint32_t instanceCount,
+void WebGPURHI::Draw(rhi::CommandListHandle cmd, std::uint32_t vertexCount, std::uint32_t instanceCount,
                       std::uint32_t firstVertex, std::uint32_t firstInstance)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot draw\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
-    m_RenderPassEncoder.Draw(vertexCount, instanceCount, firstVertex, firstInstance);
+    list->renderPass.Draw(vertexCount, instanceCount, firstVertex, firstInstance);
 }
 
-void WebGPURHI::DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount,
+void WebGPURHI::DrawIndexed(rhi::CommandListHandle cmd, std::uint32_t indexCount, std::uint32_t instanceCount,
                              std::uint32_t firstIndex, std::int32_t baseVertex,
                              std::uint32_t firstInstance)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot draw\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
-    m_RenderPassEncoder.DrawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
+    list->renderPass.DrawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
 }
 
-void WebGPURHI::DrawIndirect(rhi::BufferHandle params, std::size_t offset,
+void WebGPURHI::DrawIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset,
                               std::uint32_t drawCount, std::uint32_t stride)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot draw\n");
         return;
     }
@@ -307,20 +346,21 @@ void WebGPURHI::DrawIndirect(rhi::BufferHandle params, std::size_t offset,
         printf("DrawIndirect stride must hold one draw call\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
     wgpu::Buffer buffer = m_Buffers[params.id];
     for (std::uint32_t i = 0; i < drawCount; ++i) {
-        m_RenderPassEncoder.DrawIndirect(buffer, offset + i * stride);
+        list->renderPass.DrawIndirect(buffer, offset + i * stride);
     }
 }
 
-void WebGPURHI::DrawIndexedIndirect(rhi::BufferHandle params, std::size_t offset,
+void WebGPURHI::DrawIndexedIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset,
                                      std::uint32_t drawCount, std::uint32_t stride)
 {
-    if (m_CurrentPass != currentPass::Graphics) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Graphics) {
         printf("Currently not in graphics pass, cannot draw\n");
         return;
     }
@@ -336,32 +376,34 @@ void WebGPURHI::DrawIndexedIndirect(rhi::BufferHandle params, std::size_t offset
         printf("DrawIndexedIndirect stride must hold one indexed draw call\n");
         return;
     }
-    if (!m_RenderPassEncoder) {
+    if (!list->renderPass) {
         printf("No render pass encoder\n");
         return;
     }
     wgpu::Buffer buffer = m_Buffers[params.id];
     for (std::uint32_t i = 0; i < drawCount; ++i) {
-        m_RenderPassEncoder.DrawIndexedIndirect(buffer, offset + i * stride);
+        list->renderPass.DrawIndexedIndirect(buffer, offset + i * stride);
     }
 }
 
-void WebGPURHI::Dispatch(std::uint32_t x, std::uint32_t y, std::uint32_t z)
+void WebGPURHI::Dispatch(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t z)
 {
-    if (m_CurrentPass != currentPass::Compute) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Compute) {
         printf("Currently not in compute pass, cannot dispatch\n");
         return;
     }
-    if (!m_ComputePassEncoder) {
+    if (!list->computePass) {
         printf("No compute pass encoder\n");
         return;
     }
-    m_ComputePassEncoder.DispatchWorkgroups(x, y, z);
+    list->computePass.DispatchWorkgroups(x, y, z);
 }
 
-void WebGPURHI::DispatchIndirect(rhi::BufferHandle params, std::size_t offset)
+void WebGPURHI::DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset)
 {
-    if (m_CurrentPass != currentPass::Compute) {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list || list->pass != CurrentPass::Compute) {
         printf("Currently not in compute pass, cannot dispatch\n");
         return;
     }
@@ -373,17 +415,20 @@ void WebGPURHI::DispatchIndirect(rhi::BufferHandle params, std::size_t offset)
         printf("DispatchIndirect offset is out of range\n");
         return;
     }
-    if (!m_ComputePassEncoder) {
+    if (!list->computePass) {
         printf("No compute pass encoder\n");
         return;
     }
-    wgpu::Buffer buffer = m_Buffers[params.id];
-    m_ComputePassEncoder.DispatchWorkgroupsIndirect(buffer, offset);
+    list->computePass.DispatchWorkgroupsIndirect(m_Buffers[params.id], offset);
 }
 
-void WebGPURHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+void WebGPURHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
                                     std::size_t srcOffset, std::size_t dstOffset)
 {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
+    }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
         dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
         printf("Invalid buffer handle\n");
@@ -394,16 +439,17 @@ void WebGPURHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst,
         printf("CopyBufferToBuffer range is out of bounds\n");
         return;
     }
-    if (!m_CommandEncoder) {
-        m_CommandEncoder = m_Device.CreateCommandEncoder();
-    }
-    m_CommandEncoder.CopyBufferToBuffer(
+    list->encoder.CopyBufferToBuffer(
         m_Buffers[src.id], srcOffset, m_Buffers[dst.id], dstOffset, size);
 }
 
-void WebGPURHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
+void WebGPURHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
+    }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
         dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
         printf("Invalid copy handle\n");
@@ -419,9 +465,6 @@ void WebGPURHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle ds
         printf("CopyBufferToTexture source buffer is too small\n");
         return;
     }
-    if (!m_CommandEncoder) {
-        m_CommandEncoder = m_Device.CreateCommandEncoder();
-    }
 
     wgpu::TexelCopyBufferInfo source{};
     source.buffer = m_Buffers[src.id];
@@ -436,12 +479,16 @@ void WebGPURHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle ds
     destination.aspect = wgpu::TextureAspect::All;
 
     wgpu::Extent3D extent{ region.width, region.height, region.depth };
-    m_CommandEncoder.CopyBufferToTexture(&source, &destination, &extent);
+    list->encoder.CopyBufferToTexture(&source, &destination, &extent);
 }
 
-void WebGPURHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
+void WebGPURHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
+    }
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
         dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
         printf("Invalid copy handle\n");
@@ -457,9 +504,6 @@ void WebGPURHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle ds
         printf("CopyTextureToBuffer destination buffer is too small\n");
         return;
     }
-    if (!m_CommandEncoder) {
-        m_CommandEncoder = m_Device.CreateCommandEncoder();
-    }
 
     wgpu::TexelCopyTextureInfo source{};
     source.texture = m_Textures[src.id];
@@ -474,18 +518,28 @@ void WebGPURHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle ds
     destination.layout.rowsPerImage = region.rowsPerImage;
 
     wgpu::Extent3D extent{ region.width, region.height, region.depth };
-    m_CommandEncoder.CopyTextureToBuffer(&source, &destination, &extent);
+    list->encoder.CopyTextureToBuffer(&source, &destination, &extent);
 }
 
-void WebGPURHI::Submit()
+void WebGPURHI::Submit(std::span<const rhi::CommandListHandle> cmds)
 {
-    if (m_CurrentPass != currentPass::None) {
-        printf("Submit needs EndPass first\n");
-        return;
+    std::vector<wgpu::CommandBuffer> buffers;
+    buffers.reserve(cmds.size());
+    for (rhi::CommandListHandle handle : cmds) {
+        WebGPUCommandList* list = GetCommandList(handle);
+        if (!list) {
+            continue;
+        }
+        if (list->pass != CurrentPass::None) {
+            printf("Submit needs EndPass first\n");
+            return;
+        }
+        buffers.push_back(list->encoder.Finish());
+        list->encoder = nullptr;
+        list->submitted = true;
+        m_FreeCommandLists.push_back(handle.id);
     }
-    if (m_CommandEncoder) {
-        wgpu::CommandBuffer commandBuffer = m_CommandEncoder.Finish();
-        m_Queue.Submit(1, &commandBuffer);
-        m_CommandEncoder = nullptr;
+    if (!buffers.empty()) {
+        m_Queue.Submit(buffers.size(), buffers.data());
     }
 }

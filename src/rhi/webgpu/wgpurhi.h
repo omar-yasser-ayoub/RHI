@@ -10,7 +10,11 @@
 #include "rhi/resources/surface.h"
 #include "rhi/resources/window.h"
 #include "rhi/resources/renderpass.h"
+#include "rhi/resources/commands.h"
 #include <webgpu/webgpu_cpp.h>
+
+#include <cstdint>
+#include <span>
 
 #include <cstdint>
 #include <unordered_map>
@@ -50,39 +54,40 @@ public:
     wgpu::Texture GetSwapchainTexture(rhi::SwapchainHandle handle) const;
     void Present(rhi::SwapchainHandle handle);
 
-    void BeginRenderPass(const rhi::RenderPassDesc& desc);
-    void BeginComputePass();
-    void EndPass();
+    void BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc);
+    void BeginComputePass(rhi::CommandListHandle cmd);
+    void EndPass(rhi::CommandListHandle cmd);
 
-    void SetPipeline(rhi::GraphicsPipelineHandle handle);
-    void SetPipeline(rhi::ComputePipelineHandle handle);
-    void SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle);
-    void SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset = 0);
-    void SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset = 0);
-    void SetViewport(float x, float y, float width, float height);
-    void SetScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
+    void SetPipeline(rhi::CommandListHandle cmd, rhi::GraphicsPipelineHandle handle);
+    void SetPipeline(rhi::CommandListHandle cmd, rhi::ComputePipelineHandle handle);
+    void SetBindGroup(rhi::CommandListHandle cmd, std::uint32_t slot, rhi::BindGroupHandle handle);
+    void SetVertexBuffer(rhi::CommandListHandle cmd, std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset = 0);
+    void SetIndexBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset = 0);
+    void SetViewport(rhi::CommandListHandle cmd, float x, float y, float width, float height);
+    void SetScissor(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height);
 
-    void Draw(std::uint32_t vertexCount, std::uint32_t instanceCount,
+    void Draw(rhi::CommandListHandle cmd, std::uint32_t vertexCount, std::uint32_t instanceCount,
               std::uint32_t firstVertex, std::uint32_t firstInstance);
-    void DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount,
+    void DrawIndexed(rhi::CommandListHandle cmd, std::uint32_t indexCount, std::uint32_t instanceCount,
                      std::uint32_t firstIndex, std::int32_t baseVertex,
                      std::uint32_t firstInstance);
-    void DrawIndirect(rhi::BufferHandle params, std::size_t offset,
+    void DrawIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset,
                       std::uint32_t drawCount, std::uint32_t stride);
-    void DrawIndexedIndirect(rhi::BufferHandle params, std::size_t offset,
+    void DrawIndexedIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset,
                              std::uint32_t drawCount, std::uint32_t stride);
 
-    void Dispatch(std::uint32_t x, std::uint32_t y, std::uint32_t z);
-    void DispatchIndirect(rhi::BufferHandle params, std::size_t offset);
+    void Dispatch(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t z);
+    void DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset);
 
-    void CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+    void CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
                             std::size_t srcOffset = 0, std::size_t dstOffset = 0);
-    void CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
+    void CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
+    void CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
                              const rhi::TextureWriteDesc& region);
 
-    void Submit();
+    rhi::CommandListHandle BeginCommandList();
+    void Submit(std::span<const rhi::CommandListHandle> cmds);
 
     void DestroySampler(rhi::SamplerHandle handle);
     void DestroyTexture(rhi::TextureHandle handle);
@@ -136,7 +141,21 @@ private:
     wgpu::Adapter  m_Adapter;
     wgpu::Device   m_Device;
     wgpu::Queue    m_Queue;
-    wgpu::CommandEncoder m_CommandEncoder;
+    enum class CurrentPass {
+        None,
+        Graphics,
+        Compute,
+    };
+    struct WebGPUCommandList {
+        wgpu::CommandEncoder encoder;
+        wgpu::RenderPassEncoder renderPass;
+        wgpu::ComputePassEncoder computePass;
+        CurrentPass pass = CurrentPass::None;
+        bool submitted = false;
+    };
+    std::vector<WebGPUCommandList> m_CommandLists;
+    std::vector<std::uint64_t> m_FreeCommandLists;
+    WebGPUCommandList* GetCommandList(rhi::CommandListHandle handle);
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;
@@ -173,12 +192,4 @@ private:
     std::vector<struct GLFWwindow*> m_Windows;
     std::vector<std::uint64_t> m_FreeWindows;
     bool m_GlfwInitialized = false;
-    enum class currentPass {
-        None,
-        Graphics,
-        Compute,
-    };
-    currentPass m_CurrentPass = currentPass::None;
-    wgpu::ComputePassEncoder m_ComputePassEncoder;
-    wgpu::RenderPassEncoder m_RenderPassEncoder;
 };
