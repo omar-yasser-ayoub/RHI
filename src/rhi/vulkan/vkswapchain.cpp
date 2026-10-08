@@ -248,10 +248,15 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
     m_CurrentFrame = static_cast<std::uint32_t>(m_FrameCounter % 2);
     FrameContext& frame = m_Frames[m_CurrentFrame];
 
-    vkWaitForFences(m_Device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
-    vkResetFences(m_Device, 1, &frame.inFlight);
+    if (frame.submitted) {
+        vkWaitForFences(m_Device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+        vkResetFences(m_Device, 1, &frame.inFlight);
+    } else {
+        vkResetFences(m_Device, 1, &frame.inFlight);
+    }
     vkResetCommandPool(m_Device, frame.pool, 0);
     frame.cmds.clear();
+    frame.submitted = false;
 
     std::uint32_t imageIndex = 0;
     const VkResult acquire =
@@ -329,8 +334,16 @@ void VulkanRHI::Present(rhi::SwapchainHandle handle)
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    presentInfo.waitSemaphoreCount = 1;
-    presentInfo.pWaitSemaphores = &frame.renderFinished;
+    if (frame.submitted) {
+        presentInfo.waitSemaphoreCount = 1;
+        presentInfo.pWaitSemaphores = &frame.renderFinished;
+    } else {
+        // Nothing was submitted for this frame (e.g. bare Acquire+Present),
+        // so renderFinished was never signaled. Present without waiting;
+        // waiting here would hang vkQueuePresentKHR forever.
+        presentInfo.waitSemaphoreCount = 0;
+        presentInfo.pWaitSemaphores = nullptr;
+    }
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &data.swapchain;
     presentInfo.pImageIndices = &data.lastImageIndex;

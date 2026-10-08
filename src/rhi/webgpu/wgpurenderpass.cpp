@@ -521,10 +521,39 @@ void WebGPURHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
     list->encoder.CopyTextureToBuffer(&source, &destination, &extent);
 }
 
+void WebGPURHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+                                     const rhi::TextureCopyRegion& region)
+{
+    WebGPUCommandList* list = GetCommandList(cmd);
+    if (!list) {
+        return;
+    }
+    if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
+        dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
+        printf("CopyTextureToTexture: invalid texture handle\n");
+        return;
+    }
+
+    wgpu::TexelCopyTextureInfo source{};
+    source.texture = m_Textures[src.id];
+    source.mipLevel = region.srcMipLevel;
+    source.origin = { region.srcX, region.srcY, region.srcZ };
+    source.aspect = wgpu::TextureAspect::All;
+
+    wgpu::TexelCopyTextureInfo destination{};
+    destination.texture = m_Textures[dst.id];
+    destination.mipLevel = region.dstMipLevel;
+    destination.origin = { region.dstX, region.dstY, region.dstZ };
+    destination.aspect = wgpu::TextureAspect::All;
+
+    wgpu::Extent3D copySize{ region.width, region.height,
+                             region.depth > 1 ? region.depth : region.arrayLayers };
+    list->encoder.CopyTextureToTexture(&source, &destination, &copySize);
+}
+
 void WebGPURHI::Submit(std::span<const rhi::CommandListHandle> cmds)
 {
     std::vector<wgpu::CommandBuffer> buffers;
-    buffers.reserve(cmds.size());
     for (rhi::CommandListHandle handle : cmds) {
         WebGPUCommandList* list = GetCommandList(handle);
         if (!list) {

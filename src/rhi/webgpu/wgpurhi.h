@@ -85,6 +85,8 @@ public:
                              const rhi::TextureWriteDesc& region);
     void CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
                              const rhi::TextureWriteDesc& region);
+    void CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+                              const rhi::TextureCopyRegion& region);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);

@@ -675,6 +675,7 @@ void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
     if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, frame.inFlight) != VK_SUCCESS) {
         return;
     }
+    frame.submitted = true;
 
     for (rhi::CommandListHandle handle : cmds) {
         m_CommandLists[handle.id].open = false;
