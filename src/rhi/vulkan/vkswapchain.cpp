@@ -240,14 +240,22 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         return result;
     }
     VkSwapchainData& data = m_Swapchains[handle.id];
-    if (data.swapchain == VK_NULL_HANDLE || data.acquireFence == VK_NULL_HANDLE) {
+    if (data.swapchain == VK_NULL_HANDLE) {
         return result;
     }
 
+    m_CurrentFrame = static_cast<std::uint32_t>(m_FrameCounter % 2);
+    FrameContext& frame = m_Frames[m_CurrentFrame];
+
+    vkWaitForFences(m_Device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
+    vkResetFences(m_Device, 1, &frame.inFlight);
+    vkResetCommandPool(m_Device, frame.pool, 0);
+    frame.cmds.clear();
+
     std::uint32_t imageIndex = 0;
     const VkResult acquire =
-        vkAcquireNextImageKHR(m_Device, data.swapchain, UINT64_MAX, VK_NULL_HANDLE,
-                              data.acquireFence, &imageIndex);
+        vkAcquireNextImageKHR(m_Device, data.swapchain, UINT64_MAX,
+                              frame.imageAvailable, VK_NULL_HANDLE, &imageIndex);
 
     switch (acquire) {
     case VK_SUCCESS:
@@ -263,16 +271,10 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
     case VK_ERROR_OUT_OF_DATE_KHR:
         result.status = rhi::AcquireStatus::OutOfDate;
         return result;
-    case VK_TIMEOUT:
-    case VK_NOT_READY:
-        result.status = rhi::AcquireStatus::Timeout;
-        return result;
     default:
         return result;
     }
 
-    vkWaitForFences(m_Device, 1, &data.acquireFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(m_Device, 1, &data.acquireFence);
     return result;
 }
 
@@ -313,22 +315,25 @@ void VulkanRHI::WaitForIdle()
 void VulkanRHI::Present(rhi::SwapchainHandle handle)
 {
     if (m_GraphicsQueue == VK_NULL_HANDLE || handle.id == 0xFFFFFFFFFFFFFFFF ||
-        handle.id >= m_Swapchains.size()) {
+        handle.id >= m_Swapchains.size() || m_CurrentFrame == 0xFFFFFFFF) {
         return;
     }
     VkSwapchainData& data = m_Swapchains[handle.id];
     if (data.swapchain == VK_NULL_HANDLE || data.lastImageIndex >= data.images.size()) {
         return;
     }
+    FrameContext& frame = m_Frames[m_CurrentFrame];
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    // TODO: semaphore implementation here
-    presentInfo.waitSemaphoreCount = 0;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores = &frame.renderFinished;
     presentInfo.swapchainCount = 1;
     presentInfo.pSwapchains = &data.swapchain;
     presentInfo.pImageIndices = &data.lastImageIndex;
 
     vkQueuePresentKHR(m_GraphicsQueue, &presentInfo);
     data.lastImageIndex = 0xFFFFFFFF;
+    m_CurrentFrame = 0xFFFFFFFF;
+    ++m_FrameCounter;
 }
