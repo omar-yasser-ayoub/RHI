@@ -214,6 +214,27 @@ namespace rhi
         std::uint32_t arrayLayers = 1;
     };
 
+    struct TextureCopyRegion
+    {
+        std::uint32_t srcMipLevel = 0;
+        std::uint32_t dstMipLevel = 0;
+
+        std::uint32_t srcX = 0;
+        std::uint32_t srcY = 0;
+        std::uint32_t srcZ = 0;
+        std::uint32_t dstX = 0;
+        std::uint32_t dstY = 0;
+        std::uint32_t dstZ = 0;
+
+        std::uint32_t width = 1;
+        std::uint32_t height = 1;
+        std::uint32_t depth = 1;
+
+        std::uint32_t srcBaseArrayLayer = 0;
+        std::uint32_t dstBaseArrayLayer = 0;
+        std::uint32_t arrayLayers = 1;
+    };
+
     struct TextureHandle
     {
         std::uint64_t id = 0xFFFFFFFFFFFFFFFF;

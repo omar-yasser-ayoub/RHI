@@ -593,6 +593,45 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
                            m_Buffers[dst.id], 1, &copy);
 }
 
+void VulkanRHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+                                     const rhi::TextureCopyRegion& region)
+{
+    VkCommandBuffer buffer = GetVkCommandBuffer(cmd);
+    if (buffer == VK_NULL_HANDLE) {
+        return;
+    }
+    if (src.id >= m_Textures.size() || m_Textures[src.id] == VK_NULL_HANDLE ||
+        dst.id >= m_Textures.size() || m_Textures[dst.id] == VK_NULL_HANDLE) {
+        printf("CopyTextureToTexture: invalid texture handle\n");
+        return;
+    }
+
+    TransitionTexture(buffer, src, VK_IMAGE_ASPECT_COLOR_BIT,
+                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    TransitionTexture(buffer, dst, VK_IMAGE_ASPECT_COLOR_BIT,
+                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    VkImageCopy copy{};
+    copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.srcSubresource.mipLevel = region.srcMipLevel;
+    copy.srcSubresource.baseArrayLayer = region.srcBaseArrayLayer;
+    copy.srcSubresource.layerCount = region.arrayLayers;
+    copy.srcOffset = { static_cast<std::int32_t>(region.srcX),
+                       static_cast<std::int32_t>(region.srcY),
+                       static_cast<std::int32_t>(region.srcZ) };
+    copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.dstSubresource.mipLevel = region.dstMipLevel;
+    copy.dstSubresource.baseArrayLayer = region.dstBaseArrayLayer;
+    copy.dstSubresource.layerCount = region.arrayLayers;
+    copy.dstOffset = { static_cast<std::int32_t>(region.dstX),
+                       static_cast<std::int32_t>(region.dstY),
+                       static_cast<std::int32_t>(region.dstZ) };
+    copy.extent = { region.width, region.height, region.depth };
+
+    vkCmdCopyImage(buffer, m_Textures[src.id], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                   m_Textures[dst.id], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+}
+
 void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
 {
     if (m_Device == VK_NULL_HANDLE || cmds.empty() || m_CurrentFrame == 0xFFFFFFFF) {
