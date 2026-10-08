@@ -203,15 +203,24 @@ private:
     std::array<FrameContext, 2> m_Frames;
     std::uint64_t m_FrameCounter = 0;
     std::uint32_t m_CurrentFrame = 0xFFFFFFFF;
-
+    enum class CurrentPass {
+        None,
+        Graphics,
+        Compute
+    };
     struct VulkanCommandList {
         std::uint32_t frame = 0xFFFFFFFF;
         std::uint32_t bufferIndex = 0xFFFFFFFF;
         bool open = false;
-    };
 
+        CurrentPass pass = CurrentPass::None;
+        VkPipelineLayout boundLayout = VK_NULL_HANDLE;
+        VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        VkImage swapchainImage = VK_NULL_HANDLE;
+    };
     std::vector<VulkanCommandList> m_CommandLists;
     std::vector<std::uint64_t> m_FreeCommandLists;
+    VkCommandBuffer GetVkCommandBuffer(rhi::CommandListHandle handle);
 
     bool CreateFrameContexts();
     void DestroyFrameContexts();
