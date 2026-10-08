@@ -224,5 +224,6 @@ namespace rhi
     {
         std::uint64_t id = 0xFFFFFFFFFFFFFFFF;
         TextureViewDesc desc{};
+        TextureHandle texture{};
     };
 }

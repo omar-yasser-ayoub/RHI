@@ -156,6 +156,7 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
 
     rhi::TextureViewHandle result;
     result.desc = desc;
+    result.texture = handle;
     if (!m_FreeTextureViews.empty()) {
         result.id = m_FreeTextureViews.back();
         m_FreeTextureViews.pop_back();

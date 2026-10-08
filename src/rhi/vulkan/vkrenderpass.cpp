@@ -1,5 +1,6 @@
 #include "rhi/vulkan/vkrhi.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <vector>
 
@@ -150,6 +151,42 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
                 return;
             }
             view = m_TextureViews[attachment.view.id];
+            const rhi::TextureHandle& parent = attachment.view.texture;
+            if (parent.id == 0xFFFFFFFFFFFFFFFF ||
+                parent.id >= m_Textures.size() ||
+                m_Textures[parent.id] == VK_NULL_HANDLE) {
+                printf("BeginRenderPass color view has no parent texture\n");
+                return;
+            }
+            const std::uint32_t mip = attachment.view.desc.baseMipLevel;
+            const VkExtent2D viewExtent{
+                std::max(1u, parent.desc.width >> mip),
+                std::max(1u, parent.desc.height >> mip),
+            };
+            if (!extentSet) {
+                extent = viewExtent;
+                extentSet = true;
+            } else if (extent.width != viewExtent.width || extent.height != viewExtent.height) {
+                printf("BeginRenderPass: color attachments have mismatched extents\n");
+                return;
+            }
+            VkImageMemoryBarrier barrier{};
+            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+            barrier.image = m_Textures[parent.id];
+            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            barrier.subresourceRange.baseMipLevel = attachment.view.desc.baseMipLevel;
+            barrier.subresourceRange.levelCount = attachment.view.desc.mipLevels;
+            barrier.subresourceRange.baseArrayLayer = attachment.view.desc.baseArrayLayer;
+            barrier.subresourceRange.layerCount = attachment.view.desc.arrayLayers;
+            barrier.srcAccessMask = 0;
+            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                 0, 0, nullptr, 0, nullptr, 1, &barrier);
         }
 
         VkRenderingAttachmentInfo color{};
@@ -175,6 +212,13 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
             printf("BeginRenderPass depth view handle is invalid\n");
             return;
         }
+        const rhi::TextureHandle& depthParent = desc.depth.view.texture;
+        if (depthParent.id == 0xFFFFFFFFFFFFFFFF ||
+            depthParent.id >= m_Textures.size() ||
+            m_Textures[depthParent.id] == VK_NULL_HANDLE) {
+            printf("BeginRenderPass depth view has no parent texture\n");
+            return;
+        }
         depthStorage.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
         depthStorage.imageView = m_TextureViews[desc.depth.view.id];
         depthStorage.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -184,6 +228,25 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         depthStorage.clearValue.depthStencil.depth = desc.depth.clearDepthValue;
         depthStorage.clearValue.depthStencil.stencil = desc.depth.clearStencilValue;
         depthInfo = &depthStorage;
+
+        VkImageMemoryBarrier depthBarrier{};
+        depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        depthBarrier.image = m_Textures[depthParent.id];
+        depthBarrier.subresourceRange.aspectMask =
+            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        depthBarrier.subresourceRange.baseMipLevel = desc.depth.view.desc.baseMipLevel;
+        depthBarrier.subresourceRange.levelCount = desc.depth.view.desc.mipLevels;
+        depthBarrier.subresourceRange.baseArrayLayer = desc.depth.view.desc.baseArrayLayer;
+        depthBarrier.subresourceRange.layerCount = desc.depth.view.desc.arrayLayers;
+        depthBarrier.srcAccessMask = 0;
+        depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
     }
 
     VkRenderingInfo renderInfo{};

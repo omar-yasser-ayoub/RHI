@@ -111,6 +111,7 @@ rhi::TextureViewHandle VulkanRHI::CreateTextureView(const rhi::TextureViewDesc& 
 
     rhi::TextureViewHandle handle;
     handle.desc = desc;
+    handle.texture = texture;
     if (!m_FreeTextureViews.empty()) {
         handle.id = m_FreeTextureViews.back();
         m_FreeTextureViews.pop_back();
