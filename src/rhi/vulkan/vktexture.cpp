@@ -44,11 +44,12 @@ rhi::TextureHandle VulkanRHI::CreateTexture(const rhi::TextureDesc& desc) {
         m_FreeTextures.pop_back();
         m_Textures[handle.id] = image;
         m_TextureMemory[handle.id] = allocation;
+        m_TextureLayouts[handle.id] = VK_IMAGE_LAYOUT_UNDEFINED;
     } else {
-        // both vectors grow in lockstep so the new index is the size before push
         handle.id = m_Textures.size();
         m_Textures.push_back(image);
         m_TextureMemory.push_back(allocation);
+        m_TextureLayouts.push_back(VK_IMAGE_LAYOUT_UNDEFINED);
     }
     return handle;
 }
@@ -66,6 +67,7 @@ void VulkanRHI::DestroyTexture(rhi::TextureHandle handle) {
         vmaDestroyImage(m_Allocator, m_Textures[handle.id], m_TextureMemory[handle.id]);
         m_Textures[handle.id] = VK_NULL_HANDLE;
         m_TextureMemory[handle.id] = nullptr;
+        m_TextureLayouts[handle.id] = VK_IMAGE_LAYOUT_UNDEFINED;
     }
     m_FreeTextures.push_back(handle.id);
 }

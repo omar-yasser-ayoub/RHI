@@ -392,6 +392,7 @@ void VulkanRHI::Shutdown() {
         m_BufferMemory.clear();
         m_Textures.clear();
         m_TextureMemory.clear();
+        m_TextureLayouts.clear();
         m_TextureViews.clear();
         m_Samplers.clear();
         m_Pipelines.clear();

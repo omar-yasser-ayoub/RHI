@@ -162,6 +162,7 @@ private:
     std::vector<std::uint64_t> m_FreeBuffers;
     std::vector<VkImage> m_Textures;
     std::vector<VmaAllocation> m_TextureMemory;
+    std::vector<VkImageLayout> m_TextureLayouts;
     std::vector<std::uint64_t> m_FreeTextures;
     std::vector<VkImageView> m_TextureViews;
     std::vector<std::uint64_t> m_FreeTextureViews;
@@ -185,6 +186,7 @@ private:
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
         std::vector<VkImage> images;
         std::vector<VkImageView> views;
+        std::vector<VkImageLayout> layouts;
         VkFence acquireFence = VK_NULL_HANDLE;
         std::uint32_t lastImageIndex = 0xFFFFFFFF;
         VkFormat format = VK_FORMAT_UNDEFINED;
@@ -218,10 +220,14 @@ private:
         VkPipelineLayout boundLayout = VK_NULL_HANDLE;
         VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         VkImage swapchainImage = VK_NULL_HANDLE;
+        std::uint64_t swapchain = 0xFFFFFFFFFFFFFFFFull;
+        std::uint32_t swapchainImageIndex = 0xFFFFFFFF;
     };
     std::vector<VulkanCommandList> m_CommandLists;
     std::vector<std::uint64_t> m_FreeCommandLists;
     VkCommandBuffer GetVkCommandBuffer(rhi::CommandListHandle handle);
+    void TransitionTexture(VkCommandBuffer cmd, const rhi::TextureHandle& texture,
+                           VkImageAspectFlags aspect, VkImageLayout target);
 
     bool CreateFrameContexts();
     void DestroyFrameContexts();

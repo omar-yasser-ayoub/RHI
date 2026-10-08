@@ -59,44 +59,63 @@ VkCommandBuffer VulkanRHI::GetVkCommandBuffer(rhi::CommandListHandle handle)
     return m_Frames[list.frame].cmds[list.bufferIndex];
 }
 
-static void TransitionImage(VkCommandBuffer buffer, VkImage image,
-                            VkImageLayout oldLayout, VkImageLayout newLayout,
-                            VkImageAspectFlags aspect)
+static VkAccessFlags AccessForLayout(VkImageLayout layout)
 {
+    switch (layout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+        return 0;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return VK_ACCESS_SHADER_READ_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        return VK_ACCESS_TRANSFER_READ_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return VK_ACCESS_TRANSFER_WRITE_BIT;
+    default:
+        return VK_ACCESS_MEMORY_READ_BIT;
+    }
+}
+
+static void TransitionImage(VkCommandBuffer buffer, VkImage image,
+                            VkImageAspectFlags aspect, VkImageLayout target,
+                            VkImageLayout& stored)
+{
+    if (image == VK_NULL_HANDLE || stored == target) {
+        return;
+    }
     VkImageMemoryBarrier barrier{};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    barrier.oldLayout = oldLayout;
-    barrier.newLayout = newLayout;
+    barrier.oldLayout = stored;
+    barrier.newLayout = target;
+    barrier.srcAccessMask = AccessForLayout(stored);
+    barrier.dstAccessMask = AccessForLayout(target);
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
     barrier.subresourceRange.aspectMask = aspect;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
-    if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
-        barrier.srcAccessMask = 0;
-    } else if (oldLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    } else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    }
-    if (newLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-        barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    } else if (newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
-        barrier.dstAccessMask = 0;
-    } else if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-    } else if (newLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL) {
-        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    }
+    barrier.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
     vkCmdPipelineBarrier(buffer,
                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                          VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
                          0, 0, nullptr, 0, nullptr, 1, &barrier);
+    stored = target;
+}
+
+void VulkanRHI::TransitionTexture(VkCommandBuffer cmd, const rhi::TextureHandle& tex,
+                                  VkImageAspectFlags aspect, VkImageLayout target)
+{
+    if (cmd == VK_NULL_HANDLE || tex.id == 0xFFFFFFFFFFFFFFFFull ||
+        tex.id >= m_Textures.size() || tex.id >= m_TextureLayouts.size() ||
+        m_Textures[tex.id] == VK_NULL_HANDLE) {
+        return;
+    }
+    TransitionImage(cmd, m_Textures[tex.id], aspect, target, m_TextureLayouts[tex.id]);
 }
 
 void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc)
@@ -135,10 +154,11 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
             }
             view = swapchain.views[desc.imageIndex];
             VkImage image = swapchain.images[desc.imageIndex];
-            TransitionImage(buffer, image,
-                            VK_IMAGE_LAYOUT_UNDEFINED,
+            list.swapchain = desc.swapchain.id;
+            list.swapchainImageIndex = desc.imageIndex;
+            TransitionImage(buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
+                            swapchain.layouts[desc.imageIndex]);
             list.swapchainImage = image;
             extent = swapchain.extent;
             extentSet = true;
@@ -171,23 +191,8 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
                 printf("BeginRenderPass: color attachments have mismatched extents\n");
                 return;
             }
-            VkImageMemoryBarrier barrier{};
-            barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            barrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            barrier.image = m_Textures[parent.id];
-            barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            barrier.subresourceRange.baseMipLevel = attachment.view.desc.baseMipLevel;
-            barrier.subresourceRange.levelCount = attachment.view.desc.mipLevels;
-            barrier.subresourceRange.baseArrayLayer = attachment.view.desc.baseArrayLayer;
-            barrier.subresourceRange.layerCount = attachment.view.desc.arrayLayers;
-            barrier.srcAccessMask = 0;
-            barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                 VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                                 0, 0, nullptr, 0, nullptr, 1, &barrier);
+            TransitionTexture(buffer, parent, VK_IMAGE_ASPECT_COLOR_BIT,
+                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         }
 
         VkRenderingAttachmentInfo color{};
@@ -230,24 +235,9 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         depthStorage.clearValue.depthStencil.stencil = desc.depth.clearStencilValue;
         depthInfo = &depthStorage;
 
-        VkImageMemoryBarrier depthBarrier{};
-        depthBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-        depthBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        depthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        depthBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        depthBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        depthBarrier.image = m_Textures[depthParent.id];
-        depthBarrier.subresourceRange.aspectMask =
-            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-        depthBarrier.subresourceRange.baseMipLevel = desc.depth.view.desc.baseMipLevel;
-        depthBarrier.subresourceRange.levelCount = desc.depth.view.desc.mipLevels;
-        depthBarrier.subresourceRange.baseArrayLayer = desc.depth.view.desc.baseArrayLayer;
-        depthBarrier.subresourceRange.layerCount = desc.depth.view.desc.arrayLayers;
-        depthBarrier.srcAccessMask = 0;
-        depthBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        vkCmdPipelineBarrier(buffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-                             0, 0, nullptr, 0, nullptr, 1, &depthBarrier);
+        TransitionTexture(buffer, depthParent,
+                          VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                          VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
     VkRenderingInfo renderInfo{};
@@ -289,10 +279,14 @@ void VulkanRHI::EndPass(rhi::CommandListHandle cmd)
     if (list.pass == CurrentPass::Graphics) {
         vkCmdEndRendering(buffer);
         if (list.swapchainImage != VK_NULL_HANDLE) {
-            TransitionImage(buffer, list.swapchainImage,
-                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
+            if (list.swapchain != 0xFFFFFFFFFFFFFFFFull &&
+                list.swapchain < m_Swapchains.size() &&
+                list.swapchainImageIndex <
+                    m_Swapchains[list.swapchain].layouts.size()) {
+                TransitionImage(buffer, list.swapchainImage, VK_IMAGE_ASPECT_COLOR_BIT,
+                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                m_Swapchains[list.swapchain].layouts[list.swapchainImageIndex]);
+            }
         }
         list.pass = CurrentPass::None;
         list.swapchainImage = VK_NULL_HANDLE;
@@ -553,6 +547,8 @@ void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
+    TransitionTexture(buffer, dst, VK_IMAGE_ASPECT_COLOR_BIT,
+                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     vkCmdCopyBufferToImage(buffer, m_Buffers[src.id], m_Textures[dst.id],
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
 }
@@ -590,6 +586,8 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
+    TransitionTexture(buffer, src, VK_IMAGE_ASPECT_COLOR_BIT,
+                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkCmdCopyImageToBuffer(buffer, m_Textures[src.id],
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                            m_Buffers[dst.id], 1, &copy);

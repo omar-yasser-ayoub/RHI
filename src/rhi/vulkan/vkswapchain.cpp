@@ -191,6 +191,7 @@ rhi::SwapchainHandle VulkanRHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
     data.swapchain = swapchain;
     data.images = std::move(images);
     data.views = std::move(views);
+    data.layouts.assign(data.images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
     data.acquireFence = acquireFence;
     data.format = imageFormat;
     data.extent = extent;
@@ -262,11 +263,13 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         result.status = rhi::AcquireStatus::Success;
         result.imageIndex = imageIndex;
         data.lastImageIndex = imageIndex;
+        data.layouts[imageIndex] = VK_IMAGE_LAYOUT_UNDEFINED;
         break;
     case VK_SUBOPTIMAL_KHR:
         result.status = rhi::AcquireStatus::Suboptimal;
         result.imageIndex = imageIndex;
         data.lastImageIndex = imageIndex;
+        data.layouts[imageIndex] = VK_IMAGE_LAYOUT_UNDEFINED;
         break;
     case VK_ERROR_OUT_OF_DATE_KHR:
         result.status = rhi::AcquireStatus::OutOfDate;
