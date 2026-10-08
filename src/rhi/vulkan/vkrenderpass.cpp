@@ -339,9 +339,9 @@ void VulkanRHI::SetViewport(rhi::CommandListHandle cmd, float x, float y, float 
     }
     VkViewport viewport{};
     viewport.x = x;
-    viewport.y = y;
+    viewport.y = y + height;
     viewport.width = width;
-    viewport.height = height;
+    viewport.height = -height;
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     vkCmdSetViewport(buffer, 0, 1, &viewport);
