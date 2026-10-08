@@ -143,6 +143,7 @@ private:
     VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
     VkPresentModeKHR toVk(rhi::PresentMode mode);
     VmaAllocationCreateInfo ToVmaAllocInfo(rhi::MemoryUsage memoryUsage);
+    static std::uint32_t TexelBytes(rhi::TextureFormat format);
 
     rhi::Capabilities m_Capabilities;
     VkInstance m_Instance = VK_NULL_HANDLE;

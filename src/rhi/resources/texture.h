@@ -192,6 +192,9 @@ namespace rhi
         std::uint32_t height = 1;
         std::uint32_t depth = 1;
 
+        std::uint32_t baseArrayLayer = 0;
+        std::uint32_t arrayLayers = 1;
+
         std::uint32_t bytesPerRow = 0;
         std::uint32_t rowsPerImage = 0;
     };

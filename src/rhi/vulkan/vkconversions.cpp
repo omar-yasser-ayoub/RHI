@@ -396,6 +396,73 @@ VmaAllocationCreateInfo VulkanRHI::ToVmaAllocInfo(rhi::MemoryUsage memoryUsage)
     return allocInfo;
 }
 
+std::uint32_t VulkanRHI::TexelBytes(rhi::TextureFormat format)
+{
+    using rhi::TextureFormat;
+    switch (format) {
+    case TextureFormat::R8Unorm:
+    case TextureFormat::R8Snorm:
+    case TextureFormat::R8Uint:
+    case TextureFormat::R8Sint:
+    case TextureFormat::Stencil8:
+        return 1;
+    case TextureFormat::RG8Unorm:
+    case TextureFormat::RG8Snorm:
+    case TextureFormat::RG8Uint:
+    case TextureFormat::RG8Sint:
+    case TextureFormat::R16Unorm:
+    case TextureFormat::R16Snorm:
+    case TextureFormat::R16Uint:
+    case TextureFormat::R16Sint:
+    case TextureFormat::R16Float:
+    case TextureFormat::Depth16Unorm:
+        return 2;
+    case TextureFormat::RGBA8Unorm:
+    case TextureFormat::RGBA8UnormSrgb:
+    case TextureFormat::RGBA8Snorm:
+    case TextureFormat::RGBA8Uint:
+    case TextureFormat::RGBA8Sint:
+    case TextureFormat::BGRA8Unorm:
+    case TextureFormat::BGRA8UnormSrgb:
+    case TextureFormat::RG16Unorm:
+    case TextureFormat::RG16Snorm:
+    case TextureFormat::RG16Uint:
+    case TextureFormat::RG16Sint:
+    case TextureFormat::RG16Float:
+    case TextureFormat::R32Uint:
+    case TextureFormat::R32Sint:
+    case TextureFormat::R32Float:
+    case TextureFormat::RGB10A2Unorm:
+    case TextureFormat::RGB10A2Uint:
+    case TextureFormat::RG11B10Float:
+    case TextureFormat::RGB9E5Float:
+    case TextureFormat::Depth24Plus:
+    case TextureFormat::Depth32Float:
+        return 4;
+    case TextureFormat::RGBA16Unorm:
+    case TextureFormat::RGBA16Snorm:
+    case TextureFormat::RGBA16Uint:
+    case TextureFormat::RGBA16Sint:
+    case TextureFormat::RGBA16Float:
+    case TextureFormat::RG32Uint:
+    case TextureFormat::RG32Sint:
+    case TextureFormat::RG32Float:
+    case TextureFormat::Depth24PlusStencil8:
+    case TextureFormat::Depth32FloatStencil8:
+        return 8;
+    case TextureFormat::RGB32Uint:
+    case TextureFormat::RGB32Sint:
+    case TextureFormat::RGB32Float:
+        return 12;
+    case TextureFormat::RGBA32Uint:
+    case TextureFormat::RGBA32Sint:
+    case TextureFormat::RGBA32Float:
+        return 16;
+    default:
+        return 0;
+    }
+}
+
 rhi::ShaderReflection VulkanRHI::ParseReflection(
     SpvReflectShaderModule* reflection,
     rhi::ShaderStageFlags stage)

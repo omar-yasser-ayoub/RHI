@@ -470,12 +470,21 @@ void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
     }
     VkBufferImageCopy copy{};
     copy.bufferOffset = 0;
-    copy.bufferRowLength = region.bytesPerRow == 0 ? 0 : region.bytesPerRow;
+    const std::uint32_t dstTexelBytes = TexelBytes(dst.desc.format);
+    if (dstTexelBytes == 0) {
+        printf("CopyBufferToTexture: unsupported (block-compressed) format\n");
+        return;
+    }
+    if (region.bytesPerRow % dstTexelBytes != 0) {
+        printf("CopyBufferToTexture: bytesPerRow must be a multiple of texel size\n");
+        return;
+    }
+    copy.bufferRowLength = region.bytesPerRow / dstTexelBytes;
     copy.bufferImageHeight = region.rowsPerImage;
     copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copy.imageSubresource.mipLevel = region.mipLevel;
-    copy.imageSubresource.baseArrayLayer = 0;
-    copy.imageSubresource.layerCount = 1;
+    copy.imageSubresource.baseArrayLayer = region.baseArrayLayer;
+    copy.imageSubresource.layerCount = region.arrayLayers;
     copy.imageOffset = { static_cast<std::int32_t>(region.x),
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
@@ -498,12 +507,21 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
     }
     VkBufferImageCopy copy{};
     copy.bufferOffset = 0;
-    copy.bufferRowLength = region.bytesPerRow == 0 ? 0 : region.bytesPerRow;
+    const std::uint32_t srcTexelBytes = TexelBytes(src.desc.format);
+    if (srcTexelBytes == 0) {
+        printf("CopyTextureToBuffer: unsupported (block-compressed) format\n");
+        return;
+    }
+    if (region.bytesPerRow % srcTexelBytes != 0) {
+        printf("CopyTextureToBuffer: bytesPerRow must be a multiple of texel size\n");
+        return;
+    }
+    copy.bufferRowLength = region.bytesPerRow / srcTexelBytes;
     copy.bufferImageHeight = region.rowsPerImage;
     copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     copy.imageSubresource.mipLevel = region.mipLevel;
-    copy.imageSubresource.baseArrayLayer = 0;
-    copy.imageSubresource.layerCount = 1;
+    copy.imageSubresource.baseArrayLayer = region.baseArrayLayer;
+    copy.imageSubresource.layerCount = region.arrayLayers;
     copy.imageOffset = { static_cast<std::int32_t>(region.x),
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
