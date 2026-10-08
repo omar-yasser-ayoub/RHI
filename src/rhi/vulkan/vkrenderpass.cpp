@@ -1,6 +1,5 @@
 #include "rhi/vulkan/vkrhi.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <vector>
 
@@ -159,9 +158,11 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
                 return;
             }
             const std::uint32_t mip = attachment.view.desc.baseMipLevel;
+            const std::uint32_t mipWidth = parent.desc.width >> mip;
+            const std::uint32_t mipHeight = parent.desc.height >> mip;
             const VkExtent2D viewExtent{
-                std::max(1u, parent.desc.width >> mip),
-                std::max(1u, parent.desc.height >> mip),
+                mipWidth > 1u ? mipWidth : 1u,
+                mipHeight > 1u ? mipHeight : 1u,
             };
             if (!extentSet) {
                 extent = viewExtent;
