@@ -1,89 +1,103 @@
 #include "rhi/dx12/dx12rhi.h"
 
-void DX12RHI::BeginRenderPass(const rhi::RenderPassDesc& desc)
+// NOTE: command-list recording is not implemented yet. These stubs exist only
+// to keep the backend compiling against the shared RHI API; every function is
+// a no-op until the DX12 frame-context / allocator / barrier work lands.
+
+void DX12RHI::BeginRenderPass(rhi::CommandListHandle, const rhi::RenderPassDesc&)
 {
 }
 
-void DX12RHI::BeginComputePass()
+void DX12RHI::BeginComputePass(rhi::CommandListHandle)
 {
 }
 
-void DX12RHI::EndPass()
+void DX12RHI::EndPass(rhi::CommandListHandle)
 {
 }
 
-void DX12RHI::SetPipeline(rhi::GraphicsPipelineHandle handle)
+void DX12RHI::SetPipeline(rhi::CommandListHandle, rhi::GraphicsPipelineHandle)
 {
 }
 
-void DX12RHI::SetPipeline(rhi::ComputePipelineHandle handle)
+void DX12RHI::SetPipeline(rhi::CommandListHandle, rhi::ComputePipelineHandle)
 {
 }
 
-void DX12RHI::SetBindGroup(std::uint32_t slot, rhi::BindGroupHandle handle)
+void DX12RHI::SetBindGroup(rhi::CommandListHandle, std::uint32_t, rhi::BindGroupHandle)
 {
 }
 
-void DX12RHI::SetVertexBuffer(std::uint32_t slot, rhi::BufferHandle handle, std::size_t offset)
+void DX12RHI::SetVertexBuffer(rhi::CommandListHandle, std::uint32_t, rhi::BufferHandle, std::size_t)
 {
 }
 
-void DX12RHI::SetIndexBuffer(rhi::BufferHandle handle, rhi::IndexFormat format, std::size_t offset)
+void DX12RHI::SetIndexBuffer(rhi::CommandListHandle, rhi::BufferHandle, rhi::IndexFormat, std::size_t)
 {
 }
 
-void DX12RHI::SetViewport(float x, float y, float width, float height)
+void DX12RHI::SetViewport(rhi::CommandListHandle, float, float, float, float)
 {
 }
 
-void DX12RHI::SetScissor(std::uint32_t x, std::uint32_t y, std::uint32_t width, std::uint32_t height)
+void DX12RHI::SetScissor(rhi::CommandListHandle, std::uint32_t, std::uint32_t, std::uint32_t, std::uint32_t)
 {
 }
 
-void DX12RHI::Draw(std::uint32_t vertexCount, std::uint32_t instanceCount,
-                    std::uint32_t firstVertex, std::uint32_t firstInstance)
+void DX12RHI::Draw(rhi::CommandListHandle, std::uint32_t, std::uint32_t,
+                    std::uint32_t, std::uint32_t)
 {
 }
 
-void DX12RHI::DrawIndexed(std::uint32_t indexCount, std::uint32_t instanceCount,
-                           std::uint32_t firstIndex, std::int32_t baseVertex,
-                           std::uint32_t firstInstance)
+void DX12RHI::DrawIndexed(rhi::CommandListHandle, std::uint32_t, std::uint32_t,
+                           std::uint32_t, std::int32_t,
+                           std::uint32_t)
 {
 }
 
-void DX12RHI::DrawIndirect(rhi::BufferHandle params, std::size_t offset,
-                            std::uint32_t drawCount, std::uint32_t stride)
+void DX12RHI::DrawIndirect(rhi::CommandListHandle, rhi::BufferHandle, std::size_t,
+                            std::uint32_t, std::uint32_t)
 {
 }
 
-void DX12RHI::DrawIndexedIndirect(rhi::BufferHandle params, std::size_t offset,
-                                   std::uint32_t drawCount, std::uint32_t stride)
+void DX12RHI::DrawIndexedIndirect(rhi::CommandListHandle, rhi::BufferHandle, std::size_t,
+                                   std::uint32_t, std::uint32_t)
 {
 }
 
-void DX12RHI::Dispatch(std::uint32_t x, std::uint32_t y, std::uint32_t z)
+void DX12RHI::Dispatch(rhi::CommandListHandle, std::uint32_t, std::uint32_t, std::uint32_t)
 {
 }
 
-void DX12RHI::DispatchIndirect(rhi::BufferHandle params, std::size_t offset)
+void DX12RHI::DispatchIndirect(rhi::CommandListHandle, rhi::BufferHandle, std::size_t)
 {
 }
 
-void DX12RHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
-                                  std::size_t srcOffset, std::size_t dstOffset)
+void DX12RHI::CopyBufferToBuffer(rhi::CommandListHandle, rhi::BufferHandle, rhi::BufferHandle, std::size_t,
+                                  std::size_t, std::size_t)
 {
 }
 
-void DX12RHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
-                                   const rhi::TextureWriteDesc& region)
+void DX12RHI::CopyBufferToTexture(rhi::CommandListHandle, rhi::BufferHandle, rhi::TextureHandle,
+                                   const rhi::TextureWriteDesc&)
 {
 }
 
-void DX12RHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
-                                   const rhi::TextureWriteDesc& region)
+void DX12RHI::CopyTextureToBuffer(rhi::CommandListHandle, rhi::TextureHandle, rhi::BufferHandle,
+                                   const rhi::TextureWriteDesc&)
 {
 }
 
-void DX12RHI::Submit()
+void DX12RHI::CopyTextureToTexture(rhi::CommandListHandle, rhi::TextureHandle, rhi::TextureHandle,
+                                    const rhi::TextureCopyRegion&)
+{
+}
+
+rhi::CommandListHandle DX12RHI::BeginCommandList()
+{
+    return rhi::CommandListHandle{};
+}
+
+void DX12RHI::Submit(std::span<const rhi::CommandListHandle>)
 {
 }
