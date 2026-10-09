@@ -14,8 +14,12 @@ rhi::SamplerHandle WebGPURHI::CreateSampler(const rhi::SamplerDesc& desc) {
     samplerDesc.addressModeW = toWebGPU(desc.addressW);
     samplerDesc.lodMinClamp = desc.minLOD;
     samplerDesc.lodMaxClamp = desc.maxLOD;
-    samplerDesc.maxAnisotropy = desc.maxAnisotropy;
-    samplerDesc.compare = toWebGPU(desc.compareOp);
+    samplerDesc.maxAnisotropy = desc.maxAnisotropy < 1 ? 1 : (desc.maxAnisotropy > 16 ? 16 : desc.maxAnisotropy);
+    if (desc.compareEnabled) {
+        samplerDesc.compare = toWebGPU(desc.compareOp);
+    } else {
+        samplerDesc.compare = wgpu::CompareFunction::Undefined;
+    }
 
     if (desc.borderColor != rhi::BorderColor::TransparentBlack) {
         printf("[RHI] Warning: BorderColors are unsupported in WebGPU.\n");

@@ -16,6 +16,10 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     std::filesystem::path path = source.path;
 
     std::ifstream file(path, std::ios::binary);
+    if (!file) {
+        printf("Failed to open shader file: %s\n", path.string().c_str());
+        return {};
+    }
 
     std::string shadersource{
         std::istreambuf_iterator<char>(file),
@@ -54,8 +58,8 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.ReleaseAndGetAddressOf()));
 
     if (FAILED(hr)) {
-        printf("Failed to create DXC utils: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        printf("Failed to create DXC utils: 0x%x\n", static_cast<unsigned>(hr));
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
@@ -63,8 +67,8 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     hr = utils->CreateDefaultIncludeHandler(includeHandler.ReleaseAndGetAddressOf());
 
     if (FAILED(hr)) {
-        printf("Failed to create DXC include handler: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        printf("Failed to create DXC include handler: 0x%x\n", static_cast<unsigned>(hr));
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcCompiler3> compiler3;
@@ -72,8 +76,8 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler3));
 
     if (FAILED(hr)) {
-        printf("Failed to create DXC compiler: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        printf("Failed to create DXC compiler: 0x%x\n", static_cast<unsigned>(hr));
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcResult> result;
@@ -87,14 +91,19 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     );
 
     if (FAILED(hr) || !result) {
-        printf("Failed to compile shader: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        printf("Failed to compile shader: 0x%x\n", static_cast<unsigned>(hr));
+        return {};
     }
 
     result->GetStatus(&hr);
 
     if (FAILED(hr)) {
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        Microsoft::WRL::ComPtr<IDxcBlobUtf8> errors;
+        if (SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr)) &&
+            errors && errors->GetStringLength() > 0) {
+            printf("Shader compilation failed:\n%s\n", errors->GetStringPointer());
+        }
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcBlobUtf8> errorMsgs;
@@ -108,6 +117,10 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     Microsoft::WRL::ComPtr<IDxcBlob> shaderobj;
 
     hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderobj), nullptr);
+    if (FAILED(hr) || !shaderobj || shaderobj->GetBufferSize() == 0) {
+        printf("Shader compilation produced no object\n");
+        return {};
+    }
 
     // now, we have to convert from dxc blob to rhi shader module
     rhi::ShaderModule module;
@@ -120,6 +133,10 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
         module.bytecode.size(),
         module.bytecode.data(),
         &reflectModule);
+    if (reflectionResult != SPV_REFLECT_RESULT_SUCCESS) {
+        printf("Failed to reflect shader module\n");
+        return {};
+    }
 
     rhi::ShaderReflection shaderReflection = ParseReflection(&reflectModule, source.stage);
 

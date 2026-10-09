@@ -120,7 +120,12 @@ private:
     static wgpu::BufferUsage toWebGPU(rhi::BufferUsage usage);
     static wgpu::BufferUsage toWebGPU(rhi::MemoryUsage usage);
     static wgpu::TextureDimension toWebGPU(rhi::TextureDimension dim);
+    static wgpu::TextureViewDimension toWebGPU(rhi::TextureViewDimension dim);
+    static wgpu::TextureAspect toWebGPU(rhi::TextureAspect aspect);
     static wgpu::TextureFormat toWebGPU(rhi::TextureFormat usage);
+    static rhi::TextureFormat fromWebGPU(wgpu::TextureFormat format);
+    static rhi::PresentMode fromWebGPU(wgpu::PresentMode mode);
+    static rhi::AlphaMode fromWebGPU(wgpu::CompositeAlphaMode mode);
     static uint32_t toWebGPU(rhi::SampleCount count);
     static wgpu::TextureUsage toWebGPU(rhi::TextureUsage usage);
     static wgpu::IndexFormat toWebGPU(rhi::IndexFormat format);
@@ -162,6 +167,9 @@ private:
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;
     std::vector<std::uint64_t> m_FreeBuffers;
+    // Tracks client-visible mapped state so Unmap/Destroy never unmap an
+    // unmapped buffer (Dawn validation error).
+    std::vector<bool> m_BufferMapped;
 
     std::vector<wgpu::Texture> m_Textures;
     std::vector<std::uint64_t> m_FreeTextures;

@@ -21,6 +21,13 @@ bool VulkanRHI::Initialize() {
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
+    if (!m_GlfwInitialized) {
+        if (!glfwInit()) {
+            std::cerr << "Failed to initialize GLFW.\n";
+            return false;
+        }
+        m_GlfwInitialized = true;
+    }
     std::uint32_t surfaceExtensionCount = 0;
     const char** surfaceExtensions =
         glfwGetRequiredInstanceExtensions(&surfaceExtensionCount);
@@ -429,9 +436,6 @@ void VulkanRHI::Shutdown() {
                     vkDestroyImageView(m_Device, view, nullptr);
                 }
             }
-            if (data.acquireFence != VK_NULL_HANDLE) {
-                vkDestroyFence(m_Device, data.acquireFence, nullptr);
-            }
             vkDestroySwapchainKHR(m_Device, data.swapchain, nullptr);
         }
         m_Swapchains.clear();
@@ -450,9 +454,10 @@ void VulkanRHI::Shutdown() {
                 m_Textures[i] = VK_NULL_HANDLE;
                 m_TextureMemory[i] = nullptr;
             }
-            if (i < m_TextureViews.size() && m_TextureViews[i] != VK_NULL_HANDLE) {
-                vkDestroyImageView(m_Device, m_TextureViews[i], nullptr);
-                m_TextureViews[i] = VK_NULL_HANDLE;
+        }
+        for (VkImageView view : m_TextureViews) {
+            if (view != VK_NULL_HANDLE) {
+                vkDestroyImageView(m_Device, view, nullptr);
             }
         }
         for (VkSampler sampler : m_Samplers) {
@@ -478,15 +483,23 @@ void VulkanRHI::Shutdown() {
 
         m_Buffers.clear();
         m_BufferMemory.clear();
+        m_FreeBuffers.clear();
         m_Textures.clear();
         m_TextureMemory.clear();
         m_TextureLayouts.clear();
         m_TextureViews.clear();
+        m_FreeTextures.clear();
+        m_FreeTextureViews.clear();
         m_Samplers.clear();
+        m_FreeSamplers.clear();
+        m_ShaderModules.clear();
+        m_FreeShaderModules.clear();
         m_Pipelines.clear();
+        m_FreePipelines.clear();
         m_ComputePipelines.clear();
         m_FreeComputePipelines.clear();
         m_PipelineLayouts.clear();
+        m_FreePipelineLayouts.clear();
         for (VkDescriptorSetLayout layout : m_BindGroupLayouts) {
             if (layout != VK_NULL_HANDLE) {
                 vkDestroyDescriptorSetLayout(m_Device, layout, nullptr);

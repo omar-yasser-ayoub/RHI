@@ -17,7 +17,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
     const std::string suffix = ".hlsl";
     if (filename.size() <= suffix.size() ||
         filename.compare(filename.size() - suffix.size(), suffix.size(), suffix) != 0) {
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     const std::string stem = filename.substr(0, filename.size() - suffix.size());
@@ -29,7 +29,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
 
     std::ifstream wgslFile(wgslPath, std::ios::binary);
     if (!wgslFile) {
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     module.bytecode.assign(
@@ -39,7 +39,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
     std::ifstream spirvFile(spirvPath, std::ios::binary);
     if (!spirvFile) {
         module.bytecode.clear();
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     std::vector<std::uint8_t> spirv{
@@ -47,7 +47,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
         std::istreambuf_iterator<char>()};
     if (spirv.empty()) {
         module.bytecode.clear();
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     SpvReflectShaderModule reflection{};
@@ -57,7 +57,7 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
         &reflection);
     if (result != SPV_REFLECT_RESULT_SUCCESS) {
         module.bytecode.clear();
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     module.reflection = ParseReflection(&reflection, source.stage);

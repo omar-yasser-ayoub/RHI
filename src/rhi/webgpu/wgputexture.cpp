@@ -2,14 +2,34 @@
 #include "rhi/webgpu/wgpurhi.h"
 
 rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
+    if (desc.width == 0 || desc.height == 0 || desc.mipLevels == 0 || desc.arrayLayers == 0) {
+        printf("[RHI] Invalid WebGPU texture description\n");
+        return rhi::TextureHandle{};
+    }
+    const wgpu::TextureFormat format = toWebGPU(desc.format);
+    if (format == wgpu::TextureFormat::Undefined) {
+        printf("[RHI] Unsupported texture format for WebGPU\n");
+        return rhi::TextureHandle{};
+    }
+    const wgpu::TextureUsage usage = toWebGPU(desc.usage);
+    if (usage == wgpu::TextureUsage::None) {
+        printf("[RHI] Texture usage must not be None\n");
+        return rhi::TextureHandle{};
+    }
+    if (desc.sampleCount != rhi::SampleCount::x1 && desc.sampleCount != rhi::SampleCount::x4) {
+        printf("[RHI] Only 1x and 4x MSAA are supported in WebGPU\n");
+        return rhi::TextureHandle{};
+    }
     wgpu::TextureDescriptor texDesc{};
 
-    texDesc.size = wgpu::Extent3D{ desc.width, desc.height, desc.depth };
+    const std::uint32_t depthOrLayers =
+        desc.dimension == rhi::TextureDimension::Tex3D ? desc.depth : desc.arrayLayers;
+    texDesc.size = wgpu::Extent3D{ desc.width, desc.height, depthOrLayers };
     texDesc.mipLevelCount = desc.mipLevels;
     texDesc.sampleCount = toWebGPU(desc.sampleCount);
     texDesc.dimension = toWebGPU(desc.dimension);
-    texDesc.format = toWebGPU(desc.format);
-    texDesc.usage = toWebGPU(desc.usage);
+    texDesc.format = format;
+    texDesc.usage = usage;
 
     // for now, I've chosen to ignore viewFormats and TextureViewDimension, both since they are not required,
     // but also since color space reinterpretation isnt something i particularly care about right now.
@@ -35,12 +55,29 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
 }
 
 rhi::TextureViewHandle WebGPURHI::CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture) {
+    if (texture.id == 0xFFFFFFFFFFFFFFFFull || texture.id >= m_Textures.size() ||
+        !m_Textures[texture.id]) {
+        printf("[RHI] Invalid texture handle for view creation\n");
+        return rhi::TextureViewHandle{};
+    }
+    const wgpu::TextureFormat format = toWebGPU(desc.format);
+    if (format == wgpu::TextureFormat::Undefined) {
+        printf("[RHI] Unsupported texture view format for WebGPU\n");
+        return rhi::TextureViewHandle{};
+    }
+    const wgpu::TextureViewDimension viewDimension = toWebGPU(desc.dimension);
+    if (viewDimension == wgpu::TextureViewDimension::Undefined) {
+        printf("[RHI] Unsupported texture view dimension for WebGPU\n");
+        return rhi::TextureViewHandle{};
+    }
     wgpu::TextureViewDescriptor viewDesc{};
     viewDesc.baseMipLevel = desc.baseMipLevel;
     viewDesc.baseArrayLayer = desc.baseArrayLayer;
     viewDesc.mipLevelCount = desc.mipLevels;
     viewDesc.arrayLayerCount = desc.arrayLayers;
-    viewDesc.format = toWebGPU(desc.format);
+    viewDesc.format = format;
+    viewDesc.dimension = viewDimension;
+    viewDesc.aspect = toWebGPU(desc.aspect);
 
     wgpu::TextureView view = m_Textures[texture.id].CreateView(&viewDesc);
 

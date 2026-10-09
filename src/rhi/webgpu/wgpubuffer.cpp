@@ -21,6 +21,15 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         return handle;
     }
 
+    if (desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        const rhi::BufferUsage bindMask =
+            rhi::BufferUsage::Vertex | rhi::BufferUsage::Index | rhi::BufferUsage::Uniform |
+            rhi::BufferUsage::Storage | rhi::BufferUsage::Indirect;
+        if ((desc.usage & bindMask) != rhi::BufferUsage::None) {
+            printf("[RHI] GpuToCpu buffers cannot bind to the pipeline\n");
+            return handle;
+        }
+    }
     wgpu::BufferDescriptor bufferDesc{};
     bufferDesc.size = desc.size;
     if (NeedsStagingWrite(desc)) {
@@ -40,9 +49,11 @@ rhi::BufferHandle WebGPURHI::CreateBuffer(const rhi::BufferDesc& desc) {
         handle.id = m_FreeBuffers.back();
         m_FreeBuffers.pop_back();
         m_Buffers[handle.id] = buffer;
+        m_BufferMapped[handle.id] = false;
     } else {
-        handle.id = static_cast<uint64_t>(m_Buffers.size());
+        handle.id = static_cast<std::uint64_t>(m_Buffers.size());
         m_Buffers.push_back(buffer);
+        m_BufferMapped.push_back(false);
     }
 
     return handle;
@@ -86,7 +97,13 @@ void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
             });
 
     m_Instance.WaitAny(future, UINT64_MAX);
-    return success ? buffer.GetMappedRange(0, buffer.GetSize()) : nullptr;
+    if (!success) {
+        return nullptr;
+    }
+    if (handle.id < m_BufferMapped.size()) {
+        m_BufferMapped[handle.id] = true;
+    }
+    return buffer.GetMappedRange(0, buffer.GetSize());
 }
 
 void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
@@ -99,7 +116,13 @@ void WebGPURHI::UnmapBuffer(rhi::BufferHandle handle) {
         printf("[RHI] Cannot unmap a GPU-only buffer\n");
         return;
     }
+    if (handle.id < m_BufferMapped.size() && !m_BufferMapped[handle.id]) {
+        return;
+    }
     m_Buffers[handle.id].Unmap();
+    if (handle.id < m_BufferMapped.size()) {
+        m_BufferMapped[handle.id] = false;
+    }
 }
 
 void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::size_t size, std::size_t offset) {
@@ -152,6 +175,7 @@ void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
         if (!mapped) {
             printf("[RHI] Failed to get mapped WebGPU staging range\n");
             staging.Unmap();
+            staging.Destroy();
             return;
         }
         std::memcpy(mapped, data, size);
@@ -162,6 +186,7 @@ void WebGPURHI::WriteBuffer(rhi::BufferHandle handle, const void* data, std::siz
         encoder.CopyBufferToBuffer(staging, 0, m_Buffers[handle.id], offset, size);
         wgpu::CommandBuffer commands = encoder.Finish();
         m_Queue.Submit(1, &commands);
+        staging.Destroy();
         return;
     }
 
@@ -208,8 +233,10 @@ void WebGPURHI::DestroyBuffer(rhi::BufferHandle handle)
         !m_Buffers[handle.id]) {
         return;
     }
-    m_Buffers[handle.id].Unmap();
     m_Buffers[handle.id].Destroy();
     m_Buffers[handle.id] = {};
+    if (handle.id < m_BufferMapped.size()) {
+        m_BufferMapped[handle.id] = false;
+    }
     m_FreeBuffers.push_back(handle.id);
 }

@@ -175,24 +175,11 @@ rhi::SwapchainHandle VulkanRHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
         views.push_back(view);
     }
 
-    VkFenceCreateInfo fenceInfo{};
-    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-    VkFence acquireFence = VK_NULL_HANDLE;
-    if (vkCreateFence(m_Device, &fenceInfo, nullptr, &acquireFence) != VK_SUCCESS) {
-        printf("[ERROR] Failed to create swapchain acquire fence\n");
-        for (VkImageView view : views) {
-            vkDestroyImageView(m_Device, view, nullptr);
-        }
-        vkDestroySwapchainKHR(m_Device, swapchain, nullptr);
-        return {};
-    }
-
     VkSwapchainData data;
     data.swapchain = swapchain;
     data.images = std::move(images);
     data.views = std::move(views);
     data.layouts.assign(data.images.size(), VK_IMAGE_LAYOUT_UNDEFINED);
-    data.acquireFence = acquireFence;
     data.format = imageFormat;
     data.extent = extent;
 
@@ -225,9 +212,6 @@ void VulkanRHI::DestroySwapchain(rhi::SwapchainHandle handle)
             vkDestroyImageView(m_Device, view, nullptr);
         }
     }
-    if (data.acquireFence != VK_NULL_HANDLE) {
-        vkDestroyFence(m_Device, data.acquireFence, nullptr);
-    }
     vkDestroySwapchainKHR(m_Device, data.swapchain, nullptr);
     data = {};
     m_FreeSwapchains.push_back(handle.id);
@@ -245,7 +229,7 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         return result;
     }
 
-    m_CurrentFrame = static_cast<std::uint32_t>(m_FrameCounter % 2);
+    m_CurrentFrame = static_cast<std::uint32_t>(m_FrameCounter % m_Frames.size());
     FrameContext& frame = m_Frames[m_CurrentFrame];
 
     if (frame.submitted) {
@@ -259,8 +243,10 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
     frame.submitted = false;
 
     std::uint32_t imageIndex = 0;
+
+    constexpr std::uint64_t kAcquireTimeoutNs = 1'000'000'000ull;
     const VkResult acquire =
-        vkAcquireNextImageKHR(m_Device, data.swapchain, UINT64_MAX,
+        vkAcquireNextImageKHR(m_Device, data.swapchain, kAcquireTimeoutNs,
                               frame.imageAvailable, VK_NULL_HANDLE, &imageIndex);
 
     switch (acquire) {
@@ -276,6 +262,10 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         data.lastImageIndex = imageIndex;
         data.layouts[imageIndex] = VK_IMAGE_LAYOUT_UNDEFINED;
         break;
+    case VK_TIMEOUT:
+    case VK_NOT_READY:
+        result.status = rhi::AcquireStatus::Timeout;
+        return result;
     case VK_ERROR_OUT_OF_DATE_KHR:
         result.status = rhi::AcquireStatus::OutOfDate;
         return result;

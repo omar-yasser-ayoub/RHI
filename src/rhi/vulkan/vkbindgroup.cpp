@@ -124,6 +124,17 @@ rhi::BindGroupHandle VulkanRHI::CreateBindGroup(const rhi::BindGroupDesc& desc) 
     std::vector<VkWriteDescriptorSet> writes;
     std::vector<VkDescriptorImageInfo> imageInfos;
     std::vector<VkDescriptorBufferInfo> bufferInfos;
+    writes.reserve(desc.entries.size());
+    imageInfos.reserve(desc.entries.size());
+    bufferInfos.reserve(desc.entries.size());
+
+    auto findLayoutType = [&](std::uint32_t binding) -> const rhi::ShaderBinding* {
+        for (const auto& shaderBinding : desc.layout.desc.shaderBindings) {
+            if (shaderBinding.binding == binding)
+                return &shaderBinding;
+        }
+        return nullptr;
+    };
 
     for (const auto& binding : desc.entries)
     {
@@ -134,73 +145,105 @@ rhi::BindGroupHandle VulkanRHI::CreateBindGroup(const rhi::BindGroupDesc& desc) 
         write.dstArrayElement = 0;
         write.descriptorCount = 1;
 
-        if (binding.buffer.id != 0xFFFFFFFFFFFFFFFFull)
+        const bool hasBuffer = binding.buffer.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasTexture = binding.textureView.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasSampler = binding.sampler.id != 0xFFFFFFFFFFFFFFFFull;
+        if (!hasBuffer && !hasTexture && !hasSampler) {
+            vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+            return rhi::BindGroupHandle{};
+        }
+
+        const rhi::ShaderBinding* layoutBinding = findLayoutType(binding.binding);
+        if (layoutBinding == nullptr) {
+            vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+            return rhi::BindGroupHandle{};
+        }
+
+        if (hasBuffer && !hasTexture && !hasSampler)
         {
-            if (binding.buffer.id >= m_Buffers.size())
-                return handle;
+            if (binding.buffer.id >= m_Buffers.size() ||  m_Buffers[binding.buffer.id] == VK_NULL_HANDLE) {
+                    vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                    return rhi::BindGroupHandle{};
+            }
 
             VkDescriptorBufferInfo bufferInfo{};
             bufferInfo.buffer = m_Buffers[binding.buffer.id];
             bufferInfo.offset = 0;
             bufferInfo.range = VK_WHOLE_SIZE;
 
-            bufferInfos.push_back(bufferInfo);
-
-            if (rhi::HasFlag(binding.buffer.desc.usage, rhi::BufferUsage::Uniform))
-                    write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            else if (rhi::HasFlag(binding.buffer.desc.usage, rhi::BufferUsage::Storage))
+            // Descriptor type comes from the layout; buffer usage is validated.
+            if (layoutBinding->type == rhi::BindingType::UniformBuffer) {
+                if (!rhi::HasFlag(binding.buffer.desc.usage, rhi::BufferUsage::Uniform)) {
+                    vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                    return rhi::BindGroupHandle{};
+                }
+                write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            } else if (layoutBinding->type == rhi::BindingType::StorageBuffer) {
+                if (!rhi::HasFlag(binding.buffer.desc.usage, rhi::BufferUsage::Storage)) {
+                    vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                    return rhi::BindGroupHandle{};
+                }
                 write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-            else
-                return handle;
+            } else {
+               vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+               return rhi::BindGroupHandle{};
+            }
+            bufferInfos.push_back(bufferInfo);
             write.pBufferInfo = &bufferInfos.back();
         }
-        else if (binding.textureView.id != 0xFFFFFFFFFFFFFFFFull)
+        else if (hasTexture || hasSampler)
         {
-            if (binding.textureView.id >= m_TextureViews.size())
-                return handle;
-
-            VkDescriptorImageInfo imageInfo{};
-            imageInfo.imageView =
-                m_TextureViews[binding.textureView.id];
-
-            imageInfos.push_back(imageInfo);
-
-            for (const auto& shaderBinding : desc.layout.desc.shaderBindings)
-            {
-                if (shaderBinding.binding == binding.binding)
-                {
-                    if (shaderBinding.type == rhi::BindingType::SampledTexture)
-                        write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-                    else if (shaderBinding.type == rhi::BindingType::StorageTexture)
-                        write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-                    else
-                        return handle;
-
-                    break;
-                }
+            const bool combined = hasTexture && hasSampler;
+            if (hasTexture && (binding.textureView.id >= m_TextureViews.size() || m_TextureViews[binding.textureView.id] == VK_NULL_HANDLE)) {
+                vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                return rhi::BindGroupHandle{};
             }
-            write.pImageInfo = &imageInfos.back();
-        }
-        else if (binding.sampler.id != 0xFFFFFFFFFFFFFFFFull)
-        {
-            if (binding.sampler.id >= m_Samplers.size())
-                return handle;
+            if (hasSampler && (binding.sampler.id >= m_Samplers.size() || m_Samplers[binding.sampler.id] == VK_NULL_HANDLE)) {
+                vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                return rhi::BindGroupHandle{};
+            }
 
             VkDescriptorImageInfo imageInfo{};
-            imageInfo.sampler =
-                m_Samplers[binding.sampler.id];
+            if (hasTexture)
+                imageInfo.imageView = m_TextureViews[binding.textureView.id];
+            if (hasSampler)
+                imageInfo.sampler = m_Samplers[binding.sampler.id];
 
+            if (layoutBinding->type == rhi::BindingType::SampledTexture && !combined) {
+                write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            } else if (layoutBinding->type == rhi::BindingType::StorageTexture && hasTexture && !hasSampler) {
+                write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+            } else if (layoutBinding->type == rhi::BindingType::Sampler && hasSampler && !hasTexture) {
+                write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            } else if (combined &&
+                       (layoutBinding->type == rhi::BindingType::SampledTexture)) {
+                write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+                imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            } else {
+                vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+                return rhi::BindGroupHandle{};
+            }
             imageInfos.push_back(imageInfo);
-
-            write.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
             write.pImageInfo = &imageInfos.back();
         }
         else
         {
-            return handle;
+            vkFreeDescriptorSets(m_Device, m_DescriptorPool, 1, &set);
+            return rhi::BindGroupHandle{};
         }
 
         writes.push_back(write);
+    }
+
+    for (std::size_t i = 0, b = 0, im = 0; i < writes.size(); ++i) {
+        if (writes[i].descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER ||
+            writes[i].descriptorType == VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)
+            writes[i].pBufferInfo = &bufferInfos[b++];
+        else
+            writes[i].pImageInfo = &imageInfos[im++];
     }
 
     vkUpdateDescriptorSets(

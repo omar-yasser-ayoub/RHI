@@ -82,22 +82,62 @@ void WebGPURHI::Shutdown()
 
     for (auto& buffer : m_Buffers) {
         if (buffer) {
-            buffer.Unmap();
             buffer.Destroy();
             buffer = {};
         }
     }
+    m_Buffers.clear();
+    m_FreeBuffers.clear();
+    m_BufferMapped.clear();
     for (auto& sampler : m_Samplers) {
         sampler = {};
     }
-
-    m_Buffers.clear();
     m_Samplers.clear();
+    m_FreeSamplers.clear();
+    for (auto& texture : m_Textures) {
+        if (texture) {
+            texture.Destroy();
+            texture = {};
+        }
+    }
+    m_Textures.clear();
+    m_FreeTextures.clear();
+    for (auto& view : m_TextureViews) {
+        view = {};
+    }
+    m_TextureViews.clear();
+    m_FreeTextureViews.clear();
+    m_ShaderModules.clear();
+    m_FreeShaderModules.clear();
+    for (auto& layout : m_BindGroupLayouts) {
+        layout = {};
+    }
+    m_BindGroupLayouts.clear();
+    m_FreeBindGroupLayouts.clear();
+    for (auto& group : m_BindGroups) {
+        group = {};
+    }
+    m_BindGroups.clear();
+    m_FreeBindGroups.clear();
+    for (auto& layout : m_PipelineLayouts) {
+        layout = {};
+    }
+    m_PipelineLayouts.clear();
+    m_FreePipelineLayouts.clear();
+    for (auto& pipeline : m_Pipelines) {
+        pipeline = {};
+    }
+    m_Pipelines.clear();
+    m_FreePipelines.clear();
+    for (auto& pipeline : m_ComputePipelines) {
+        pipeline = {};
+    }
     m_ComputePipelines.clear();
     m_FreeComputePipelines.clear();
     for (auto& data : m_Swapchains) {
         if (data.surface) {
             data.currentTexture = {};
+            data.currentView = {};
             data.surface.Unconfigure();
         }
     }

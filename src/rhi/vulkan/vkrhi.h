@@ -132,6 +132,7 @@ private:
     VkImageViewType toVk(rhi::TextureViewDimension type, int layerCount);
     VkFormat toVk(rhi::TextureFormat format);
     VkImageAspectFlags toVk(rhi::TextureAspect aspect);
+    VkImageAspectFlags toVkAspect(rhi::TextureFormat format);
     VkImageType toVk(rhi::TextureDimension type);
     VkSampleCountFlagBits toVk(rhi::SampleCount count);
     VkImageUsageFlags toVk(rhi::TextureUsage usage);
@@ -145,6 +146,8 @@ private:
     VkColorComponentFlags toVk(rhi::ColorWriteMask mask);
     VkPresentModeKHR toVk(rhi::PresentMode mode);
     VmaAllocationCreateInfo ToVmaAllocInfo(rhi::MemoryUsage memoryUsage);
+    void TransitionImage(VkCommandBuffer buffer, VkImage image, VkImageAspectFlags aspect, VkImageLayout target, VkImageLayout& stored);
+    static VkAccessFlags accessForLayout(VkImageLayout layout);
     static std::uint32_t TexelBytes(rhi::TextureFormat format);
 
     rhi::Capabilities m_Capabilities;
@@ -189,7 +192,6 @@ private:
         std::vector<VkImage> images;
         std::vector<VkImageView> views;
         std::vector<VkImageLayout> layouts;
-        VkFence acquireFence = VK_NULL_HANDLE;
         std::uint32_t lastImageIndex = 0xFFFFFFFF;
         VkFormat format = VK_FORMAT_UNDEFINED;
         VkExtent2D extent{};

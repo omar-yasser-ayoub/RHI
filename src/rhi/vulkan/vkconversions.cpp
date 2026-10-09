@@ -86,9 +86,9 @@ VkImageViewType VulkanRHI::toVk(rhi::TextureViewDimension type, int layerCount) 
     switch (type)
     {
         case rhi::TextureViewDimension::Tex1D:
-            return VK_IMAGE_VIEW_TYPE_1D;
+            return layerCount > 1 ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D;
         case rhi::TextureViewDimension::Tex2D:
-            return VK_IMAGE_VIEW_TYPE_2D;
+            return layerCount > 1 ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
         case rhi::TextureViewDimension::Tex3D:
             return VK_IMAGE_VIEW_TYPE_3D;
         case rhi::TextureViewDimension::Tex1DArray:
@@ -96,7 +96,7 @@ VkImageViewType VulkanRHI::toVk(rhi::TextureViewDimension type, int layerCount) 
         case rhi::TextureViewDimension::Tex2DArray:
             return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         case rhi::TextureViewDimension::TexCube:
-            return VK_IMAGE_VIEW_TYPE_CUBE;
+            return layerCount > 6 ? VK_IMAGE_VIEW_TYPE_CUBE_ARRAY : VK_IMAGE_VIEW_TYPE_CUBE;
         case rhi::TextureViewDimension::TexCubeArray:
             return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
         default:
@@ -242,6 +242,51 @@ VkImageAspectFlags VulkanRHI::toVk(rhi::TextureAspect aspect) {
         flags |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
     return flags;
+}
+
+VkImageAspectFlags VulkanRHI::toVkAspect(rhi::TextureFormat format) {
+    using rhi::TextureFormat;
+    switch (format) {
+    case TextureFormat::Depth16Unorm:
+    case TextureFormat::Depth24Plus:
+    case TextureFormat::Depth32Float:
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+    case TextureFormat::Depth24PlusStencil8:
+    case TextureFormat::Depth32FloatStencil8:
+        return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    case TextureFormat::Stencil8:
+        return VK_IMAGE_ASPECT_STENCIL_BIT;
+    default:
+        return VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+}
+
+VkAccessFlags VulkanRHI::accessForLayout(VkImageLayout layout)
+{
+    switch (layout) {
+    case VK_IMAGE_LAYOUT_UNDEFINED:
+    case VK_IMAGE_LAYOUT_PREINITIALIZED:
+        return 0;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+        return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+    case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL:
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        return VK_ACCESS_TRANSFER_READ_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return VK_ACCESS_TRANSFER_WRITE_BIT;
+    case VK_IMAGE_LAYOUT_GENERAL:
+        return VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT |
+               VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+    case VK_IMAGE_LAYOUT_PRESENT_SRC_KHR:
+        return VK_ACCESS_MEMORY_READ_BIT;
+    default:
+        return VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT;
+    }
 }
 
 VkImageType VulkanRHI::toVk(rhi::TextureDimension type) {
@@ -438,6 +483,7 @@ std::uint32_t VulkanRHI::TexelBytes(rhi::TextureFormat format)
     case TextureFormat::RGB9E5Float:
     case TextureFormat::Depth24Plus:
     case TextureFormat::Depth32Float:
+    case TextureFormat::Depth24PlusStencil8:
         return 4;
     case TextureFormat::RGBA16Unorm:
     case TextureFormat::RGBA16Snorm:
@@ -447,7 +493,6 @@ std::uint32_t VulkanRHI::TexelBytes(rhi::TextureFormat format)
     case TextureFormat::RG32Uint:
     case TextureFormat::RG32Sint:
     case TextureFormat::RG32Float:
-    case TextureFormat::Depth24PlusStencil8:
     case TextureFormat::Depth32FloatStencil8:
         return 8;
     case TextureFormat::RGB32Uint:

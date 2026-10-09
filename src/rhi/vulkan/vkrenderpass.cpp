@@ -26,6 +26,7 @@ rhi::CommandListHandle VulkanRHI::BeginCommandList()
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
     if (vkBeginCommandBuffer(buffer, &beginInfo) != VK_SUCCESS) {
+        vkFreeCommandBuffers(m_Device, frame.pool, 1, &buffer);
         return handle;
     }
 
@@ -52,34 +53,14 @@ VkCommandBuffer VulkanRHI::GetVkCommandBuffer(rhi::CommandListHandle handle)
         return VK_NULL_HANDLE;
     }
     VulkanCommandList& list = m_CommandLists[handle.id];
-    if (!list.open || list.frame >= 2 ||
+    if (!list.open || list.frame >= m_Frames.size() ||
         list.bufferIndex >= m_Frames[list.frame].cmds.size()) {
         return VK_NULL_HANDLE;
     }
     return m_Frames[list.frame].cmds[list.bufferIndex];
 }
 
-static VkAccessFlags AccessForLayout(VkImageLayout layout)
-{
-    switch (layout) {
-    case VK_IMAGE_LAYOUT_UNDEFINED:
-        return 0;
-    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-        return VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
-        return VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-        return VK_ACCESS_SHADER_READ_BIT;
-    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-        return VK_ACCESS_TRANSFER_READ_BIT;
-    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-        return VK_ACCESS_TRANSFER_WRITE_BIT;
-    default:
-        return VK_ACCESS_MEMORY_READ_BIT;
-    }
-}
-
-static void TransitionImage(VkCommandBuffer buffer, VkImage image,
+void VulkanRHI::TransitionImage(VkCommandBuffer buffer, VkImage image,
                             VkImageAspectFlags aspect, VkImageLayout target,
                             VkImageLayout& stored)
 {
@@ -90,8 +71,8 @@ static void TransitionImage(VkCommandBuffer buffer, VkImage image,
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.oldLayout = stored;
     barrier.newLayout = target;
-    barrier.srcAccessMask = AccessForLayout(stored);
-    barrier.dstAccessMask = AccessForLayout(target);
+    barrier.srcAccessMask = accessForLayout(stored);
+    barrier.dstAccessMask = accessForLayout(target);
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.image = image;
@@ -236,7 +217,7 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         depthInfo = &depthStorage;
 
         TransitionTexture(buffer, depthParent,
-                          VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT,
+                          toVkAspect(depthParent.desc.format),
                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
     }
 
@@ -537,9 +518,11 @@ void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
         printf("CopyBufferToTexture: bytesPerRow must be a multiple of texel size\n");
         return;
     }
+    const VkImageAspectFlags dstAspect = toVkAspect(dst.desc.format);
+
     copy.bufferRowLength = region.bytesPerRow / dstTexelBytes;
     copy.bufferImageHeight = region.rowsPerImage;
-    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.aspectMask = dstAspect;
     copy.imageSubresource.mipLevel = region.mipLevel;
     copy.imageSubresource.baseArrayLayer = region.baseArrayLayer;
     copy.imageSubresource.layerCount = region.arrayLayers;
@@ -547,7 +530,7 @@ void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
-    TransitionTexture(buffer, dst, VK_IMAGE_ASPECT_COLOR_BIT,
+    TransitionTexture(buffer, dst, dstAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     vkCmdCopyBufferToImage(buffer, m_Buffers[src.id], m_Textures[dst.id],
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
@@ -576,9 +559,11 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
         printf("CopyTextureToBuffer: bytesPerRow must be a multiple of texel size\n");
         return;
     }
+    const VkImageAspectFlags srcAspect = toVkAspect(src.desc.format);
+
     copy.bufferRowLength = region.bytesPerRow / srcTexelBytes;
     copy.bufferImageHeight = region.rowsPerImage;
-    copy.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.imageSubresource.aspectMask = srcAspect;
     copy.imageSubresource.mipLevel = region.mipLevel;
     copy.imageSubresource.baseArrayLayer = region.baseArrayLayer;
     copy.imageSubresource.layerCount = region.arrayLayers;
@@ -586,7 +571,7 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
-    TransitionTexture(buffer, src, VK_IMAGE_ASPECT_COLOR_BIT,
+    TransitionTexture(buffer, src, srcAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
     vkCmdCopyImageToBuffer(buffer, m_Textures[src.id],
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
@@ -606,20 +591,26 @@ void VulkanRHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
         return;
     }
 
-    TransitionTexture(buffer, src, VK_IMAGE_ASPECT_COLOR_BIT,
+    const VkImageAspectFlags copySrcAspect = toVkAspect(src.desc.format);
+    const VkImageAspectFlags copyDstAspect = toVkAspect(dst.desc.format);
+    if (copySrcAspect != copyDstAspect) {
+        printf("CopyTextureToTexture: source and destination aspects differ\n");
+        return;
+    }
+    TransitionTexture(buffer, src, copySrcAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    TransitionTexture(buffer, dst, VK_IMAGE_ASPECT_COLOR_BIT,
+    TransitionTexture(buffer, dst, copyDstAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkImageCopy copy{};
-    copy.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.srcSubresource.aspectMask = copySrcAspect;
     copy.srcSubresource.mipLevel = region.srcMipLevel;
     copy.srcSubresource.baseArrayLayer = region.srcBaseArrayLayer;
     copy.srcSubresource.layerCount = region.arrayLayers;
     copy.srcOffset = { static_cast<std::int32_t>(region.srcX),
                        static_cast<std::int32_t>(region.srcY),
                        static_cast<std::int32_t>(region.srcZ) };
-    copy.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copy.dstSubresource.aspectMask = copyDstAspect;
     copy.dstSubresource.mipLevel = region.dstMipLevel;
     copy.dstSubresource.baseArrayLayer = region.dstBaseArrayLayer;
     copy.dstSubresource.layerCount = region.arrayLayers;

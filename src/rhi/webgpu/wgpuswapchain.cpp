@@ -85,6 +85,10 @@ rhi::SwapchainHandle WebGPURHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
 
     rhi::SwapchainHandle handle;
     handle.desc = desc;
+    const rhi::TextureFormat actualFormat = fromWebGPU(format);
+    handle.desc.format = actualFormat != rhi::TextureFormat::Unknown ? actualFormat : desc.format;
+    handle.desc.presentMode = fromWebGPU(presentMode);
+    handle.desc.alphaMode = fromWebGPU(alphaMode);
     if (!m_FreeSwapchains.empty()) {
         handle.id = m_FreeSwapchains.back();
         m_FreeSwapchains.pop_back();
@@ -173,10 +177,13 @@ wgpu::Texture WebGPURHI::GetSwapchainTexture(rhi::SwapchainHandle handle) const
 
 void WebGPURHI::WaitForIdle()
 {
-    if (!m_Device || !m_Instance) {
+    if (!m_Device || !m_Instance || !m_Queue) {
         return;
     }
-    m_Instance.ProcessEvents();
+    auto future = m_Queue.OnSubmittedWorkDone(
+        wgpu::CallbackMode::WaitAnyOnly,
+        [&](wgpu::QueueWorkDoneStatus, wgpu::StringView) {});
+    m_Instance.WaitAny(future, UINT64_MAX);
 }
 
 void WebGPURHI::Present(rhi::SwapchainHandle handle)

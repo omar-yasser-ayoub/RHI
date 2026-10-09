@@ -342,8 +342,16 @@ void WebGPURHI::DrawIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle param
         printf("DrawIndirect offset is out of range\n");
         return;
     }
+    if (offset % 4 != 0) {
+        printf("DrawIndirect offset must be 4-byte aligned\n");
+        return;
+    }
     if (stride < 16) {
         printf("DrawIndirect stride must hold one draw call\n");
+        return;
+    }
+    if (drawCount > 0 && (offset + static_cast<std::size_t>(drawCount - 1) * stride + 16 > params.desc.size)) {
+        printf("DrawIndirect range exceeds params buffer\n");
         return;
     }
     if (!list->renderPass) {
@@ -372,8 +380,16 @@ void WebGPURHI::DrawIndexedIndirect(rhi::CommandListHandle cmd, rhi::BufferHandl
         printf("DrawIndexedIndirect offset is out of range\n");
         return;
     }
+    if (offset % 4 != 0) {
+        printf("DrawIndexedIndirect offset must be 4-byte aligned\n");
+        return;
+    }
     if (stride < 20) {
         printf("DrawIndexedIndirect stride must hold one indexed draw call\n");
+        return;
+    }
+    if (drawCount > 0 && (offset + static_cast<std::size_t>(drawCount - 1) * stride + 20 > params.desc.size)) {
+        printf("DrawIndexedIndirect range exceeds params buffer\n");
         return;
     }
     if (!list->renderPass) {
@@ -415,6 +431,10 @@ void WebGPURHI::DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle p
         printf("DispatchIndirect offset is out of range\n");
         return;
     }
+    if (offset % 4 != 0 || offset + 12 > params.desc.size) {
+        printf("DispatchIndirect range exceeds params buffer\n");
+        return;
+    }
     if (!list->computePass) {
         printf("No compute pass encoder\n");
         return;
@@ -427,6 +447,10 @@ void WebGPURHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle
 {
     WebGPUCommandList* list = GetCommandList(cmd);
     if (!list) {
+        return;
+    }
+    if (list->pass != CurrentPass::None) {
+        printf("CopyBufferToBuffer cannot be called inside an open pass\n");
         return;
     }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
@@ -448,6 +472,10 @@ void WebGPURHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
 {
     WebGPUCommandList* list = GetCommandList(cmd);
     if (!list) {
+        return;
+    }
+    if (list->pass != CurrentPass::None) {
+        printf("CopyBufferToTexture cannot be called inside an open pass\n");
         return;
     }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
@@ -489,6 +517,10 @@ void WebGPURHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
     if (!list) {
         return;
     }
+    if (list->pass != CurrentPass::None) {
+        printf("CopyTextureToBuffer cannot be called inside an open pass\n");
+        return;
+    }
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
         dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
         printf("Invalid copy handle\n");
@@ -528,12 +560,20 @@ void WebGPURHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
     if (!list) {
         return;
     }
+    if (list->pass != CurrentPass::None) {
+        printf("CopyTextureToTexture cannot be called inside an open pass\n");
+        return;
+    }
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
         dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
         printf("CopyTextureToTexture: invalid texture handle\n");
         return;
     }
 
+    if (region.arrayLayers == 0 || region.width == 0 || region.height == 0 || region.depth == 0) {
+        printf("CopyTextureToTexture: empty copy region\n");
+        return;
+    }
     wgpu::TexelCopyTextureInfo source{};
     source.texture = m_Textures[src.id];
     source.mipLevel = region.srcMipLevel;
@@ -546,14 +586,20 @@ void WebGPURHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
     destination.origin = { region.dstX, region.dstY, region.dstZ };
     destination.aspect = wgpu::TextureAspect::All;
 
-    wgpu::Extent3D copySize{ region.width, region.height,
-                             region.depth > 1 ? region.depth : region.arrayLayers };
+    wgpu::Extent3D copySize{ region.width, region.height, region.depth };
+    if (src.desc.dimension != rhi::TextureDimension::Tex3D ||
+        dst.desc.dimension != rhi::TextureDimension::Tex3D) {
+        if (region.srcBaseArrayLayer + region.arrayLayers > src.desc.arrayLayers ||
+            region.dstBaseArrayLayer + region.arrayLayers > dst.desc.arrayLayers) {
+            printf("CopyTextureToTexture: array layer range out of bounds\n");
+            return;
+        }
+    }
     list->encoder.CopyTextureToTexture(&source, &destination, &copySize);
 }
 
 void WebGPURHI::Submit(std::span<const rhi::CommandListHandle> cmds)
 {
-    std::vector<wgpu::CommandBuffer> buffers;
     for (rhi::CommandListHandle handle : cmds) {
         WebGPUCommandList* list = GetCommandList(handle);
         if (!list) {
@@ -563,12 +609,25 @@ void WebGPURHI::Submit(std::span<const rhi::CommandListHandle> cmds)
             printf("Submit needs EndPass first\n");
             return;
         }
+    }
+    std::vector<wgpu::CommandBuffer> buffers;
+    buffers.reserve(cmds.size());
+    std::vector<std::uint64_t> done;
+    done.reserve(cmds.size());
+    for (rhi::CommandListHandle handle : cmds) {
+        WebGPUCommandList* list = GetCommandList(handle);
+        if (!list) {
+            continue;
+        }
         buffers.push_back(list->encoder.Finish());
         list->encoder = nullptr;
         list->submitted = true;
-        m_FreeCommandLists.push_back(handle.id);
+        done.push_back(handle.id);
     }
     if (!buffers.empty()) {
         m_Queue.Submit(buffers.size(), buffers.data());
+    }
+    for (std::uint64_t id : done) {
+        m_FreeCommandLists.push_back(id);
     }
 }

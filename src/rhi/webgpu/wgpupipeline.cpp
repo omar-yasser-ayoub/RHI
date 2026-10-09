@@ -47,6 +47,10 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
         auto& attributes = wgpuAttributes[i];
         attributes.reserve(buffer.attributes.size());
         for (const auto& attr : buffer.attributes) {
+            if (attr.bufferSlot >= desc.vertexBuffers.size()) {
+                printf("[RHI] Vertex attribute bufferSlot out of range\n");
+                return handle;
+            }
             wgpu::VertexAttribute wgpuAttr{};
             wgpuAttr.format = toWebGPU(attr.format);
             wgpuAttr.offset = attr.offset;

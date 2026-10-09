@@ -83,6 +83,58 @@ wgpu::TextureDimension WebGPURHI::toWebGPU(rhi::TextureDimension dim) {
     }
 }
 
+wgpu::TextureViewDimension WebGPURHI::toWebGPU(rhi::TextureViewDimension dim) {
+    switch (dim) {
+        case rhi::TextureViewDimension::Tex1D: return wgpu::TextureViewDimension::e1D;
+        case rhi::TextureViewDimension::Tex2D: return wgpu::TextureViewDimension::e2D;
+        case rhi::TextureViewDimension::Tex3D: return wgpu::TextureViewDimension::e3D;
+        case rhi::TextureViewDimension::Tex2DArray: return wgpu::TextureViewDimension::e2DArray;
+        case rhi::TextureViewDimension::TexCube: return wgpu::TextureViewDimension::Cube;
+        case rhi::TextureViewDimension::TexCubeArray: return wgpu::TextureViewDimension::CubeArray;
+        // WebGPU has no 1D-array views.
+        case rhi::TextureViewDimension::Tex1DArray: break;
+        default: break;
+    }
+    return wgpu::TextureViewDimension::Undefined;
+}
+
+wgpu::TextureAspect WebGPURHI::toWebGPU(rhi::TextureAspect aspect) {
+    switch (aspect) {
+        case rhi::TextureAspect::Depth: return wgpu::TextureAspect::DepthOnly;
+        case rhi::TextureAspect::Stencil: return wgpu::TextureAspect::StencilOnly;
+        default: return wgpu::TextureAspect::All;
+    }
+}
+
+rhi::TextureFormat WebGPURHI::fromWebGPU(wgpu::TextureFormat format) {
+    switch (format) {
+        case wgpu::TextureFormat::R8Unorm: return rhi::TextureFormat::R8Unorm;
+        case wgpu::TextureFormat::RGBA8Unorm: return rhi::TextureFormat::RGBA8Unorm;
+        case wgpu::TextureFormat::RGBA8UnormSrgb: return rhi::TextureFormat::RGBA8UnormSrgb;
+        case wgpu::TextureFormat::BGRA8Unorm: return rhi::TextureFormat::BGRA8Unorm;
+        case wgpu::TextureFormat::BGRA8UnormSrgb: return rhi::TextureFormat::BGRA8UnormSrgb;
+        case wgpu::TextureFormat::Depth24Plus: return rhi::TextureFormat::Depth24Plus;
+        case wgpu::TextureFormat::Depth32Float: return rhi::TextureFormat::Depth32Float;
+        default: return rhi::TextureFormat::Unknown;
+    }
+}
+
+rhi::PresentMode WebGPURHI::fromWebGPU(wgpu::PresentMode mode) {
+    switch (mode) {
+        case wgpu::PresentMode::Mailbox: return rhi::PresentMode::Mailbox;
+        case wgpu::PresentMode::Immediate: return rhi::PresentMode::Immediate;
+        case wgpu::PresentMode::FifoRelaxed: return rhi::PresentMode::FifoRelaxed;
+        default: return rhi::PresentMode::Fifo;
+    }
+}
+
+rhi::AlphaMode WebGPURHI::fromWebGPU(wgpu::CompositeAlphaMode mode) {
+    switch (mode) {
+        case wgpu::CompositeAlphaMode::Premultiplied: return rhi::AlphaMode::Premultiplied;
+        default: return rhi::AlphaMode::Opaque;
+    }
+}
+
 wgpu::TextureFormat WebGPURHI::toWebGPU(rhi::TextureFormat format) {
     switch (format) {
         case rhi::TextureFormat::Unknown:              return wgpu::TextureFormat::Undefined;

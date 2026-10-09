@@ -35,6 +35,7 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
         }
 
         wgpu::BindGroupLayoutEntry entry{};
+        entry.binding = shaderBinding.binding;
 
         wgpu::ShaderStage visibility = wgpu::ShaderStage::None;
 
@@ -53,15 +54,18 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
         {
         case rhi::BindingType::UniformBuffer:
             entry.buffer.type = wgpu::BufferBindingType::Uniform;
+            entry.buffer.hasDynamicOffset = false;
             break;
 
         case rhi::BindingType::StorageBuffer:
             entry.buffer.type = wgpu::BufferBindingType::Storage;
+            entry.buffer.hasDynamicOffset = false;
             break;
 
         case rhi::BindingType::SampledTexture:
             entry.texture.sampleType = wgpu::TextureSampleType::Float;
             entry.texture.viewDimension = wgpu::TextureViewDimension::e2D;
+            entry.texture.multisampled = false;
             break;
 
         case rhi::BindingType::StorageTexture:
@@ -121,24 +125,30 @@ rhi::BindGroupHandle WebGPURHI::CreateBindGroup(const rhi::BindGroupDesc& desc)
     entries.reserve(desc.entries.size());
     for (const auto& binding : desc.entries)
     {
-        wgpu::BindGroupEntry entry;
+        const bool hasBuffer = binding.buffer.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasTexture = binding.textureView.id != 0xFFFFFFFFFFFFFFFFull;
+        const bool hasSampler = binding.sampler.id != 0xFFFFFFFFFFFFFFFFull;
+        const int setCount = (hasBuffer ? 1 : 0) + (hasTexture ? 1 : 0) + (hasSampler ? 1 : 0);
+        if (setCount != 1) {
+            printf("CreateBindGroup: each entry must set exactly one of buffer/textureView/sampler\n");
+            return handle;
+        }
+
+        wgpu::BindGroupEntry entry{};
         entry.binding = binding.binding;
 
-        if (binding.buffer.id != 0xFFFFFFFFFFFFFFFFull)
-        {
-            if (binding.buffer.id >= m_Buffers.size())
+        if (hasBuffer) {
+            if (binding.buffer.id >= m_Buffers.size() || !m_Buffers[binding.buffer.id])
                 return handle;
             entry.buffer = m_Buffers[binding.buffer.id];
         }
-        else if (binding.textureView.id != 0xFFFFFFFFFFFFFFFFull)
-        {
-            if (binding.textureView.id >= m_TextureViews.size())
+        else if (hasTexture) {
+            if (binding.textureView.id >= m_TextureViews.size() || !m_TextureViews[binding.textureView.id])
                 return handle;
             entry.textureView = m_TextureViews[binding.textureView.id];
         }
-        else if (binding.sampler.id != 0xFFFFFFFFFFFFFFFFull)
-        {
-            if (binding.sampler.id >= m_Samplers.size())
+        else {
+            if (binding.sampler.id >= m_Samplers.size() || !m_Samplers[binding.sampler.id])
                 return handle;
             entry.sampler = m_Samplers[binding.sampler.id];
         }
