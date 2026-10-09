@@ -158,6 +158,7 @@ private:
     VkQueue m_ComputeQueue = VK_NULL_HANDLE;
     std::uint32_t m_GraphicsQueueFamily = UINT32_MAX;
     std::uint32_t m_ComputeQueueFamily = UINT32_MAX;
+    float m_MaxSamplerAnisotropy = 1.0f;
     VmaAllocator m_Allocator = nullptr;
     VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
     std::vector<VkSampler> m_Samplers;

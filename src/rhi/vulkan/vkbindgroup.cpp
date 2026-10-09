@@ -30,10 +30,11 @@ rhi::BindGroupLayoutHandle VulkanRHI::CreateBindGroupLayout(const rhi::BindGroup
                 return handle;
         }
 
-        VkDescriptorSetLayoutBinding vkBinding;
+        VkDescriptorSetLayoutBinding vkBinding{};
         vkBinding.binding = shaderBinding.binding;
         vkBinding.descriptorCount = shaderBinding.arraySize;
         vkBinding.stageFlags = 0;
+        vkBinding.pImmutableSamplers = nullptr;
 
         if (rhi::HasFlag(shaderBinding.stage, rhi::ShaderStageFlags::Vertex))
             vkBinding.stageFlags |= VK_SHADER_STAGE_VERTEX_BIT;

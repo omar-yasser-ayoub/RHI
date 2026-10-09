@@ -77,6 +77,7 @@ bool WebGPURHI::Initialize()
 
     m_Capabilities.SupportsMeshShaders = false;
     m_Capabilities.SupportsRayTracing  = false;
+    m_Capabilities.SupportsAnisotropy = true;
 
     return true;
 }

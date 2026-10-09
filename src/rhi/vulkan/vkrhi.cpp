@@ -183,6 +183,9 @@ bool VulkanRHI::Initialize() {
 
     m_Capabilities.SupportsMeshShaders = meshFeatures.meshShader;
     m_Capabilities.SupportsRayTracing = rtFeatures.rayTracingPipeline;
+    m_Capabilities.SupportsAnisotropy =
+        features2.features.samplerAnisotropy == VK_TRUE;
+    m_MaxSamplerAnisotropy = deviceProperties.limits.maxSamplerAnisotropy;
 
     uint32_t queueFamilyCount = 0;
     vkGetPhysicalDeviceQueueFamilyProperties(
@@ -269,6 +272,10 @@ bool VulkanRHI::Initialize() {
     dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
     dynamicRendering.dynamicRendering = VK_TRUE;
     deviceInfo.pNext = &dynamicRendering;
+
+    VkPhysicalDeviceFeatures enabledFeatures{};
+    enabledFeatures.samplerAnisotropy = m_Capabilities.SupportsAnisotropy;
+    deviceInfo.pEnabledFeatures = &enabledFeatures;
 
     result = vkCreateDevice(
         m_PhysicalDevice,

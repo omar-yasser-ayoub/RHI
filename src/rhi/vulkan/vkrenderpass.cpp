@@ -190,7 +190,6 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         colors.push_back(color);
     }
 
-    VkRenderingAttachmentInfo* depthInfo = nullptr;
     VkRenderingAttachmentInfo depthStorage{};
     if (desc.depth.enabled) {
         if (desc.depth.view.id == 0xFFFFFFFFFFFFFFFF ||
@@ -214,8 +213,6 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         depthStorage.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         depthStorage.clearValue.depthStencil.depth = desc.depth.clearDepthValue;
         depthStorage.clearValue.depthStencil.stencil = desc.depth.clearStencilValue;
-        depthInfo = &depthStorage;
-
         TransitionTexture(buffer, depthParent,
                           toVkAspect(depthParent.desc.format),
                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
@@ -228,7 +225,7 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = static_cast<std::uint32_t>(colors.size());
     renderInfo.pColorAttachments = colors.data();
-    renderInfo.pDepthAttachment = depthInfo;
+    renderInfo.pDepthAttachment = desc.depth.enabled ? &depthStorage : nullptr;
 
     vkCmdBeginRendering(buffer, &renderInfo);
     list.pass = CurrentPass::Graphics;
@@ -336,6 +333,7 @@ void VulkanRHI::SetBindGroup(rhi::CommandListHandle cmd, std::uint32_t slot, rhi
         }
         const rhi::TextureHandle& parent = entry.textureView.texture;
         if (parent.id == 0xFFFFFFFFFFFFFFFFull || parent.id >= m_Textures.size() ||
+            parent.id >= m_TextureLayouts.size() ||
             m_Textures[parent.id] == VK_NULL_HANDLE) {
             continue;
         }
@@ -345,10 +343,14 @@ void VulkanRHI::SetBindGroup(rhi::CommandListHandle cmd, std::uint32_t slot, rhi
             }
             const VkImageAspectFlags aspect = toVkAspect(parent.desc.format);
             if (shaderBinding.type == rhi::BindingType::SampledTexture) {
-                TransitionTexture(buffer, parent, aspect,
-                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                if (m_TextureLayouts[parent.id] != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+                    TransitionTexture(buffer, parent, aspect,
+                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                }
             } else if (shaderBinding.type == rhi::BindingType::StorageTexture) {
-                TransitionTexture(buffer, parent, aspect, VK_IMAGE_LAYOUT_GENERAL);
+                if (m_TextureLayouts[parent.id] != VK_IMAGE_LAYOUT_GENERAL) {
+                    TransitionTexture(buffer, parent, aspect, VK_IMAGE_LAYOUT_GENERAL);
+                }
             }
             break;
         }

@@ -2,6 +2,17 @@
 
 
 rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
+    if (desc.anisotropyEnabled && !m_Capabilities.SupportsAnisotropy) {
+        printf("[ERROR] Sampler anisotropy requested but unsupported by device\n");
+        return rhi::SamplerHandle{};
+    }
+    float maxAnisotropy = 1.0f;
+    if (desc.anisotropyEnabled) {
+        maxAnisotropy = desc.maxAnisotropy < 1 ? 1.0f : static_cast<float>(desc.maxAnisotropy);
+        if (maxAnisotropy > m_MaxSamplerAnisotropy) {
+            maxAnisotropy = m_MaxSamplerAnisotropy;
+        }
+    }
     VkSamplerCreateInfo samplerDesc = {};
     samplerDesc.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     samplerDesc.magFilter = toVk(desc.magFilter);
@@ -11,8 +22,8 @@ rhi::SamplerHandle VulkanRHI::CreateSampler(const rhi::SamplerDesc& desc) {
     samplerDesc.addressModeV = toVk(desc.addressV);
     samplerDesc.addressModeW = toVk(desc.addressW);
     samplerDesc.mipLodBias = desc.mipLodBias;
-    samplerDesc.anisotropyEnable = desc.anisotropyEnabled;
-    samplerDesc.maxAnisotropy = desc.maxAnisotropy;
+    samplerDesc.anisotropyEnable = desc.anisotropyEnabled ? VK_TRUE : VK_FALSE;
+    samplerDesc.maxAnisotropy = maxAnisotropy;
     samplerDesc.compareEnable = desc.compareEnabled;
     samplerDesc.compareOp = toVk(desc.compareOp);
     samplerDesc.minLod = desc.minLOD;
