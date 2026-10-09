@@ -106,6 +106,17 @@ wgpu::TextureAspect WebGPURHI::toWebGPU(rhi::TextureAspect aspect) {
     }
 }
 
+bool WebGPURHI::HasStencilAspect(rhi::TextureFormat format) {
+    switch (format) {
+        case rhi::TextureFormat::Depth24PlusStencil8:
+        case rhi::TextureFormat::Depth32FloatStencil8:
+        case rhi::TextureFormat::Stencil8:
+            return true;
+        default:
+            return false;
+    }
+}
+
 rhi::TextureFormat WebGPURHI::fromWebGPU(wgpu::TextureFormat format) {
     switch (format) {
         case wgpu::TextureFormat::R8Unorm: return rhi::TextureFormat::R8Unorm;

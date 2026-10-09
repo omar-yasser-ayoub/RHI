@@ -111,10 +111,15 @@ void WebGPURHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
             desc.depth.clearDepth ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
         depthAttachment.depthStoreOp = wgpu::StoreOp::Store;
         depthAttachment.depthClearValue = desc.depth.clearDepthValue;
-        depthAttachment.stencilLoadOp =
-            desc.depth.clearStencil ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
-        depthAttachment.stencilStoreOp = wgpu::StoreOp::Store;
-        depthAttachment.stencilClearValue = desc.depth.clearStencilValue;
+        if (HasStencilAspect(desc.depth.view.desc.format)) {
+            depthAttachment.stencilLoadOp =
+                desc.depth.clearStencil ? wgpu::LoadOp::Clear : wgpu::LoadOp::Load;
+            depthAttachment.stencilStoreOp = wgpu::StoreOp::Store;
+            depthAttachment.stencilClearValue = desc.depth.clearStencilValue;
+        } else {
+            depthAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+            depthAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+        }
         hasDepth = true;
     }
 

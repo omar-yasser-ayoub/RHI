@@ -41,8 +41,14 @@ bool WebGPURHI::Initialize()
     m_Adapter = std::move(adapter);
 
     wgpu::Device device;
+    wgpu::DeviceDescriptor deviceDesc{};
+    deviceDesc.SetUncapturedErrorCallback(
+        [](const wgpu::Device&, wgpu::ErrorType type, wgpu::StringView message) {
+            printf("[RHI WebGPU] device error %d: %.*s\n", static_cast<int>(type),
+                   static_cast<int>(message.length), message.data);
+        });
     auto deviceFuture = m_Adapter.RequestDevice(
-        nullptr,
+        &deviceDesc,
         wgpu::CallbackMode::WaitAnyOnly,
         [&](wgpu::RequestDeviceStatus status,
             wgpu::Device d,
@@ -162,5 +168,3 @@ void WebGPURHI::Shutdown()
         m_GlfwInitialized = false;
     }
 }
-
-

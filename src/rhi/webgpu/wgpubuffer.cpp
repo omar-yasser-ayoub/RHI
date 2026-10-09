@@ -103,6 +103,9 @@ void* WebGPURHI::MapBuffer(rhi::BufferHandle handle) {
     if (handle.id < m_BufferMapped.size()) {
         m_BufferMapped[handle.id] = true;
     }
+    if (mode == wgpu::MapMode::Read) {
+        return const_cast<void*>(buffer.GetConstMappedRange(0, buffer.GetSize()));
+    }
     return buffer.GetMappedRange(0, buffer.GetSize());
 }
 

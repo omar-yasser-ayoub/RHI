@@ -328,6 +328,31 @@ void VulkanRHI::SetBindGroup(rhi::CommandListHandle cmd, std::uint32_t slot, rhi
         printf("SetBindGroup: no pipeline bound yet\n");
         return;
     }
+    for (const auto& entry : handle.desc.entries) {
+        if (entry.textureView.id == 0xFFFFFFFFFFFFFFFFull ||
+            entry.textureView.id >= m_TextureViews.size() ||
+            m_TextureViews[entry.textureView.id] == VK_NULL_HANDLE) {
+            continue;
+        }
+        const rhi::TextureHandle& parent = entry.textureView.texture;
+        if (parent.id == 0xFFFFFFFFFFFFFFFFull || parent.id >= m_Textures.size() ||
+            m_Textures[parent.id] == VK_NULL_HANDLE) {
+            continue;
+        }
+        for (const auto& shaderBinding : handle.desc.layout.desc.shaderBindings) {
+            if (shaderBinding.binding != entry.binding) {
+                continue;
+            }
+            const VkImageAspectFlags aspect = toVkAspect(parent.desc.format);
+            if (shaderBinding.type == rhi::BindingType::SampledTexture) {
+                TransitionTexture(buffer, parent, aspect,
+                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            } else if (shaderBinding.type == rhi::BindingType::StorageTexture) {
+                TransitionTexture(buffer, parent, aspect, VK_IMAGE_LAYOUT_GENERAL);
+            }
+            break;
+        }
+    }
     vkCmdBindDescriptorSets(buffer, list.bindPoint, list.boundLayout,
                             slot, 1, &m_BindGroups[handle.id], 0, nullptr);
 }
