@@ -50,7 +50,7 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC utils: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
@@ -59,7 +59,7 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC include handler: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcCompiler3> compiler3;
@@ -68,7 +68,7 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr)) {
         printf("Failed to create DXC compiler: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcResult> result;
@@ -83,13 +83,13 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
 
     if (FAILED(hr) || !result) {
         printf("Failed to compile shader: 0x%x\n", hr);
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     result->GetStatus(&hr);
 
     if (FAILED(hr)) {
-        return {static_cast<uint64_t>(m_ShaderModules.size())};
+        return {};
     }
 
     Microsoft::WRL::ComPtr<IDxcBlobUtf8> errorMsgs;

@@ -8,7 +8,13 @@ rhi::SamplerHandle DX12RHI::CreateSampler(const rhi::SamplerDesc& desc) {
     samplerDesc.AddressV = toD3D12(desc.addressV);
     samplerDesc.AddressW = toD3D12(desc.addressW);
     samplerDesc.MipLODBias = desc.mipLodBias;
-    samplerDesc.MaxAnisotropy = desc.maxAnisotropy;
+    samplerDesc.MaxAnisotropy = 1;
+    if (desc.anisotropyEnabled) {
+        samplerDesc.MaxAnisotropy = desc.maxAnisotropy < 1 ? 1 : desc.maxAnisotropy;
+        if (samplerDesc.MaxAnisotropy > 16) {
+            samplerDesc.MaxAnisotropy = 16;
+        }
+    }
     samplerDesc.ComparisonFunc = toD3D12(desc.compareOp);
     auto borderColor = toD3D12(desc.borderColor);
     memcpy(samplerDesc.BorderColor, borderColor.data(), sizeof(samplerDesc.BorderColor));

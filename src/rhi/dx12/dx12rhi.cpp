@@ -52,6 +52,10 @@ bool DX12RHI::Initialize() {
         m_Capabilities.SupportsRayTracing = (options5.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED);
     }
 
+    // Anisotropic filtering (up to 16x) is core D3D12, no feature flag needed.
+    // CreateSampler still clamps to [1, 16].
+    m_Capabilities.SupportsAnisotropy = true;
+
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
     queueDesc.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL;
