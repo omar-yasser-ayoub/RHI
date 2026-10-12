@@ -12,6 +12,7 @@
 #include "rhi/resources/commands.h"
 
 #include <span>
+#include <optional>
 
 
 #include <d3d12.h>
@@ -38,7 +39,7 @@ public:
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
-    const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
+    std::optional<rhi::ShaderModule> GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);

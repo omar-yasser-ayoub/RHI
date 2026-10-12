@@ -154,11 +154,11 @@ void DX12RHI::DestroyShaderModule(rhi::ShaderModuleHandle handle)
     m_FreeShaderModules.push_back(handle.id);
 }
 
-const rhi::ShaderModule* DX12RHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
+std::optional<rhi::ShaderModule> DX12RHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
 {
     if (handle.id >= m_ShaderModules.size() ||
         m_ShaderModules[handle.id].bytecode.empty()) {
-        return nullptr;
+        return std::nullopt;
     }
-    return &m_ShaderModules[handle.id];
+    return m_ShaderModules[handle.id];
 }

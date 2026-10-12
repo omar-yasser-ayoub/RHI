@@ -86,11 +86,11 @@ void WebGPURHI::DestroyShaderModule(rhi::ShaderModuleHandle handle)
     m_FreeShaderModules.push_back(handle.id);
 }
 
-const rhi::ShaderModule* WebGPURHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
+std::optional<rhi::ShaderModule> WebGPURHI::GetShaderModule(rhi::ShaderModuleHandle handle) const
 {
     if (handle.id >= m_ShaderModules.size() ||
         m_ShaderModules[handle.id].bytecode.empty()) {
-        return nullptr;
+        return std::nullopt;
     }
-    return &m_ShaderModules[handle.id];
+    return m_ShaderModules[handle.id];
 }

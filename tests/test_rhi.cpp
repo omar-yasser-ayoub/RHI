@@ -547,9 +547,9 @@ TEST_F(RHITest, CompileVertexShaderModuleFromShaderAsset)
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
     const auto handle = rhi.CompileShader(source);
-    const auto* module = rhi.GetShaderModule(handle);
+    const auto module = rhi.GetShaderModule(handle);
 
-    ASSERT_NE(module, nullptr);
+    ASSERT_TRUE(module.has_value());
     ASSERT_FALSE(module->bytecode.empty());
     ASSERT_GE(module->bytecode.size(), 4u);
     EXPECT_EQ(module->entryPoint, "main");
@@ -586,8 +586,8 @@ TEST_F(RHITest, CompileBindingVertexShaderModuleFromShaderAsset)
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
     const auto handle = rhi.CompileShader(source);
-    const auto* module = rhi.GetShaderModule(handle);
-    ASSERT_NE(module, nullptr);
+    const auto module = rhi.GetShaderModule(handle);
+    ASSERT_TRUE(module.has_value());
     ASSERT_FALSE(module->bytecode.empty());
     ASSERT_EQ(module->reflection.bindings.size(), 2u);
     ASSERT_EQ(module->reflection.vertexInputs.size(), 2u);
@@ -613,8 +613,8 @@ TEST_F(RHITest, CompileBindingFragmentShaderModuleFromShaderAsset)
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
     const auto handle = rhi.CompileShader(source);
-    const auto* module = rhi.GetShaderModule(handle);
-    ASSERT_NE(module, nullptr);
+    const auto module = rhi.GetShaderModule(handle);
+    ASSERT_TRUE(module.has_value());
     ASSERT_FALSE(module->bytecode.empty());
     ASSERT_EQ(module->reflection.bindings.size(), 3u);
     EXPECT_TRUE(module->reflection.vertexInputs.empty());
@@ -646,8 +646,8 @@ TEST_F(RHITest, CompileFragmentShaderModuleFromShaderAsset)
     ASSERT_TRUE(std::filesystem::exists(source.path)) << source.path.string();
 
     const auto handle = rhi.CompileShader(source);
-    const auto* module = rhi.GetShaderModule(handle);
-    ASSERT_NE(module, nullptr);
+    const auto module = rhi.GetShaderModule(handle);
+    ASSERT_TRUE(module.has_value());
 
     ASSERT_FALSE(module->bytecode.empty());
     ASSERT_GE(module->bytecode.size(), 4u);
@@ -672,10 +672,10 @@ TEST_F(RHITest, DestroyAndReuseShaderModule)
     const auto handle = rhi.CompileShader(MakeShaderSource(
         "basic.vert.hlsl",
         rhi::ShaderStageFlags::Vertex));
-    ASSERT_NE(rhi.GetShaderModule(handle), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(handle).has_value());
 
     rhi.DestroyShaderModule(handle);
-    EXPECT_EQ(rhi.GetShaderModule(handle), nullptr);
+    EXPECT_FALSE(rhi.GetShaderModule(handle).has_value());
 
     // Double destroy is safe.
     rhi.DestroyShaderModule(handle);
@@ -683,7 +683,7 @@ TEST_F(RHITest, DestroyAndReuseShaderModule)
     const auto reused = rhi.CompileShader(MakeShaderSource(
         "basic.vert.hlsl",
         rhi::ShaderStageFlags::Vertex));
-    ASSERT_NE(rhi.GetShaderModule(reused), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(reused).has_value());
     EXPECT_EQ(reused.id, handle.id);
     rhi.DestroyShaderModule(reused);
 }
@@ -1218,8 +1218,8 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1249,8 +1249,8 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1281,8 +1281,8 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1343,8 +1343,8 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1390,8 +1390,8 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1503,8 +1503,8 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1534,8 +1534,8 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithWireframe)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1566,8 +1566,8 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1628,8 +1628,8 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1675,8 +1675,8 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1788,8 +1788,8 @@ TEST_F(RHITest, CreateTriangleGraphicsPipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1819,8 +1819,8 @@ TEST_F(RHITest, AcceptsGraphicsPipelineWithWireframe)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1851,8 +1851,8 @@ TEST_F(RHITest, RejectsGraphicsPipelineWithoutTargets)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1913,8 +1913,8 @@ TEST_F(RHITest, DestroyAndReusePipeline)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -1960,8 +1960,8 @@ TEST_F(RHITest, CreatePipelineWithBlendDepthAndCull)
     const auto fs = rhi.CompileShader(MakeShaderSource(
         "basic.frag.hlsl",
         rhi::ShaderStageFlags::Fragment));
-    ASSERT_NE(rhi.GetShaderModule(vs), nullptr);
-    ASSERT_NE(rhi.GetShaderModule(fs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(vs).has_value());
+    ASSERT_TRUE(rhi.GetShaderModule(fs).has_value());
 
     rhi::BindGroupLayoutDesc uniformDesc;
     uniformDesc.shaderBindings.push_back({
@@ -2055,7 +2055,7 @@ rhi::ShaderSource MakeComputeShaderSource()
 TEST_F(RHITest, CreateComputePipeline)
 {
     const auto cs = rhi.CompileShader(MakeComputeShaderSource());
-    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(cs).has_value());
 
     // basic.comp.hlsl writes a storage texture at set 0, binding 0.
     rhi::BindGroupLayoutDesc storageDesc;
@@ -2088,7 +2088,7 @@ TEST_F(RHITest, CreateComputePipeline)
 TEST_F(RHITest, RejectsComputePipelineWithInvalidLayout)
 {
     const auto cs = rhi.CompileShader(MakeComputeShaderSource());
-    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(cs).has_value());
 
     rhi::ComputePipelineDesc desc;
     desc.layout.id = 0xFFFFFFFFFFFFFFFFull;
@@ -2116,7 +2116,7 @@ TEST_F(RHITest, RejectsComputePipelineWithInvalidShader)
 TEST_F(RHITest, DestroyAndReuseComputePipeline)
 {
     const auto cs = rhi.CompileShader(MakeComputeShaderSource());
-    ASSERT_NE(rhi.GetShaderModule(cs), nullptr);
+    ASSERT_TRUE(rhi.GetShaderModule(cs).has_value());
 
     // basic.comp.hlsl writes a storage texture at set 0, binding 0.
     rhi::BindGroupLayoutDesc storageDesc;

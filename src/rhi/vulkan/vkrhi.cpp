@@ -39,8 +39,38 @@ bool VulkanRHI::Initialize() {
         surfaceExtensions = fallbackExtensions;
         surfaceExtensionCount = 2;
     }
-    createInfo.enabledExtensionCount = surfaceExtensionCount;
-    createInfo.ppEnabledExtensionNames = surfaceExtensions;
+
+    // Enable the standard validation layer when available (dev builds).
+    // Also requires VK_EXT_debug_utils for the messenger callback.
+    bool enableValidation = false;
+    {
+        std::uint32_t layerCount = 0;
+        vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+        std::vector<VkLayerProperties> layers(layerCount);
+        if (layerCount > 0) {
+            vkEnumerateInstanceLayerProperties(&layerCount, layers.data());
+        }
+        for (const auto& layer : layers) {
+            if (std::strcmp(layer.layerName, "VK_LAYER_KHRONOS_validation") == 0) {
+                enableValidation = true;
+                break;
+            }
+        }
+    }
+
+    std::vector<const char*> instanceExtensions(
+        surfaceExtensions, surfaceExtensions + surfaceExtensionCount);
+    if (enableValidation) {
+        instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+    }
+    createInfo.enabledExtensionCount = static_cast<std::uint32_t>(instanceExtensions.size());
+    createInfo.ppEnabledExtensionNames = instanceExtensions.data();
+
+    const char* validationLayers[] = { "VK_LAYER_KHRONOS_validation" };
+    if (enableValidation) {
+        createInfo.enabledLayerCount = 1;
+        createInfo.ppEnabledLayerNames = validationLayers;
+    }
 
     VkResult result = vkCreateInstance(&createInfo, nullptr, &m_Instance);
     if (result != VK_SUCCESS) {
@@ -48,15 +78,45 @@ bool VulkanRHI::Initialize() {
         return false;
     }
 
+    if (enableValidation) {
+        auto createMessenger = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(m_Instance, "vkCreateDebugUtilsMessengerEXT"));
+        if (createMessenger != nullptr) {
+            VkDebugUtilsMessengerCreateInfoEXT messengerInfo{};
+            messengerInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+            messengerInfo.messageSeverity =
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+            messengerInfo.messageType =
+                VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
+                VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+            messengerInfo.pfnUserCallback =
+                [](VkDebugUtilsMessageSeverityFlagBitsEXT,
+                   VkDebugUtilsMessageTypeFlagsEXT,
+                   const VkDebugUtilsMessengerCallbackDataEXT* callbackData,
+                   void*) -> VkBool32 {
+                std::cerr << "[Vulkan validation] " << callbackData->pMessage << '\n';
+                return VK_FALSE;
+            };
+            if (createMessenger(m_Instance, &messengerInfo, nullptr, &m_DebugMessenger) != VK_SUCCESS) {
+                std::cerr << "Failed to create Vulkan debug messenger (continuing without it).\n";
+                m_DebugMessenger = VK_NULL_HANDLE;
+            }
+        }
+    }
+
     uint32_t deviceCount = 0;
 
     result = vkEnumeratePhysicalDevices(m_Instance, &deviceCount, nullptr);
     if (result != VK_SUCCESS) {
         std::cerr << "Failed to enumerate Vulkan devices: " << result << std::endl;
+        DestroyInstance();
         return false;
     }
     if (deviceCount == 0) {
         std::cerr << "No Vulkan devices found." << std::endl;
+        DestroyInstance();
         return false;
     }
 
@@ -65,8 +125,7 @@ bool VulkanRHI::Initialize() {
 
     if (result != VK_SUCCESS) {
         std::cerr << "Failed to enumerate Vulkan devices: " << result << std::endl;
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         return false;
     }
 
@@ -153,8 +212,7 @@ bool VulkanRHI::Initialize() {
     if (bestDevice == VK_NULL_HANDLE) {
         std::cerr << "No suitable Vulkan device found (need graphics queue + "
                      "swapchain extension + dynamic rendering).\n";
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         return false;
     }
     m_PhysicalDevice = bestDevice;
@@ -219,8 +277,7 @@ bool VulkanRHI::Initialize() {
 
     if (graphicsQueueFamily == UINT32_MAX) {
         std::cerr << "No graphics queue family found.\n";
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
@@ -285,8 +342,7 @@ bool VulkanRHI::Initialize() {
 
     if (result != VK_SUCCESS) {
         std::cerr << "Failed to create Vulkan device: " << result << '\n';
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
@@ -309,8 +365,7 @@ bool VulkanRHI::Initialize() {
         std::cerr << "Failed to create VMA allocator\n";
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
@@ -342,8 +397,7 @@ bool VulkanRHI::Initialize() {
         m_Allocator = nullptr;
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
@@ -355,13 +409,29 @@ bool VulkanRHI::Initialize() {
         m_Allocator = nullptr;
         vkDestroyDevice(m_Device, nullptr);
         m_Device = VK_NULL_HANDLE;
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
         m_PhysicalDevice = VK_NULL_HANDLE;
         return false;
     }
 
     return true;
+}
+
+void VulkanRHI::DestroyInstance()
+{
+    if (m_Instance == VK_NULL_HANDLE) {
+        return;
+    }
+    if (m_DebugMessenger != VK_NULL_HANDLE) {
+        auto destroyMessenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(m_Instance, "vkDestroyDebugUtilsMessengerEXT"));
+        if (destroyMessenger != nullptr) {
+            destroyMessenger(m_Instance, m_DebugMessenger, nullptr);
+        }
+        m_DebugMessenger = VK_NULL_HANDLE;
+    }
+    vkDestroyInstance(m_Instance, nullptr);
+    m_Instance = VK_NULL_HANDLE;
 }
 
 bool VulkanRHI::CreateFrameContexts()
@@ -539,8 +609,7 @@ void VulkanRHI::Shutdown() {
         }
         m_Surfaces.clear();
         m_FreeSurfaces.clear();
-        vkDestroyInstance(m_Instance, nullptr);
-        m_Instance = VK_NULL_HANDLE;
+        DestroyInstance();
     }
     m_PhysicalDevice = VK_NULL_HANDLE;
 

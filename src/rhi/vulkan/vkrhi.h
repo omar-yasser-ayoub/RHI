@@ -15,6 +15,7 @@
 #include <vulkan/vulkan.h>
 #include <cstdint>
 #include <array>
+#include <optional>
 #include <span>
 #include <vector>
 #include <Windows.h>
@@ -41,7 +42,7 @@ public:
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
     rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
-    const rhi::ShaderModule* GetShaderModule(rhi::ShaderModuleHandle handle) const;
+    std::optional<rhi::ShaderModule> GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
     rhi::BindGroupHandle CreateBindGroup(const rhi::BindGroupDesc& desc);
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
@@ -152,6 +153,7 @@ private:
 
     rhi::Capabilities m_Capabilities;
     VkInstance m_Instance = VK_NULL_HANDLE;
+    VkDebugUtilsMessengerEXT m_DebugMessenger = VK_NULL_HANDLE;
     VkPhysicalDevice m_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice m_Device = VK_NULL_HANDLE;
     VkQueue m_GraphicsQueue = VK_NULL_HANDLE;
@@ -237,4 +239,5 @@ private:
 
     bool CreateFrameContexts();
     void DestroyFrameContexts();
+    void DestroyInstance();
 };

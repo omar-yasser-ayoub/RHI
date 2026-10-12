@@ -77,7 +77,7 @@ int main()
     fsSource.entryPoint = "main";
     const rhi::ShaderModuleHandle fs = rhi.CompileShader(fsSource);
 
-    if (rhi.GetShaderModule(vs) == nullptr || rhi.GetShaderModule(fs) == nullptr) {
+    if (!rhi.GetShaderModule(vs).has_value() || !rhi.GetShaderModule(fs).has_value()) {
         std::cerr << "Failed to compile shaders.\n";
         return 1;
     }

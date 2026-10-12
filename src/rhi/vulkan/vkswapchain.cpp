@@ -304,10 +304,10 @@ VkImageView VulkanRHI::GetSwapchainImageView(
 
 void VulkanRHI::WaitForIdle()
 {
-    if (!m_Device || m_GraphicsQueue == VK_NULL_HANDLE) {
+    if (!m_Device) {
         return;
     }
-    vkQueueWaitIdle(m_GraphicsQueue);
+    vkDeviceWaitIdle(m_Device);
 }
 
 void VulkanRHI::Present(rhi::SwapchainHandle handle)
@@ -328,9 +328,6 @@ void VulkanRHI::Present(rhi::SwapchainHandle handle)
         presentInfo.waitSemaphoreCount = 1;
         presentInfo.pWaitSemaphores = &frame.renderFinished;
     } else {
-        // Nothing was submitted for this frame (e.g. bare Acquire+Present),
-        // so renderFinished was never signaled. Present without waiting;
-        // waiting here would hang vkQueuePresentKHR forever.
         presentInfo.waitSemaphoreCount = 0;
         presentInfo.pWaitSemaphores = nullptr;
     }
