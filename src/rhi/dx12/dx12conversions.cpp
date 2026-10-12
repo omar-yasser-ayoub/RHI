@@ -400,6 +400,24 @@ D3D12_PRIMITIVE_TOPOLOGY_TYPE DX12RHI::toD3D12(rhi::PrimitiveTopology topology)
     }
 }
 
+D3D12_PRIMITIVE_TOPOLOGY DX12RHI::toDxTopology(rhi::PrimitiveTopology topology)
+{
+    switch (topology) {
+    case rhi::PrimitiveTopology::PointList:     return D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+    case rhi::PrimitiveTopology::LineList:      return D3D_PRIMITIVE_TOPOLOGY_LINELIST;
+    case rhi::PrimitiveTopology::LineStrip:     return D3D_PRIMITIVE_TOPOLOGY_LINESTRIP;
+    case rhi::PrimitiveTopology::TriangleList:  return D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    case rhi::PrimitiveTopology::TriangleStrip: return D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+    default:                                     return D3D_PRIMITIVE_TOPOLOGY_UNDEFINED;
+    }
+}
+
+UINT DX12RHI::CalcSubresource(UINT mip, UINT arraySlice, UINT planeSlice,
+                              UINT mipLevels, UINT arraySize)
+{
+    return mip + arraySlice * mipLevels + planeSlice * mipLevels * arraySize;
+}
+
 D3D12_CULL_MODE DX12RHI::toD3D12(rhi::CullMode mode)
 {
     switch (mode)
@@ -581,6 +599,8 @@ rhi::ShaderReflection DX12RHI::ParseReflection(
 
             rhi::VertexInputAttr attr{};
             attr.location = input.Register;
+            attr.semanticName = input.SemanticName ? input.SemanticName : "";
+            attr.semanticIndex = input.SemanticIndex;
 
             switch (input.ComponentType)
             {

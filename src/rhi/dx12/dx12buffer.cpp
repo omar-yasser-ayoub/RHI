@@ -1,45 +1,6 @@
 #include "rhi/dx12/dx12rhi.h"
 #include <cstring>
 
-D3D12_RESOURCE_STATES DX12RHI::toD3D12InitialState(
-    rhi::MemoryUsage memoryUsage,
-    rhi::BufferUsage bufferUsage) {
-    switch (memoryUsage)
-    {
-        case rhi::MemoryUsage::CpuToGpu:
-            return D3D12_RESOURCE_STATE_GENERIC_READ;
-        case rhi::MemoryUsage::GpuToCpu:
-            return D3D12_RESOURCE_STATE_COPY_DEST;
-        case rhi::MemoryUsage::GpuOnly:
-            break;
-        default:
-            return D3D12_RESOURCE_STATE_COMMON;
-    }
-
-    D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON;
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Vertex) ||
-        rhi::HasFlag(bufferUsage, rhi::BufferUsage::Uniform)) {
-        state |= D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
-    }
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Index)) {
-        state |= D3D12_RESOURCE_STATE_INDEX_BUFFER;
-    }
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Storage)) {
-        state |= D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
-    }
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::Indirect)) {
-        state |= D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-    }
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::CopySrc)) {
-        state |= D3D12_RESOURCE_STATE_COPY_SOURCE;
-    }
-    if (rhi::HasFlag(bufferUsage, rhi::BufferUsage::CopyDst)) {
-        state |= D3D12_RESOURCE_STATE_COPY_DEST;
-    }
-
-    return state;
-}
-
 rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     if (!m_Device || desc.size == 0) {
         printf("[ERROR] Invalid buffer description\n");
@@ -47,13 +8,21 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     }
 
     D3D12_HEAP_PROPERTIES heapProps = toD3D12(desc.memoryUsage);
-    D3D12_RESOURCE_STATES initialState = toD3D12InitialState(
-        desc.memoryUsage, desc.usage);
+    D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON;
+    if (desc.memoryUsage == rhi::MemoryUsage::CpuToGpu) {
+        initialState = D3D12_RESOURCE_STATE_GENERIC_READ;
+    } else if (desc.memoryUsage == rhi::MemoryUsage::GpuToCpu) {
+        initialState = D3D12_RESOURCE_STATE_COPY_DEST;
+    }
+    UINT64 resourceWidth = desc.size;
+    if (rhi::HasFlag(desc.usage, rhi::BufferUsage::Uniform)) {
+        resourceWidth = (static_cast<UINT64>(desc.size) + 255) & ~255ull;
+    }
 
     D3D12_RESOURCE_DESC resourceDesc = {};
     resourceDesc.Dimension          = D3D12_RESOURCE_DIMENSION_BUFFER;
     resourceDesc.Alignment          = 0;
-    resourceDesc.Width              = desc.size;
+    resourceDesc.Width              = resourceWidth;
     resourceDesc.Height             = 1;
     resourceDesc.DepthOrArraySize   = 1;
     resourceDesc.MipLevels          = 1;
@@ -62,7 +31,6 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
     resourceDesc.SampleDesc.Quality = 0;
     resourceDesc.Layout             = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
     resourceDesc.Flags              = D3D12_RESOURCE_FLAG_NONE;
-
     if (rhi::HasFlag(desc.usage, rhi::BufferUsage::Storage))
         resourceDesc.Flags |= D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 
@@ -149,10 +117,12 @@ rhi::BufferHandle DX12RHI::CreateBuffer(const rhi::BufferDesc& desc) {
             m_FreeBuffers.pop_back();
             m_Buffers[handle.id] = std::move(resource);
             m_BufferViews[handle.id] = viewData;
+            m_BufferStates[handle.id] = initialState;
         } else {
             handle.id = m_Buffers.size();
             m_Buffers.push_back(std::move(resource));
             m_BufferViews.push_back(viewData);
+            m_BufferStates.push_back(initialState);
         }
 
         return handle;

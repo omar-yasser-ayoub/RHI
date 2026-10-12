@@ -75,6 +75,11 @@ namespace rhi {
     {
         uint32_t location;
         VertexFormat format;
+        // semanticName and index are populated by backends whose shaders
+        // carry semantics (DX12); empty when the shader language uses
+        // locations instead (SPIRV/WGSL).
+        std::string semanticName;
+        uint32_t semanticIndex = 0;
     };
 
     struct ShaderReflection

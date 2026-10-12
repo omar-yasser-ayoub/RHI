@@ -29,6 +29,7 @@ rhi::ShaderModuleHandle DX12RHI::CompileShader(rhi::ShaderSource source) {
     std::vector<LPCWSTR> args = {
         L"-E",
         entryPoint.c_str(),
+        L"-Wno-ignored-attributes",
     };
 
     if (source.stage == rhi::ShaderStageFlags::Vertex) {

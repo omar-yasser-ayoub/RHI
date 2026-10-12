@@ -51,9 +51,11 @@ rhi::TextureHandle DX12RHI::CreateTexture(const rhi::TextureDesc& desc) {
         handle.id = m_FreeTextures.back();
         m_FreeTextures.pop_back();
         m_Textures[handle.id] = resource;
+        m_TextureStates[handle.id] = initialState;
     } else {
         handle.id = static_cast<uint32_t>(m_Textures.size());
         m_Textures.push_back(resource);
+        m_TextureStates.push_back(initialState);
     }
     return handle;
 }

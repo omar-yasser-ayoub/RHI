@@ -1,5 +1,8 @@
 #include "rhi/dx12/dx12rhi.h"
 
+#include <cstdio>
+#include <cstddef>
+
 rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
     const rhi::PipelineLayoutDesc& desc)
 {
@@ -16,6 +19,9 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
     std::vector<std::vector<D3D12_DESCRIPTOR_RANGE1>> samplerRanges(desc.layouts.size());
     std::vector<D3D12_ROOT_PARAMETER1> params;
     params.reserve(desc.layouts.size() * 2);
+    PipelineLayoutData layoutData;
+    layoutData.resourceParam.assign(desc.layouts.size(), UINT_MAX);
+    layoutData.samplerParam.assign(desc.layouts.size(), UINT_MAX);
 
     for (std::size_t i = 0; i < desc.layouts.size(); ++i) {
         const auto& layoutDesc = m_BindGroupLayouts[desc.layouts[i].id].desc;
@@ -44,6 +50,7 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
             param.DescriptorTable.NumDescriptorRanges =
                 static_cast<UINT>(resourceRanges[i].size());
             param.DescriptorTable.pDescriptorRanges = resourceRanges[i].data();
+            layoutData.resourceParam[i] = static_cast<UINT>(params.size());
             params.push_back(param);
         }
         if (!samplerRanges[i].empty()) {
@@ -53,6 +60,7 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
             param.DescriptorTable.NumDescriptorRanges =
                 static_cast<UINT>(samplerRanges[i].size());
             param.DescriptorTable.pDescriptorRanges = samplerRanges[i].data();
+            layoutData.samplerParam[i] = static_cast<UINT>(params.size());
             params.push_back(param);
         }
     }
@@ -80,13 +88,14 @@ rhi::PipelineLayoutHandle DX12RHI::CreatePipelineLayout(
 
     handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
+    layoutData.rootSignature = rootSignature;
     if (!m_FreePipelineLayouts.empty()) {
         handle.id = m_FreePipelineLayouts.back();
         m_FreePipelineLayouts.pop_back();
-        m_PipelineLayouts[handle.id] = rootSignature;
+        m_PipelineLayouts[handle.id] = std::move(layoutData);
     } else {
         handle.id = static_cast<std::uint64_t>(m_PipelineLayouts.size());
-        m_PipelineLayouts.push_back(rootSignature);
+        m_PipelineLayouts.push_back(std::move(layoutData));
     }
     return handle;
 }
@@ -100,7 +109,7 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
         return handle;
     }
     if (desc.layout.id >= m_PipelineLayouts.size() ||
-        !m_PipelineLayouts[desc.layout.id]) {
+        !m_PipelineLayouts[desc.layout.id].rootSignature) {
         return handle;
     }
     if (desc.vertexShader.id >= m_ShaderModules.size() ||
@@ -122,24 +131,45 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
     }
 
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
-    psoDesc.pRootSignature = m_PipelineLayouts[desc.layout.id].Get();
+    psoDesc.pRootSignature = m_PipelineLayouts[desc.layout.id].rootSignature.Get();
     psoDesc.VS.pShaderBytecode = vsModule.bytecode.data();
     psoDesc.VS.BytecodeLength = vsModule.bytecode.size();
     psoDesc.PS.pShaderBytecode = fsModule.bytecode.data();
     psoDesc.PS.BytecodeLength = fsModule.bytecode.size();
     psoDesc.SampleMask = UINT_MAX;
 
+    const std::vector<rhi::VertexInputAttr>& reflectedInputs =
+        vsModule.reflection.vertexInputs;
+    std::size_t totalAttributes = 0;
+    for (const auto& buffer : desc.vertexBuffers) {
+        totalAttributes += buffer.attributes.size();
+    }
+    if (reflectedInputs.size() != totalAttributes) {
+        printf("[ERROR] CreateGraphicsPipeline: vertex shader declares %zu inputs "
+               "but the pipeline describes %zu attributes\n",
+               reflectedInputs.size(), totalAttributes);
+        return handle;
+    }
+
     std::vector<D3D12_INPUT_ELEMENT_DESC> inputElements;
+    inputElements.reserve(totalAttributes);
+    std::size_t flatAttr = 0;
     for (const auto& buffer : desc.vertexBuffers) {
         for (const auto& attr : buffer.attributes) {
-            D3D12_INPUT_ELEMENT_DESC element{};
-            if (attr.location == 0) {
-                element.SemanticName = "POSITION";
-                element.SemanticIndex = 0;
-            } else {
-                element.SemanticName = "TEXCOORD";
-                element.SemanticIndex = attr.location - 1;
+            const rhi::VertexInputAttr& reflected = reflectedInputs[flatAttr++];
+            if (reflected.semanticName.empty()) {
+                printf("[ERROR] CreateGraphicsPipeline: shader input %zu has no semantic\n",
+                       flatAttr - 1);
+                return handle;
             }
+            if (reflected.format != attr.format) {
+                printf("[ERROR] CreateGraphicsPipeline: attribute %zu format mismatch "
+                       "(shader vs pipeline)\n", flatAttr - 1);
+                return handle;
+            }
+            D3D12_INPUT_ELEMENT_DESC element{};
+            element.SemanticName = reflected.semanticName.c_str();
+            element.SemanticIndex = reflected.semanticIndex;
             element.Format = toD3D12(attr.format);
             if (element.Format == DXGI_FORMAT_UNKNOWN) {
                 return handle;
@@ -235,10 +265,10 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
 void DX12RHI::DestroyPipelineLayout(rhi::PipelineLayoutHandle handle) {
     if (!m_Device || handle.id == 0xFFFFFFFFFFFFFFFFull ||
         handle.id >= m_PipelineLayouts.size() ||
-        !m_PipelineLayouts[handle.id]) {
+        !m_PipelineLayouts[handle.id].rootSignature) {
         return;
     }
-    m_PipelineLayouts[handle.id].Reset();
+    m_PipelineLayouts[handle.id] = PipelineLayoutData{};;
     m_FreePipelineLayouts.push_back(handle.id);
 }
 
@@ -260,7 +290,7 @@ rhi::ComputePipelineHandle DX12RHI::CreateComputePipeline(const rhi::ComputePipe
         return handle;
     }
     if (desc.layout.id >= m_PipelineLayouts.size() ||
-        !m_PipelineLayouts[desc.layout.id]) {
+        !m_PipelineLayouts[desc.layout.id].rootSignature) {
         return handle;
     }
     if (desc.computeShader.id >= m_ShaderModules.size()) {
@@ -273,7 +303,7 @@ rhi::ComputePipelineHandle DX12RHI::CreateComputePipeline(const rhi::ComputePipe
     }
 
     D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc{};
-    psoDesc.pRootSignature = m_PipelineLayouts[desc.layout.id].Get();
+    psoDesc.pRootSignature = m_PipelineLayouts[desc.layout.id].rootSignature.Get();
     psoDesc.CS.pShaderBytecode = csModule.bytecode.data();
     psoDesc.CS.BytecodeLength = csModule.bytecode.size();
     psoDesc.NodeMask = 0;

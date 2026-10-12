@@ -13,12 +13,14 @@
 
 #include <span>
 #include <optional>
+#include <array>
 
-
+#include <Windows.h>
 #include <d3d12.h>
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 #include <vector>
+#include <map>
 #include <third_party/dxc/inc/dxcapi.h>
 
 struct ID3D12ShaderReflection;
@@ -121,9 +123,6 @@ private:
     static D3D12_COMPARISON_FUNC toD3D12(rhi::CompareOp mode);
     static std::array<float, 4> toD3D12(rhi::BorderColor color);
     static D3D12_HEAP_PROPERTIES toD3D12(rhi::MemoryUsage usage);
-    static D3D12_RESOURCE_STATES toD3D12InitialState(
-        rhi::MemoryUsage memoryUsage,
-        rhi::BufferUsage bufferUsage);
     static D3D12_RESOURCE_DIMENSION toD3D12(rhi::TextureDimension dimension);
     static DXGI_FORMAT toD3D12(rhi::TextureFormat format);
     static DXGI_ALPHA_MODE toD3D12(rhi::AlphaMode mode);
@@ -140,6 +139,9 @@ private:
     static D3D12_DSV_DIMENSION toD3D12DsvDimension(rhi::TextureViewDimension dimension);
     static DXGI_FORMAT toD3D12(rhi::VertexFormat format);
     static D3D12_PRIMITIVE_TOPOLOGY_TYPE toD3D12(rhi::PrimitiveTopology topology);
+    static D3D12_PRIMITIVE_TOPOLOGY toDxTopology(rhi::PrimitiveTopology topology);
+    static UINT CalcSubresource(UINT mip, UINT arraySlice, UINT planeSlice,
+                                UINT mipLevels, UINT arraySize);
     static D3D12_CULL_MODE toD3D12(rhi::CullMode mode);
     static D3D12_FILL_MODE toD3D12(rhi::FillMode mode);
     static D3D12_BLEND toD3D12(rhi::BlendFactor factor);
@@ -236,13 +238,20 @@ private:
         uint32_t samplerCount = 0;
     };
 
+    struct PipelineLayoutData
+    {
+        Microsoft::WRL::ComPtr<ID3D12RootSignature> rootSignature;
+        std::vector<UINT> resourceParam;
+        std::vector<UINT> samplerParam;
+    };
+
     std::vector<rhi::ShaderModule> m_ShaderModules;
     std::vector<std::uint64_t> m_FreeShaderModules;
     std::vector<BindGroupLayoutData> m_BindGroupLayouts;
     std::vector<std::uint64_t> m_FreeBindGroupLayouts;
     std::vector<BindGroupData> m_BindGroups;
     std::vector<std::uint64_t> m_FreeBindGroups;
-    std::vector<Microsoft::WRL::ComPtr<ID3D12RootSignature>> m_PipelineLayouts;
+    std::vector<PipelineLayoutData> m_PipelineLayouts;
     std::vector<std::uint64_t> m_FreePipelineLayouts;
     std::vector<Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_Pipelines;
     std::vector<std::uint64_t> m_FreePipelines;
@@ -252,11 +261,11 @@ private:
         Microsoft::WRL::ComPtr<IDXGISwapChain4> swapchain;
         std::vector<Microsoft::WRL::ComPtr<ID3D12Resource>> buffers;
         std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs;
+        std::vector<D3D12_RESOURCE_STATES> bufferStates;
         DXGI_FORMAT format = DXGI_FORMAT_UNKNOWN;
         std::uint32_t width = 0;
         std::uint32_t height = 0;
         UINT syncInterval = 1;
-        std::uint32_t lastImageIndex = 0xFFFFFFFF;
     };
     std::vector<DX12SwapchainData> m_Swapchains;
     std::vector<std::uint64_t> m_FreeSwapchains;
@@ -266,4 +275,67 @@ private:
     std::vector<struct GLFWwindow*> m_Windows;
     std::vector<std::uint64_t> m_FreeWindows;
     bool m_GlfwInitialized = false;
+
+    struct FrameContext {
+        Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator;
+        Microsoft::WRL::ComPtr<ID3D12Fence> fence;
+        std::uint64_t fenceValue = 0;
+        bool submitted = false;
+    };
+
+    std::array<FrameContext, 2> m_Frames;
+    std::uint64_t m_FrameCounter = 0;
+    std::uint32_t m_CurrentFrame = 0xFFFFFFFF;
+    HANDLE m_FenceEvent = nullptr;
+
+    enum class CurrentPass {
+        None,
+        Graphics,
+        Compute
+    };
+    struct DX12CommandList {
+        Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> list;
+        std::uint32_t frame = 0xFFFFFFFF;
+        bool open = false;
+
+        CurrentPass pass = CurrentPass::None;
+        bool computeBindPoint = false;
+        rhi::PipelineLayoutHandle boundLayout{};
+        rhi::GraphicsPipelineHandle boundGraphicsPipeline{};
+        std::uint64_t swapchain = 0xFFFFFFFFFFFFFFFFull;
+        std::uint32_t swapchainImageIndex = 0xFFFFFFFF;
+    };
+    std::vector<DX12CommandList> m_CommandLists;
+    std::vector<std::uint64_t> m_FreeCommandLists;
+    ID3D12GraphicsCommandList* GetCommandList(rhi::CommandListHandle handle);
+
+    //resource transition functions + helpers
+    void TransitionResource(ID3D12GraphicsCommandList* cmd, ID3D12Resource* resource,
+                            D3D12_RESOURCE_STATES& stored, D3D12_RESOURCE_STATES target);
+    void RequireBufferState(ID3D12GraphicsCommandList* cmd, const rhi::BufferHandle& buffer,
+                            D3D12_RESOURCE_STATES target);
+    void RequireTextureState(ID3D12GraphicsCommandList* cmd, const rhi::TextureHandle& texture,
+                             D3D12_RESOURCE_STATES target);
+    void RequireSwapchainState(ID3D12GraphicsCommandList* cmd, std::uint64_t swapchain,
+                               std::uint32_t imageIndex, D3D12_RESOURCE_STATES target);
+    std::vector<D3D12_RESOURCE_STATES> m_BufferStates;
+    std::vector<D3D12_RESOURCE_STATES> m_TextureStates;
+
+    Microsoft::WRL::ComPtr<ID3D12Fence> m_IdleFence;
+    HANDLE m_IdleEvent = nullptr;
+    std::uint64_t m_IdleValue = 0;
+
+    struct CommandSignatureKey {
+        D3D12_INDIRECT_ARGUMENT_TYPE type;
+        UINT stride;
+        bool operator<(const CommandSignatureKey& other) const
+        {
+            return type != other.type ? type < other.type : stride < other.stride;
+        }
+    };
+    std::map<CommandSignatureKey, Microsoft::WRL::ComPtr<ID3D12CommandSignature>> m_CommandSignatures;
+    ID3D12CommandSignature* GetOrCreateSignature(D3D12_INDIRECT_ARGUMENT_TYPE type, UINT stride);
+
+    bool CreateFrameContexts();
+    void DestroyFrameContexts();
 };

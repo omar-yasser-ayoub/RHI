@@ -88,6 +88,7 @@ rhi::SwapchainHandle DX12RHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
         data.buffers.push_back(buffer);
         data.rtvs.push_back(handles.cpu);
     }
+    data.bufferStates.assign(data.buffers.size(), D3D12_RESOURCE_STATE_PRESENT);
 
     rhi::SwapchainHandle handle;
     handle.desc = desc;
@@ -112,6 +113,7 @@ void DX12RHI::DestroySwapchain(rhi::SwapchainHandle handle)
     if (!data.swapchain) {
         return;
     }
+    WaitForIdle();
     data = {};
     m_FreeSwapchains.push_back(handle.id);
 }
@@ -132,9 +134,22 @@ rhi::AcquireResult DX12RHI::AcquireNextImage(rhi::SwapchainHandle handle)
         return result;
     }
 
+    m_CurrentFrame = static_cast<std::uint32_t>(m_FrameCounter % m_Frames.size());
+    FrameContext& frame = m_Frames[m_CurrentFrame];
+    if (!frame.allocator || !frame.fence || m_FenceEvent == nullptr) {
+        return result;
+    }
+    if (frame.submitted) {
+        if (frame.fence->GetCompletedValue() < frame.fenceValue) {
+            frame.fence->SetEventOnCompletion(frame.fenceValue, m_FenceEvent);
+            WaitForSingleObject(m_FenceEvent, INFINITE);
+        }
+    }
+    frame.allocator->Reset();
+    frame.submitted = false;
+
     result.status = rhi::AcquireStatus::Success;
     result.imageIndex = imageIndex;
-    data.lastImageIndex = imageIndex;
     return result;
 }
 
@@ -154,23 +169,14 @@ ID3D12Resource* DX12RHI::GetSwapchainBuffer(
 
 void DX12RHI::WaitForIdle()
 {
-    if (!m_Device || !m_CommandQueue) {
+    if (!m_Device || !m_CommandQueue || !m_IdleFence || m_IdleEvent == nullptr) {
         return;
     }
-    Microsoft::WRL::ComPtr<ID3D12Fence> fence;
-    if (FAILED(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)))) {
-        return;
+    m_CommandQueue->Signal(m_IdleFence.Get(), ++m_IdleValue);
+    if (m_IdleFence->GetCompletedValue() < m_IdleValue) {
+        m_IdleFence->SetEventOnCompletion(m_IdleValue, m_IdleEvent);
+        WaitForSingleObject(m_IdleEvent, INFINITE);
     }
-    HANDLE event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-    if (event == nullptr) {
-        return;
-    }
-    m_CommandQueue->Signal(fence.Get(), 1);
-    if (fence->GetCompletedValue() < 1) {
-        fence->SetEventOnCompletion(1, event);
-        WaitForSingleObject(event, INFINITE);
-    }
-    CloseHandle(event);
 }
 
 void DX12RHI::Present(rhi::SwapchainHandle handle)
@@ -179,9 +185,10 @@ void DX12RHI::Present(rhi::SwapchainHandle handle)
         return;
     }
     DX12SwapchainData& data = m_Swapchains[handle.id];
-    if (!data.swapchain || data.lastImageIndex >= data.buffers.size()) {
+    if (!data.swapchain || m_CurrentFrame == 0xFFFFFFFF) {
         return;
     }
     data.swapchain->Present(data.syncInterval, 0);
-    data.lastImageIndex = 0xFFFFFFFF;
+    m_CurrentFrame = 0xFFFFFFFF;
+    ++m_FrameCounter;
 }

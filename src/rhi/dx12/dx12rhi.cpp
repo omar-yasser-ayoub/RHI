@@ -2,12 +2,22 @@
 #include <combaseapi.h>
 #include <d3d12.h>
 #include <third_party/glfw/include/GLFW/glfw3.h>
+#include <cstdio>
 #include <iostream>
 
 
 bool DX12RHI::Initialize() {
 
-    HRESULT result = CreateDXGIFactory2(0, IID_PPV_ARGS(&m_Factory));
+    UINT factoryFlags = 0;
+    {
+        Microsoft::WRL::ComPtr<ID3D12Debug> debug;
+        if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debug)))) {
+            debug->EnableDebugLayer();
+            factoryFlags |= DXGI_CREATE_FACTORY_DEBUG;
+        }
+    }
+
+    HRESULT result = CreateDXGIFactory2(factoryFlags, IID_PPV_ARGS(&m_Factory));
     if (FAILED(result)) {
         std::cerr << "Failed to create DXGI factory: " << result << std::endl;
         return false;
@@ -107,10 +117,74 @@ bool DX12RHI::Initialize() {
     m_Device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_CbvSrvUavHeap));
     m_CbvSrvUavDescriptorSize = m_Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
+    if (FAILED(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_IdleFence)))) {
+        std::cerr << "Failed to create idle fence.\n";
+        return false;
+    }
+    m_IdleEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (m_IdleEvent == nullptr) {
+        std::cerr << "Failed to create idle event.\n";
+        return false;
+    }
+
+    if (!CreateFrameContexts()) {
+        return false;
+    }
+
     return true;
 }
 
+bool DX12RHI::CreateFrameContexts()
+{
+    m_FenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    if (m_FenceEvent == nullptr) {
+        std::cerr << "Failed to create frame fence event.\n";
+        return false;
+    }
+    for (std::uint32_t i = 0; i < m_Frames.size(); ++i) {
+        FrameContext& frame = m_Frames[i];
+        if (FAILED(m_Device->CreateCommandAllocator(
+                D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&frame.allocator)))) {
+            std::cerr << "Failed to create frame command allocator.\n";
+            DestroyFrameContexts();
+            return false;
+        }
+        if (FAILED(m_Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&frame.fence)))) {
+            std::cerr << "Failed to create frame fence.\n";
+            DestroyFrameContexts();
+            return false;
+        }
+    }
+    return true;
+}
+
+void DX12RHI::DestroyFrameContexts()
+{
+    for (FrameContext& frame : m_Frames) {
+        frame.allocator.Reset();
+        frame.fence.Reset();
+        frame.fenceValue = 0;
+        frame.submitted = false;
+    }
+    m_CommandLists.clear();
+    m_FreeCommandLists.clear();
+    m_CurrentFrame = 0xFFFFFFFF;
+    if (m_FenceEvent != nullptr) {
+        CloseHandle(m_FenceEvent);
+        m_FenceEvent = nullptr;
+    }
+}
+
 void DX12RHI::Shutdown() {
+    WaitForIdle();
+    DestroyFrameContexts();
+    m_CommandSignatures.clear();
+    m_IdleFence.Reset();
+    if (m_IdleEvent != nullptr) {
+        CloseHandle(m_IdleEvent);
+        m_IdleEvent = nullptr;
+    }
+    m_IdleValue = 0;
     m_ComputePipelines.clear();
     m_FreeComputePipelines.clear();
     m_Swapchains.clear();
