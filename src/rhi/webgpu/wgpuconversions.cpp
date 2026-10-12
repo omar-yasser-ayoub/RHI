@@ -117,6 +117,31 @@ bool WebGPURHI::HasStencilAspect(rhi::TextureFormat format) {
     }
 }
 
+bool WebGPURHI::IsStorageCompatible(rhi::TextureFormat format) {
+    switch (format) {
+        case rhi::TextureFormat::R32Float:
+        case rhi::TextureFormat::R32Uint:
+        case rhi::TextureFormat::R32Sint:
+        case rhi::TextureFormat::RG32Float:
+        case rhi::TextureFormat::RG32Uint:
+        case rhi::TextureFormat::RG32Sint:
+        case rhi::TextureFormat::RGBA8Unorm:
+        case rhi::TextureFormat::RGBA8Snorm:
+        case rhi::TextureFormat::RGBA8Uint:
+        case rhi::TextureFormat::RGBA8Sint:
+        case rhi::TextureFormat::RGBA16Float:
+        case rhi::TextureFormat::RGBA16Uint:
+        case rhi::TextureFormat::RGBA16Sint:
+        case rhi::TextureFormat::RGBA32Float:
+        case rhi::TextureFormat::RGBA32Uint:
+        case rhi::TextureFormat::RGBA32Sint:
+        case rhi::TextureFormat::RGB10A2Uint:
+            return true;
+        default:
+            return false;
+    }
+}
+
 rhi::TextureFormat WebGPURHI::fromWebGPU(wgpu::TextureFormat format) {
     switch (format) {
         case wgpu::TextureFormat::R8Unorm: return rhi::TextureFormat::R8Unorm;

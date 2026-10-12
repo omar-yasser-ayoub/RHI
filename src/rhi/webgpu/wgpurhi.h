@@ -124,6 +124,7 @@ private:
     static wgpu::TextureViewDimension toWebGPU(rhi::TextureViewDimension dim);
     static wgpu::TextureAspect toWebGPU(rhi::TextureAspect aspect);
     static bool HasStencilAspect(rhi::TextureFormat format);
+    static bool IsStorageCompatible(rhi::TextureFormat format);
     static wgpu::TextureFormat toWebGPU(rhi::TextureFormat usage);
     static rhi::TextureFormat fromWebGPU(wgpu::TextureFormat format);
     static rhi::PresentMode fromWebGPU(wgpu::PresentMode mode);

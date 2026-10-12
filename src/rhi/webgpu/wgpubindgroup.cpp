@@ -70,9 +70,9 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
 
         case rhi::BindingType::StorageTexture:
             entry.storageTexture.access =
-                wgpu::StorageTextureAccess::WriteOnly;
+                wgpu::StorageTextureAccess::ReadWrite;
             entry.storageTexture.format =
-                wgpu::TextureFormat::RGBA8Unorm;
+                wgpu::TextureFormat::R32Float;
             entry.storageTexture.viewDimension =
                 wgpu::TextureViewDimension::e2D;
             break;

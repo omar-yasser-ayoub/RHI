@@ -416,14 +416,9 @@ TEST_F(RHITest, GpuToCpuBufferCanBeMapped)
         rhi::BufferUsage::CopyDst));
     ASSERT_NE(handle.id, InvalidHandle);
 
-#if defined(RHI_WEBGPU)
-    // Dawn D3D12 quirk (under investigation): MapAsync(Read) reports success
-    // but GetMappedRange returns null, while write-mapping works fine. This
-    // expectation fails loudly if backend behavior changes.
-    EXPECT_EQ(rhi.MapBuffer(handle), nullptr);
-#else
+    // Note: older Dawn D3D12 had a quirk where MapAsync(Read) reported
+    // success but GetMappedRange returned null. Fixed in current Dawn.
     EXPECT_NE(rhi.MapBuffer(handle), nullptr);
-#endif
     rhi.UnmapBuffer(handle);
     rhi.DestroyBuffer(handle);
 }
@@ -965,6 +960,15 @@ TEST_F(RHITest, CreateTextureWithDifferentDimensionsAndFormats)
         desc.depth = testCase.depth;
 
         auto handle = rhi.CreateTexture(desc);
+#if defined(RHI_WEBGPU)
+        // R8Unorm is not storage-compatible in WebGPU, so Storage usage is
+        // rejected for that case (the backend logs the supported formats).
+        if (testCase.format == rhi::TextureFormat::R8Unorm) {
+            EXPECT_EQ(handle.id, InvalidTextureHandle)
+                << "R8Unorm with Storage usage should be rejected on WebGPU";
+            continue;
+        }
+#endif
         ASSERT_NE(handle.id, InvalidTextureHandle)
             << "Failed for texture dimension/format case";
         rhi.DestroyTexture(handle);

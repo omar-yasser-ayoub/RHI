@@ -11,6 +11,13 @@ rhi::TextureHandle WebGPURHI::CreateTexture(const rhi::TextureDesc& desc) {
         printf("[RHI] Unsupported texture format for WebGPU\n");
         return rhi::TextureHandle{};
     }
+    if (HasFlag(desc.usage, rhi::TextureUsage::Storage) && !IsStorageCompatible(desc.format)) {
+        printf("[RHI] Rejected texture: format does not support Storage usage in WebGPU. "
+               "Storage-compatible formats are R32Float/Uint/Sint, RG32Float/Uint/Sint, "
+               "RGBA8Unorm/Snorm/Uint/Sint, RGBA16Float/Uint/Sint, RGBA32Float/Uint/Sint, "
+               "and RGB10A2Uint. Recreate without TextureUsage::Storage.\n");
+        return rhi::TextureHandle{};
+    }
     const wgpu::TextureUsage usage = toWebGPU(desc.usage);
     if (usage == wgpu::TextureUsage::None) {
         printf("[RHI] Texture usage must not be None\n");

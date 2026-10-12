@@ -207,6 +207,7 @@ void VulkanRHI::DestroySwapchain(rhi::SwapchainHandle handle)
         return;
     }
     VkSwapchainData& data = m_Swapchains[handle.id];
+    vkDeviceWaitIdle(m_Device);
     for (VkImageView view : data.views) {
         if (view != VK_NULL_HANDLE) {
             vkDestroyImageView(m_Device, view, nullptr);
@@ -321,6 +322,25 @@ void VulkanRHI::Present(rhi::SwapchainHandle handle)
         return;
     }
     FrameContext& frame = m_Frames[m_CurrentFrame];
+
+    if (!frame.submitted) {
+        // present without a pass/commandlist/etc needs to be handled, hence the code below
+        rhi::RenderPassDesc pass{};
+        rhi::RenderPassColorAttachment color{};
+        color.useSwapchain = true;
+        color.clear = false;
+        pass.colors.push_back(color);
+        pass.swapchain = handle;
+        pass.imageIndex = data.lastImageIndex;
+        rhi::CommandListHandle cmd = BeginCommandList();
+        if (cmd.id == 0xFFFFFFFFFFFFFFFFull) {
+            printf("[ERROR] Present: failed to begin transition command list, skipping present\n");
+            return;
+        }
+        BeginRenderPass(cmd, pass);
+        EndPass(cmd);
+        Submit({&cmd, 1});
+    }
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
