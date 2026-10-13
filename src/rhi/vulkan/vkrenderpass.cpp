@@ -693,16 +693,29 @@ void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
-    submitInfo.pWaitSemaphores = &frame.imageAvailable;
+    if (frame.pendingFences.empty()) {
+        submitInfo.pWaitSemaphores = &frame.imageAvailable;
+    } else {
+        submitInfo.pWaitSemaphores = &frame.renderFinished;
+    }
     submitInfo.pWaitDstStageMask = &waitStage;
     submitInfo.commandBufferCount = static_cast<std::uint32_t>(buffers.size());
     submitInfo.pCommandBuffers = buffers.data();
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = &frame.renderFinished;
 
-    if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, frame.inFlight) != VK_SUCCESS) {
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFence fence = VK_NULL_HANDLE;
+    if (vkCreateFence(m_Device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
         return;
     }
+
+    if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
+        vkDestroyFence(m_Device, fence, nullptr);
+        return;
+    }
+    frame.pendingFences.push_back(fence);
     frame.submitted = true;
 
     for (rhi::CommandListHandle handle : cmds) {

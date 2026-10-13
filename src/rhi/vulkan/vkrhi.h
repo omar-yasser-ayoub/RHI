@@ -208,7 +208,7 @@ private:
         std::vector<VkCommandBuffer> cmds;
         VkSemaphore imageAvailable = VK_NULL_HANDLE;
         VkSemaphore renderFinished = VK_NULL_HANDLE;
-        VkFence inFlight = VK_NULL_HANDLE;
+        std::vector<VkFence> pendingFences;
         bool submitted = false;
     };
     std::array<FrameContext, 2> m_Frames;

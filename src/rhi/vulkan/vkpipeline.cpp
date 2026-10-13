@@ -55,15 +55,14 @@ rhi::GraphicsPipelineHandle VulkanRHI::CreateGraphicsPipeline(
         m_PipelineLayouts[desc.layout.id] == VK_NULL_HANDLE) {
         return handle;
     }
+    const bool depthOnly = desc.colorTargets.empty();
     if (desc.vertexShader.id >= m_ShaderModules.size() ||
-        desc.fragmentShader.id >= m_ShaderModules.size()) {
+        (!depthOnly && desc.fragmentShader.id >= m_ShaderModules.size())) {
         return handle;
     }
 
     const rhi::ShaderModule& vsModule = m_ShaderModules[desc.vertexShader.id];
-    const rhi::ShaderModule& fsModule = m_ShaderModules[desc.fragmentShader.id];
-    if (vsModule.bytecode.empty() || fsModule.bytecode.empty() ||
-        vsModule.bytecode.size() % 4 != 0 || fsModule.bytecode.size() % 4 != 0) {
+    if (vsModule.bytecode.empty() || vsModule.bytecode.size() % 4 != 0) {
         return handle;
     }
     for (const auto& buffer : desc.vertexBuffers) {
@@ -83,22 +82,34 @@ rhi::GraphicsPipelineHandle VulkanRHI::CreateGraphicsPipeline(
     if (vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &vs) != VK_SUCCESS) {
         return handle;
     }
-    moduleInfo.codeSize = fsModule.bytecode.size();
-    moduleInfo.pCode = reinterpret_cast<const std::uint32_t*>(fsModule.bytecode.data());
-    if (vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &fs) != VK_SUCCESS) {
-        vkDestroyShaderModule(m_Device, vs, nullptr);
-        return handle;
+    if (!depthOnly) {
+        const rhi::ShaderModule& fsModule = m_ShaderModules[desc.fragmentShader.id];
+        if (fsModule.bytecode.empty() || fsModule.bytecode.size() % 4 != 0) {
+            vkDestroyShaderModule(m_Device, vs, nullptr);
+            return handle;
+        }
+        moduleInfo.codeSize = fsModule.bytecode.size();
+        moduleInfo.pCode = reinterpret_cast<const std::uint32_t*>(fsModule.bytecode.data());
+        if (vkCreateShaderModule(m_Device, &moduleInfo, nullptr, &fs) != VK_SUCCESS) {
+            vkDestroyShaderModule(m_Device, vs, nullptr);
+            return handle;
+        }
     }
 
     VkPipelineShaderStageCreateInfo stages[2]{};
+    uint32_t stageCount = 1;
     stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
     stages[0].module = vs;
     stages[0].pName = vsModule.entryPoint.c_str();
-    stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    stages[1].module = fs;
-    stages[1].pName = fsModule.entryPoint.c_str();
+    if (!depthOnly) {
+        const rhi::ShaderModule& fsModule = m_ShaderModules[desc.fragmentShader.id];
+        stageCount = 2;
+        stages[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stages[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+        stages[1].module = fs;
+        stages[1].pName = fsModule.entryPoint.c_str();
+    }
 
     std::vector<VkVertexInputBindingDescription> bindings;
     bindings.reserve(desc.vertexBuffers.size());
@@ -222,7 +233,7 @@ rhi::GraphicsPipelineHandle VulkanRHI::CreateGraphicsPipeline(
     VkGraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = &rendering;
-    pipelineInfo.stageCount = 2;
+    pipelineInfo.stageCount = stageCount;
     pipelineInfo.pStages = stages;
     pipelineInfo.pVertexInputState = &vertexInput;
     pipelineInfo.pInputAssemblyState = &inputAssembly;

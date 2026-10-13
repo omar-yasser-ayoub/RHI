@@ -743,7 +743,9 @@ TEST_F(RHITest, ReflectionMarksDepthComparisonSampling)
 
     rhi.DestroyShaderModule(handle);
 }
+#endif
 
+#if defined(RHI_VULKAN) || defined(RHI_WEBGPU)
 TEST_F(RHITest, ReflectionLeavesRegularSamplingUnmarked)
 {
     const auto handle = rhi.CompileShader(MakeShaderSource(

@@ -392,8 +392,8 @@ wgpu::CullMode WebGPURHI::toWebGPU(rhi::CullMode mode) {
 
 wgpu::FrontFace WebGPURHI::toWebGPU(rhi::FrontFace face) {
     switch (face) {
-    case rhi::FrontFace::CounterClockwise: return wgpu::FrontFace::CW;
-    case rhi::FrontFace::Clockwise:        return wgpu::FrontFace::CCW;
+    case rhi::FrontFace::CounterClockwise: return wgpu::FrontFace::CCW;
+    case rhi::FrontFace::Clockwise:        return wgpu::FrontFace::CW;
     default: return wgpu::FrontFace::Undefined;
     }
 }

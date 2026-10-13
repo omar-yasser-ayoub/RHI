@@ -368,10 +368,10 @@ VkCullModeFlags VulkanRHI::toVk(rhi::CullMode mode) {
 
 VkFrontFace VulkanRHI::toVk(rhi::FrontFace face) {
     switch (face) {
-    case rhi::FrontFace::CounterClockwise: return VK_FRONT_FACE_CLOCKWISE;
-    case rhi::FrontFace::Clockwise:        return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    case rhi::FrontFace::CounterClockwise: return VK_FRONT_FACE_COUNTER_CLOCKWISE;
+    case rhi::FrontFace::Clockwise:        return VK_FRONT_FACE_CLOCKWISE;
     }
-    return VK_FRONT_FACE_CLOCKWISE; // unreachable
+    return VK_FRONT_FACE_COUNTER_CLOCKWISE; // unreachable
 }
 
 VkPolygonMode VulkanRHI::toVk(rhi::FillMode mode) {

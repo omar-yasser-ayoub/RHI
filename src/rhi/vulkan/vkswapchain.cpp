@@ -234,11 +234,14 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
     FrameContext& frame = m_Frames[m_CurrentFrame];
 
     if (frame.submitted) {
-        vkWaitForFences(m_Device, 1, &frame.inFlight, VK_TRUE, UINT64_MAX);
-        vkResetFences(m_Device, 1, &frame.inFlight);
-    } else {
-        vkResetFences(m_Device, 1, &frame.inFlight);
+        for (std::uint32_t i = 0; i < frame.pendingFences.size(); ++i) {
+            vkWaitForFences(m_Device, 1, &frame.pendingFences[i], VK_TRUE, UINT64_MAX);
+        }
     }
+    for (std::uint32_t i = 0; i < frame.pendingFences.size(); ++i) {
+        vkDestroyFence(m_Device, frame.pendingFences[i], nullptr);
+    }
+    frame.pendingFences.clear();
     vkResetCommandPool(m_Device, frame.pool, 0);
     frame.cmds.clear();
     frame.submitted = false;

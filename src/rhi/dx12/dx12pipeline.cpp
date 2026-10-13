@@ -196,7 +196,7 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
     psoDesc.RasterizerState.FillMode = toD3D12(desc.fillMode);
     psoDesc.RasterizerState.CullMode = toD3D12(desc.cullMode);
     psoDesc.RasterizerState.FrontCounterClockwise =
-        (desc.frontFace == rhi::FrontFace::CounterClockwise) ? FALSE : TRUE;
+        (desc.frontFace == rhi::FrontFace::CounterClockwise) ? TRUE : FALSE;
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
 
     psoDesc.BlendState.AlphaToCoverageEnable = FALSE;

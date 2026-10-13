@@ -230,12 +230,17 @@ bool VulkanRHI::Initialize() {
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR
     };
 
+    VkPhysicalDeviceVulkan13Features vk13Features{
+        VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES
+    };
+
     VkPhysicalDeviceFeatures2 features2{
         VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2
     };
 
     features2.pNext = &meshFeatures;
     meshFeatures.pNext = &rtFeatures;
+    rtFeatures.pNext = &vk13Features;
 
     vkGetPhysicalDeviceFeatures2(m_PhysicalDevice, &features2);
 
@@ -325,10 +330,12 @@ bool VulkanRHI::Initialize() {
     deviceInfo.enabledExtensionCount = 1;
     deviceInfo.ppEnabledExtensionNames = deviceExtensions;
 
-    VkPhysicalDeviceDynamicRenderingFeatures dynamicRendering{};
-    dynamicRendering.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
-    dynamicRendering.dynamicRendering = VK_TRUE;
-    deviceInfo.pNext = &dynamicRendering;
+    VkPhysicalDeviceVulkan13Features vk13FeaturesEnable{};
+    vk13FeaturesEnable.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+    vk13FeaturesEnable.dynamicRendering = VK_TRUE;
+    vk13FeaturesEnable.shaderDemoteToHelperInvocation =
+        vk13Features.shaderDemoteToHelperInvocation;
+    deviceInfo.pNext = &vk13FeaturesEnable;
 
     VkPhysicalDeviceFeatures enabledFeatures{};
     enabledFeatures.samplerAnisotropy = m_Capabilities.SupportsAnisotropy;
@@ -458,15 +465,6 @@ bool VulkanRHI::CreateFrameContexts()
             DestroyFrameContexts();
             return false;
         }
-
-        VkFenceCreateInfo fenceInfo{};
-        fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        if (vkCreateFence(m_Device, &fenceInfo, nullptr, &frame.inFlight) != VK_SUCCESS) {
-            std::cerr << "Failed to create frame fence\n";
-            DestroyFrameContexts();
-            return false;
-        }
     }
     return true;
 }
@@ -477,10 +475,12 @@ void VulkanRHI::DestroyFrameContexts()
         return;
     }
     for (FrameContext& frame : m_Frames) {
-        if (frame.inFlight != VK_NULL_HANDLE) {
-            vkDestroyFence(m_Device, frame.inFlight, nullptr);
-            frame.inFlight = VK_NULL_HANDLE;
+        for (VkFence fence : frame.pendingFences) {
+            if (fence != VK_NULL_HANDLE) {
+                vkDestroyFence(m_Device, fence, nullptr);
+            }
         }
+        frame.pendingFences.clear();
         if (frame.renderFinished != VK_NULL_HANDLE) {
             vkDestroySemaphore(m_Device, frame.renderFinished, nullptr);
             frame.renderFinished = VK_NULL_HANDLE;
