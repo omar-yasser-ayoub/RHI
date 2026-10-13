@@ -92,8 +92,8 @@ void WebGPURHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         };
         colors.push_back(color);
     }
-    if (colors.empty()) {
-        printf("BeginRenderPass needs at least one color attachment\n");
+    if (colors.empty() && !desc.depth.enabled) {
+        printf("BeginRenderPass needs at least one color attachment or a depth attachment\n");
         return;
     }
 
@@ -125,7 +125,7 @@ void WebGPURHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
 
     wgpu::RenderPassDescriptor pass{};
     pass.colorAttachmentCount = colors.size();
-    pass.colorAttachments = colors.data();
+    pass.colorAttachments = colors.empty() ? nullptr : colors.data();
     if (hasDepth) {
         pass.depthStencilAttachment = &depthAttachment;
     }

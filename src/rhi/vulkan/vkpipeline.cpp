@@ -47,7 +47,8 @@ rhi::GraphicsPipelineHandle VulkanRHI::CreateGraphicsPipeline(
         printf("[RHI] Wireframe fill mode is unsupported (fillModeNonSolid not enabled)\n");
         return handle;
     }
-    if (desc.colorTargets.empty()) {
+    if (desc.colorTargets.empty() &&
+        desc.depthStencil.format == rhi::TextureFormat::Unknown) {
         return handle;
     }
     if (desc.layout.id >= m_PipelineLayouts.size() ||

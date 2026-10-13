@@ -51,6 +51,8 @@ namespace rhi {
         BindingType type;
         uint32_t arraySize;
         ShaderStageFlags stage;
+        bool depthSampled = false;
+        bool comparison = false;
     };
 
     enum class VertexFormat

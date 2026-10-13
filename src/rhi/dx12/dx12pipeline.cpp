@@ -105,7 +105,11 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
 {
     rhi::GraphicsPipelineHandle handle;
 
-    if (desc.colorTargets.empty() || desc.colorTargets.size() > 8) {
+    if (desc.colorTargets.size() > 8) {
+        return handle;
+    }
+    if (desc.colorTargets.empty() &&
+        desc.depthStencil.format == rhi::TextureFormat::Unknown) {
         return handle;
     }
     if (desc.layout.id >= m_PipelineLayouts.size() ||
@@ -192,7 +196,7 @@ rhi::GraphicsPipelineHandle DX12RHI::CreateGraphicsPipeline(
     psoDesc.RasterizerState.FillMode = toD3D12(desc.fillMode);
     psoDesc.RasterizerState.CullMode = toD3D12(desc.cullMode);
     psoDesc.RasterizerState.FrontCounterClockwise =
-        (desc.frontFace == rhi::FrontFace::CounterClockwise) ? TRUE : FALSE;
+        (desc.frontFace == rhi::FrontFace::CounterClockwise) ? FALSE : TRUE;
     psoDesc.RasterizerState.DepthClipEnable = TRUE;
 
     psoDesc.BlendState.AlphaToCoverageEnable = FALSE;

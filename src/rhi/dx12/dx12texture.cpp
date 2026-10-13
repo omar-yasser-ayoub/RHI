@@ -73,7 +73,13 @@ rhi::TextureViewHandle DX12RHI::CreateTextureView(const rhi::TextureViewDesc& de
 
     if (wantsSrv) {
         D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-        srvDesc.Format = toD3D12(desc.format);
+        if (desc.aspect == rhi::TextureAspect::Stencil) {
+            srvDesc.Format = toD3D12StencilSrv(textureDesc.format);
+        } else if (desc.aspect == rhi::TextureAspect::Depth) {
+            srvDesc.Format = toD3D12DepthSrv(textureDesc.format);
+        } else {
+            srvDesc.Format = toD3D12(desc.format);
+        }
         srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
         srvDesc.ViewDimension = toD3D12SrvDimension(desc.dimension);
         srvDesc.Texture2D.MostDetailedMip = desc.baseMipLevel;

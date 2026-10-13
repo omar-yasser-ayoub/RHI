@@ -2,11 +2,108 @@
 #include "rhi/webgpu/wgpurhi.h"
 #include "third_party/spirv-reflect/spirv_reflect.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <string>
 #include <vector>
+
+inline void MarkDepthComparisonSampling(
+    const std::uint32_t* words, std::size_t wordCount,
+    rhi::ShaderReflection& reflection)
+{
+    constexpr std::uint32_t Invalid = 0xFFFFFFFFu;
+    constexpr std::uint16_t OpLoad = 61;
+    constexpr std::uint16_t OpDecorate = 71;
+    constexpr std::uint16_t OpSampledImage = 86;
+    constexpr std::uint16_t OpDrefImplicit = 89;
+    constexpr std::uint16_t OpDrefExplicit = 90;
+    constexpr std::uint32_t DecoBinding = 33;
+    constexpr std::uint32_t DecoDescriptorSet = 34;
+
+    if (words == nullptr || wordCount < 5 || words[0] != 0x07230203u)
+        return;
+    const std::uint32_t bound = words[3];
+    if (bound == 0)
+        return;
+
+    std::vector<std::uint32_t> setOf(bound, Invalid);
+    std::vector<std::uint32_t> bindingOf(bound, Invalid);
+    std::vector<std::uint32_t> loadedFrom(bound, Invalid);
+    std::vector<std::uint32_t> sampledImage(bound, Invalid);
+    std::vector<std::uint32_t> sampledSampler(bound, Invalid);
+    std::vector<std::uint32_t> drefUses;
+
+    for (int pass = 0; pass < 2; ++pass)
+    {
+        std::size_t i = 5;
+        while (i < wordCount)
+        {
+            const std::uint16_t op = static_cast<std::uint16_t>(words[i] & 0xFFFFu);
+            const std::uint16_t count = static_cast<std::uint16_t>(words[i] >> 16);
+            if (count == 0 || i + count > wordCount)
+                break;
+            const std::uint32_t* ops = words + i + 1;
+            const std::size_t n = static_cast<std::size_t>(count) - 1;
+
+            if (pass == 0)
+            {
+                if (op == OpDecorate && n >= 2 && ops[0] < bound)
+                {
+                    if (ops[1] == DecoDescriptorSet)
+                        setOf[ops[0]] = ops[2];
+                    else if (ops[1] == DecoBinding)
+                        bindingOf[ops[0]] = ops[2];
+                }
+                else if (op == OpLoad && n >= 3 && ops[1] < bound && ops[2] < bound)
+                {
+                    loadedFrom[ops[1]] = ops[2];
+                }
+                else if (op == OpSampledImage && n >= 4 && ops[1] < bound &&
+                         ops[2] < bound && ops[3] < bound)
+                {
+                    sampledImage[ops[1]] = ops[2];
+                    sampledSampler[ops[1]] = ops[3];
+                }
+                else if ((op == OpDrefImplicit || op == OpDrefExplicit) &&
+                         n >= 3 && ops[2] < bound)
+                {
+                    drefUses.push_back(ops[2]);
+                }
+            }
+            i += count;
+        }
+    }
+
+    for (std::uint32_t use : drefUses)
+    {
+        std::uint32_t image = Invalid;
+        std::uint32_t sampler = Invalid;
+        if (sampledImage[use] != Invalid)
+            image = (loadedFrom[sampledImage[use]] != Invalid)
+                ? loadedFrom[sampledImage[use]] : sampledImage[use];
+        if (sampledSampler[use] != Invalid)
+            sampler = (loadedFrom[sampledSampler[use]] != Invalid)
+                ? loadedFrom[sampledSampler[use]] : sampledSampler[use];
+
+        for (auto& candidate : reflection.bindings)
+        {
+            if (image != Invalid && setOf[image] == candidate.set &&
+                bindingOf[image] == candidate.binding &&
+                candidate.type == rhi::BindingType::SampledTexture)
+            {
+                candidate.depthSampled = true;
+            }
+            if (sampler != Invalid && setOf[sampler] == candidate.set &&
+                bindingOf[sampler] == candidate.binding &&
+                candidate.type == rhi::BindingType::Sampler)
+            {
+                candidate.comparison = true;
+            }
+        }
+    }
+}
 
 rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
 {
@@ -61,6 +158,10 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
     }
 
     module.reflection = ParseReflection(&reflection, source.stage);
+    MarkDepthComparisonSampling(
+        reinterpret_cast<const std::uint32_t*>(spirv.data()),
+        spirv.size() / sizeof(std::uint32_t),
+        module.reflection);
     spvReflectDestroyShaderModule(&reflection);
     module.entryPoint = source.entryPoint.empty() ? "main" : source.entryPoint;
 

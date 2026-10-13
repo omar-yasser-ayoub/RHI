@@ -682,6 +682,84 @@ TEST_F(RHITest, DestroyAndReuseShaderModule)
     EXPECT_EQ(reused.id, handle.id);
     rhi.DestroyShaderModule(reused);
 }
+
+TEST_F(RHITest, BuildBindGroupLayoutDescsFromReflection)
+{
+    const auto vs = rhi.CompileShader(MakeShaderSource(
+        "basic.vert.hlsl",
+        rhi::ShaderStageFlags::Vertex));
+    const auto fs = rhi.CompileShader(MakeShaderSource(
+        "shadow.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    const auto vsModule = rhi.GetShaderModule(vs);
+    const auto fsModule = rhi.GetShaderModule(fs);
+    ASSERT_TRUE(vsModule.has_value());
+    ASSERT_TRUE(fsModule.has_value());
+
+    const auto descs = rhi::BuildBindGroupLayoutDescs(
+        { vsModule->reflection, fsModule->reflection });
+    ASSERT_EQ(descs.size(), 1u);
+    ASSERT_EQ(descs[0].shaderBindings.size(), 4u);
+
+    const auto layout = rhi.CreateBindGroupLayout(descs[0]);
+    EXPECT_NE(layout.id, 0xFFFFFFFFFFFFFFFFull);
+    rhi.DestroyBindGroupLayout(layout);
+    rhi.DestroyShaderModule(vs);
+    rhi.DestroyShaderModule(fs);
+}
+#endif
+
+#if defined(RHI_WEBGPU)
+TEST_F(RHITest, ReflectionMarksDepthComparisonSampling)
+{
+    const auto handle = rhi.CompileShader(MakeShaderSource(
+        "shadow.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    const auto module = rhi.GetShaderModule(handle);
+    ASSERT_TRUE(module.has_value());
+    ASSERT_EQ(module->reflection.bindings.size(), 4u);
+
+    const auto* shadow = FindBinding(
+        module->reflection, 2u, 0u, rhi::BindingType::SampledTexture);
+    ASSERT_NE(shadow, nullptr);
+    EXPECT_TRUE(shadow->depthSampled);
+    EXPECT_FALSE(shadow->comparison);
+
+    const auto* shadowSampler = FindBinding(
+        module->reflection, 2u, 1u, rhi::BindingType::Sampler);
+    ASSERT_NE(shadowSampler, nullptr);
+    EXPECT_TRUE(shadowSampler->comparison);
+    EXPECT_FALSE(shadowSampler->depthSampled);
+
+    const auto* albedo = FindBinding(
+        module->reflection, 2u, 2u, rhi::BindingType::SampledTexture);
+    ASSERT_NE(albedo, nullptr);
+    EXPECT_FALSE(albedo->depthSampled);
+
+    const auto* linear = FindBinding(
+        module->reflection, 2u, 3u, rhi::BindingType::Sampler);
+    ASSERT_NE(linear, nullptr);
+    EXPECT_FALSE(linear->comparison);
+
+    rhi.DestroyShaderModule(handle);
+}
+
+TEST_F(RHITest, ReflectionLeavesRegularSamplingUnmarked)
+{
+    const auto handle = rhi.CompileShader(MakeShaderSource(
+        "bindings.frag.hlsl",
+        rhi::ShaderStageFlags::Fragment));
+    const auto module = rhi.GetShaderModule(handle);
+    ASSERT_TRUE(module.has_value());
+
+    for (const auto& binding : module->reflection.bindings)
+    {
+        EXPECT_FALSE(binding.depthSampled);
+        EXPECT_FALSE(binding.comparison);
+    }
+
+    rhi.DestroyShaderModule(handle);
+}
 #endif
 
 #if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)

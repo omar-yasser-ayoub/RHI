@@ -63,7 +63,9 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
             break;
 
         case rhi::BindingType::SampledTexture:
-            entry.texture.sampleType = wgpu::TextureSampleType::Float;
+            entry.texture.sampleType = shaderBinding.depthSampled
+                ? wgpu::TextureSampleType::Depth
+                : wgpu::TextureSampleType::Float;
             entry.texture.viewDimension = wgpu::TextureViewDimension::e2D;
             entry.texture.multisampled = false;
             break;
@@ -78,7 +80,9 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
             break;
 
         case rhi::BindingType::Sampler:
-            entry.sampler.type = wgpu::SamplerBindingType::Filtering;
+            entry.sampler.type = shaderBinding.comparison
+                ? wgpu::SamplerBindingType::Comparison
+                : wgpu::SamplerBindingType::Filtering;
             break;
 
         default:

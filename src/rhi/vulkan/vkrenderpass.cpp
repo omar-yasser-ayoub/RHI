@@ -110,8 +110,8 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
         printf("BeginRenderPass: a pass is already open on this command list\n");
         return;
     }
-    if (desc.colors.empty()) {
-        printf("BeginRenderPass needs at least one color attachment\n");
+    if (desc.colors.empty() && !desc.depth.enabled) {
+        printf("BeginRenderPass needs at least one color attachment or a depth attachment\n");
         return;
     }
 
@@ -221,7 +221,17 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.renderArea.offset = { 0, 0 };
-    renderInfo.renderArea.extent = extentSet ? extent : VkExtent2D{ 1, 1 };
+    renderInfo.renderArea.extent = extent;
+    if (!extentSet) {
+        if (desc.depth.enabled) {
+            const rhi::TextureHandle& depthParent = desc.depth.view.texture;
+            renderInfo.renderArea.extent = {
+                depthParent.desc.width, depthParent.desc.height
+            };
+        } else {
+            renderInfo.renderArea.extent = VkExtent2D{ 1, 1 };
+        }
+    }
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = static_cast<std::uint32_t>(colors.size());
     renderInfo.pColorAttachments = colors.data();

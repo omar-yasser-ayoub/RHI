@@ -115,8 +115,8 @@ void DX12RHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassD
         printf("[ERROR] BeginRenderPass: a pass is already open on this command list\n");
         return;
     }
-    if (desc.colors.empty()) {
-        printf("[ERROR] BeginRenderPass needs at least one color attachment\n");
+    if (desc.colors.empty() && !desc.depth.enabled) {
+        printf("[ERROR] BeginRenderPass needs at least one color attachment or a depth attachment\n");
         return;
     }
 
@@ -222,7 +222,7 @@ void DX12RHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassD
     }
 
     list->OMSetRenderTargets(
-        static_cast<UINT>(rtvs.size()), rtvs.data(), FALSE, dsv);
+        static_cast<UINT>(rtvs.size()), rtvs.empty() ? nullptr : rtvs.data(), FALSE, dsv);
     state.pass = CurrentPass::Graphics;
     state.computeBindPoint = false;
 }

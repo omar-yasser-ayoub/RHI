@@ -15,7 +15,8 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
         printf("[RHI] Only 1x and 4x MSAA are supported in WebGPU\n");
         return handle;
     }
-    if (desc.colorTargets.empty()) {
+    if (desc.colorTargets.empty() &&
+        desc.depthStencil.format == rhi::TextureFormat::Unknown) {
         return handle;
     }
     if (desc.layout.id >= m_PipelineLayouts.size() ||
@@ -139,18 +140,19 @@ rhi::GraphicsPipelineHandle WebGPURHI::CreateGraphicsPipeline(
     pipelineDesc.multisample.mask = 0xFFFFFFFF;
 
     wgpu::FragmentState fragment{};
-    fragment.module = fs;
-    fragment.entryPoint = wgpu::StringView(
-        fsModule.entryPoint.data(), fsModule.entryPoint.size());
-    fragment.targetCount = wgpuTargets.size();
-    fragment.targets = wgpuTargets.data();
-    pipelineDesc.fragment = &fragment;
+    if (!desc.colorTargets.empty()) {
+        fragment.module = fs;
+        fragment.entryPoint = wgpu::StringView(
+            fsModule.entryPoint.data(), fsModule.entryPoint.size());
+        fragment.targetCount = wgpuTargets.size();
+        fragment.targets = wgpuTargets.data();
+        pipelineDesc.fragment = &fragment;
+    }
 
     wgpu::RenderPipeline pipeline = m_Device.CreateRenderPipeline(&pipelineDesc);
     if (!pipeline) {
         return handle;
     }
-
     handle.id = 0xFFFFFFFFFFFFFFFFull;
     handle.desc = desc;
     if (!m_FreePipelines.empty()) {
