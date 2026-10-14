@@ -3,12 +3,21 @@
 
 #include <array>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
+
+#define GLFW_INCLUDE_NONE
+#include <third_party/glfw/include/GLFW/glfw3.h>
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <third_party/glfw/include/GLFW/glfw3native.h>
+#include <Windows.h>
+#endif
 
 
 
@@ -2242,82 +2251,43 @@ TEST_F(RHITest, DestroyAndReuseComputePipeline)
 
 
 // ============================================================================
-// Native Window Tests (all backends, hidden windows so tests stay headless)
+// Hidden GLFW windows for surface/swapchain tests. Windowing belongs to the
+// test executable; the RHI only ever sees the native handle.
 // ============================================================================
 
 namespace
 {
-rhi::WindowDesc MakeHiddenWindowDesc(
+struct GlfwInit {
+    GlfwInit()
+    {
+        if (glfwInit() == GLFW_TRUE) {
+            std::atexit(glfwTerminate);
+        }
+    }
+};
+
+GLFWwindow* MakeHiddenGlfwWindow(
     std::uint32_t width = 640,
     std::uint32_t height = 480)
 {
-    rhi::WindowDesc desc;
-    desc.title = "rhi_test";
-    desc.width = width;
-    desc.height = height;
-    desc.visible = false;
-    return desc;
-}
+    static GlfwInit init;
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+    return glfwCreateWindow(
+        static_cast<int>(width), static_cast<int>(height),
+        "rhi_test", nullptr, nullptr);
 }
 
-TEST_F(RHITest, CreateHiddenNativeWindow)
+rhi::NativeWindow MakeNativeWindow(GLFWwindow* window)
 {
-    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-
-    ASSERT_NE(handle.id, InvalidHandle);
-    EXPECT_EQ(handle.desc.width, 640u);
-    EXPECT_EQ(handle.desc.height, 480u);
-    EXPECT_EQ(handle.desc.title, "rhi_test");
-
-    rhi.DestroyNativeWindow(handle);
+    rhi::NativeWindow native;
+#if defined(_WIN32)
+    native.type = rhi::NativeWindowType::Win32;
+    native.handle = glfwGetWin32Window(window);
+    native.display = GetModuleHandle(nullptr);
+#endif
+    return native;
 }
-
-TEST_F(RHITest, RejectsZeroSizedWindow)
-{
-    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc(0, 0));
-
-    EXPECT_EQ(handle.id, InvalidHandle);
-}
-
-TEST_F(RHITest, CreateMultipleNativeWindows)
-{
-    auto handle1 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    auto handle2 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    auto handle3 = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-
-    ASSERT_NE(handle1.id, InvalidHandle);
-    ASSERT_NE(handle2.id, InvalidHandle);
-    ASSERT_NE(handle3.id, InvalidHandle);
-    EXPECT_NE(handle1.id, handle2.id);
-    EXPECT_NE(handle2.id, handle3.id);
-
-    rhi.DestroyNativeWindow(handle3);
-    rhi.DestroyNativeWindow(handle2);
-    rhi.DestroyNativeWindow(handle1);
-}
-
-TEST_F(RHITest, DestroyNativeWindowIsIdempotent)
-{
-    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(handle.id, InvalidHandle);
-
-    rhi.DestroyNativeWindow(handle);
-
-    // Double destroy should not crash.
-    rhi.DestroyNativeWindow(handle);
-}
-
-TEST_F(RHITest, ReusesWindowSlotAfterDestroy)
-{
-    auto handle = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(handle.id, InvalidHandle);
-    rhi.DestroyNativeWindow(handle);
-
-    auto reused = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(reused.id, InvalidHandle);
-    EXPECT_EQ(reused.id, handle.id);
-
-    rhi.DestroyNativeWindow(reused);
 }
 
 
@@ -2327,7 +2297,7 @@ TEST_F(RHITest, ReusesWindowSlotAfterDestroy)
 
 namespace
 {
-rhi::SurfaceDesc MakeSurfaceDesc(rhi::WindowHandle window)
+rhi::SurfaceDesc MakeSurfaceDesc(rhi::NativeWindow window)
 {
     rhi::SurfaceDesc desc;
     desc.window = window;
@@ -2337,16 +2307,17 @@ rhi::SurfaceDesc MakeSurfaceDesc(rhi::WindowHandle window)
 
 TEST_F(RHITest, CreateSurfaceFromHiddenWindow)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
 
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
 
     ASSERT_NE(surface.id, InvalidHandle);
-    EXPECT_EQ(surface.desc.window.id, window.id);
+    EXPECT_EQ(surface.desc.window.handle, window.handle);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, RejectsSurfaceWithInvalidWindow)
@@ -2357,21 +2328,11 @@ TEST_F(RHITest, RejectsSurfaceWithInvalidWindow)
     EXPECT_EQ(surface.id, InvalidHandle);
 }
 
-TEST_F(RHITest, RejectsSurfaceAfterWindowDestroyed)
-{
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
-    rhi.DestroyNativeWindow(window);
-
-    auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
-
-    EXPECT_EQ(surface.id, InvalidHandle);
-}
-
 TEST_F(RHITest, CreateMultipleSurfaces)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
 
     auto surface1 = rhi.CreateSurface(MakeSurfaceDesc(window));
     auto surface2 = rhi.CreateSurface(MakeSurfaceDesc(window));
@@ -2382,13 +2343,14 @@ TEST_F(RHITest, CreateMultipleSurfaces)
 
     rhi.DestroySurface(surface2);
     rhi.DestroySurface(surface1);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, DestroySurfaceIsIdempotent)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
 
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
@@ -2398,13 +2360,14 @@ TEST_F(RHITest, DestroySurfaceIsIdempotent)
     // Double destroy should not crash.
     rhi.DestroySurface(surface);
 
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, ReusesSurfaceSlotAfterDestroy)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
 
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
@@ -2415,7 +2378,7 @@ TEST_F(RHITest, ReusesSurfaceSlotAfterDestroy)
     EXPECT_EQ(reused.id, surface.id);
 
     rhi.DestroySurface(reused);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 #if defined(RHI_VULKAN) || defined(RHI_WEBGPU) || defined(RHI_DX12)
@@ -2440,8 +2403,9 @@ rhi::SwapchainDesc MakeSwapchainDesc(rhi::SurfaceHandle surface)
 
 TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2454,7 +2418,7 @@ TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
@@ -2467,8 +2431,9 @@ TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
 
 TEST_F(RHITest, RejectsZeroSizedSwapchain)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2480,13 +2445,14 @@ TEST_F(RHITest, RejectsZeroSizedSwapchain)
     EXPECT_EQ(swapchain.id, InvalidHandle);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2506,13 +2472,14 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, DestroySwapchainIsIdempotent)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2524,13 +2491,14 @@ TEST_F(RHITest, DestroySwapchainIsIdempotent)
     rhi.DestroySwapchain(swapchain);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2544,7 +2512,7 @@ TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 
     rhi.DestroySwapchain(reused);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 #endif
 
@@ -2555,8 +2523,9 @@ TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 
 TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2567,7 +2536,7 @@ TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
@@ -2580,8 +2549,9 @@ TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
 
 TEST_F(RHITest, RejectsZeroSizedSwapchain)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2593,13 +2563,14 @@ TEST_F(RHITest, RejectsZeroSizedSwapchain)
     EXPECT_EQ(swapchain.id, InvalidHandle);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2615,13 +2586,14 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, DestroySwapchainIsIdempotent)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2633,13 +2605,14 @@ TEST_F(RHITest, DestroySwapchainIsIdempotent)
     rhi.DestroySwapchain(swapchain);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2653,7 +2626,7 @@ TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 
     rhi.DestroySwapchain(reused);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 #endif
 
@@ -2664,8 +2637,9 @@ TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 
 TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2676,7 +2650,7 @@ TEST_F(RHITest, CreateSwapchainFromHiddenWindowSurface)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
@@ -2689,8 +2663,9 @@ TEST_F(RHITest, RejectsSwapchainWithInvalidSurface)
 
 TEST_F(RHITest, RejectsZeroSizedSwapchain)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2702,13 +2677,14 @@ TEST_F(RHITest, RejectsZeroSizedSwapchain)
     EXPECT_EQ(swapchain.id, InvalidHandle);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2726,13 +2702,14 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
 
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, DestroySwapchainIsIdempotent)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
     auto swapchain = rhi.CreateSwapchain(MakeSwapchainDesc(surface));
@@ -2744,13 +2721,14 @@ TEST_F(RHITest, DestroySwapchainIsIdempotent)
     rhi.DestroySwapchain(swapchain);
 
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 
 TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 {
-    auto window = rhi.CreateNativeWindow(MakeHiddenWindowDesc());
-    ASSERT_NE(window.id, InvalidHandle);
+    GLFWwindow* glfwWindow = MakeHiddenGlfwWindow();
+    ASSERT_NE(glfwWindow, nullptr);
+    auto window = MakeNativeWindow(glfwWindow);
     auto surface = rhi.CreateSurface(MakeSurfaceDesc(window));
     ASSERT_NE(surface.id, InvalidHandle);
 
@@ -2764,6 +2742,6 @@ TEST_F(RHITest, ReusesSwapchainSlotAfterDestroy)
 
     rhi.DestroySwapchain(reused);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(glfwWindow);
 }
 #endif

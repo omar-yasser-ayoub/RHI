@@ -1,7 +1,6 @@
 #define VMA_IMPLEMENTATION
 #include "rhi/vulkan/vkrhi.h"
 #include <vulkan/vulkan.h>
-#include <third_party/glfw/include/GLFW/glfw3.h>
 #include <iostream>
 #include <cstdint>
 #include <cstring>
@@ -21,24 +20,20 @@ bool VulkanRHI::Initialize() {
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    if (!m_GlfwInitialized) {
-        if (!glfwInit()) {
-            std::cerr << "Failed to initialize GLFW.\n";
-            return false;
-        }
-        m_GlfwInitialized = true;
-    }
-    std::uint32_t surfaceExtensionCount = 0;
-    const char** surfaceExtensions =
-        glfwGetRequiredInstanceExtensions(&surfaceExtensionCount);
-    const char* fallbackExtensions[] = {
-        VK_KHR_SURFACE_EXTENSION_NAME,
-        "VK_KHR_win32_surface",
-    };
-    if (surfaceExtensions == nullptr || surfaceExtensionCount == 0) {
-        surfaceExtensions = fallbackExtensions;
-        surfaceExtensionCount = 2;
-    }
+    std::vector<const char*> surfaceExtensions;
+    surfaceExtensions.push_back(VK_KHR_SURFACE_EXTENSION_NAME);
+#if defined(VK_USE_PLATFORM_WIN32_KHR)
+    surfaceExtensions.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
+#endif
+#if defined(VK_USE_PLATFORM_XCB_KHR)
+    surfaceExtensions.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+#endif
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+    surfaceExtensions.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+    surfaceExtensions.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+#endif
 
     // Enable the standard validation layer when available (dev builds).
     // Also requires VK_EXT_debug_utils for the messenger callback.
@@ -58,8 +53,7 @@ bool VulkanRHI::Initialize() {
         }
     }
 
-    std::vector<const char*> instanceExtensions(
-        surfaceExtensions, surfaceExtensions + surfaceExtensionCount);
+    std::vector<const char*> instanceExtensions = surfaceExtensions;
     if (enableValidation) {
         instanceExtensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
@@ -612,16 +606,4 @@ void VulkanRHI::Shutdown() {
         DestroyInstance();
     }
     m_PhysicalDevice = VK_NULL_HANDLE;
-
-    for (struct GLFWwindow* window : m_Windows) {
-        if (window != nullptr) {
-            glfwDestroyWindow(window);
-        }
-    }
-    m_Windows.clear();
-    m_FreeWindows.clear();
-    if (m_GlfwInitialized) {
-        glfwTerminate();
-        m_GlfwInitialized = false;
-    }
 }

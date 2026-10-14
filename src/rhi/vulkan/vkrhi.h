@@ -1,5 +1,14 @@
 #pragma once
 
+#if defined(_WIN32) && !defined(VK_USE_PLATFORM_WIN32_KHR)
+#define VK_USE_PLATFORM_WIN32_KHR
+#endif
+#if defined(__linux__) && !defined(__ANDROID__)
+#define VK_USE_PLATFORM_XCB_KHR
+#define VK_USE_PLATFORM_XLIB_KHR
+#define VK_USE_PLATFORM_WAYLAND_KHR
+#endif
+
 #include "rhi/resources/capabilities.h"
 #include "rhi/resources/buffer.h"
 #include "rhi/resources/texture.h"
@@ -8,7 +17,6 @@
 #include <rhi/resources/pipeline.h>
 #include <rhi/resources/swapchain.h>
 #include <rhi/resources/surface.h>
-#include <rhi/resources/window.h>
 #include "rhi/resources/renderpass.h"
 #include "rhi/resources/commands.h"
 
@@ -48,12 +56,8 @@ public:
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
     rhi::ComputePipelineHandle CreateComputePipeline(const rhi::ComputePipelineDesc& desc);
-    rhi::WindowHandle CreateNativeWindow(const rhi::WindowDesc& desc);
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
-
-    void PollEvents();
-    bool WindowShouldClose(rhi::WindowHandle handle) const;
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
     VkImage GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
@@ -107,7 +111,6 @@ public:
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
     void DestroyComputePipeline(rhi::ComputePipelineHandle handle);
-    void DestroyNativeWindow(rhi::WindowHandle handle);
     void DestroySurface(rhi::SurfaceHandle handle);
     void DestroySwapchain(rhi::SwapchainHandle handle);
 
@@ -188,8 +191,6 @@ private:
     std::vector<std::uint64_t> m_FreeComputePipelines;
     std::vector<VkSurfaceKHR> m_Surfaces;
     std::vector<std::uint64_t> m_FreeSurfaces;
-    std::vector<struct GLFWwindow*> m_Windows;
-    std::vector<std::uint64_t> m_FreeWindows;
     struct VkSwapchainData {
         VkSwapchainKHR swapchain = VK_NULL_HANDLE;
         std::vector<VkImage> images;
@@ -201,7 +202,6 @@ private:
     };
     std::vector<VkSwapchainData> m_Swapchains;
     std::vector<uint64_t> m_FreeSwapchains;
-    bool m_GlfwInitialized = false;
 
     struct FrameContext {
         VkCommandPool pool = VK_NULL_HANDLE;

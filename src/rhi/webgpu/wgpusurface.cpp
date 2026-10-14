@@ -2,37 +2,52 @@
 
 #include <iostream>
 
-#ifdef _WIN32
-#define GLFW_EXPOSE_NATIVE_WIN32
-#endif
-#include <third_party/glfw/include/GLFW/glfw3.h>
-#ifdef _WIN32
-#include <third_party/glfw/include/GLFW/glfw3native.h>
-#include <windows.h>
-#endif
-
 rhi::SurfaceHandle WebGPURHI::CreateSurface(const rhi::SurfaceDesc& desc)
 {
-    if (!m_Instance || desc.window.id == 0xFFFFFFFFFFFFFFFF ||
-        desc.window.id >= m_Windows.size() || m_Windows[desc.window.id] == nullptr) {
+    if (!m_Instance || desc.window.type == rhi::NativeWindowType::Unknown ||
+        desc.window.handle == nullptr) {
         return {};
     }
-
-#ifndef _WIN32
-    return {};
-#else
-    HWND hwnd = glfwGetWin32Window(m_Windows[desc.window.id]);
-    if (hwnd == nullptr) {
-        std::cerr << "Failed to get HWND from window.\n";
-        return {};
-    }
-
-    wgpu::SurfaceSourceWindowsHWND nativeSource{};
-    nativeSource.hinstance = GetModuleHandle(nullptr);
-    nativeSource.hwnd = hwnd;
 
     wgpu::SurfaceDescriptor surfaceDesc{};
-    surfaceDesc.nextInChain = &nativeSource;
+#if defined(_WIN32)
+    wgpu::SurfaceSourceWindowsHWND windowsSource{};
+#endif
+#if defined(__linux__)
+    wgpu::SurfaceSourceXlibWindow xlibSource{};
+    wgpu::SurfaceSourceXCBWindow xcbSource{};
+    wgpu::SurfaceSourceWaylandSurface waylandSource{};
+#endif
+    switch (desc.window.type) {
+#if defined(_WIN32)
+    case rhi::NativeWindowType::Win32:
+        windowsSource.hinstance = desc.window.display;
+        windowsSource.hwnd = desc.window.handle;
+        surfaceDesc.nextInChain = &windowsSource;
+        break;
+#endif
+#if defined(__linux__)
+    case rhi::NativeWindowType::Xlib:
+        xlibSource.display = desc.window.display;
+        xlibSource.window = static_cast<std::uint64_t>(
+            reinterpret_cast<std::uintptr_t>(desc.window.handle));
+        surfaceDesc.nextInChain = &xlibSource;
+        break;
+    case rhi::NativeWindowType::Xcb:
+        xcbSource.connection = desc.window.display;
+        xcbSource.window = static_cast<std::uint32_t>(
+            reinterpret_cast<std::uintptr_t>(desc.window.handle));
+        surfaceDesc.nextInChain = &xcbSource;
+        break;
+    case rhi::NativeWindowType::Wayland:
+        waylandSource.display = desc.window.display;
+        waylandSource.surface = desc.window.handle;
+        surfaceDesc.nextInChain = &waylandSource;
+        break;
+#endif
+    default:
+        return {};
+    }
 
     wgpu::Surface surface = m_Instance.CreateSurface(&surfaceDesc);
     if (!surface) {
@@ -51,7 +66,6 @@ rhi::SurfaceHandle WebGPURHI::CreateSurface(const rhi::SurfaceDesc& desc)
         m_Surfaces.push_back(surface);
     }
     return handle;
-#endif
 }
 
 void WebGPURHI::DestroySurface(rhi::SurfaceHandle handle)

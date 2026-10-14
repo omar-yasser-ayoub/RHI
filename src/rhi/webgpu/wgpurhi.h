@@ -8,7 +8,6 @@
 #include "rhi/resources/pipeline.h"
 #include "rhi/resources/swapchain.h"
 #include "rhi/resources/surface.h"
-#include "rhi/resources/window.h"
 #include "rhi/resources/renderpass.h"
 #include "rhi/resources/commands.h"
 #include <webgpu/webgpu_cpp.h>
@@ -44,12 +43,8 @@ public:
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
     rhi::ComputePipelineHandle CreateComputePipeline(const rhi::ComputePipelineDesc& desc);
-    rhi::WindowHandle CreateNativeWindow(const rhi::WindowDesc& desc);
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
-
-    void PollEvents();
-    bool WindowShouldClose(rhi::WindowHandle handle) const;
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
     wgpu::Texture GetSwapchainTexture(rhi::SwapchainHandle handle) const;
@@ -102,7 +97,6 @@ public:
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
     void DestroyComputePipeline(rhi::ComputePipelineHandle handle);
-    void DestroyNativeWindow(rhi::WindowHandle handle);
     void DestroySurface(rhi::SurfaceHandle handle);
     void DestroySwapchain(rhi::SwapchainHandle handle);
 
@@ -202,7 +196,4 @@ private:
     };
     std::vector<WebGPUSwapchainData> m_Swapchains;
     std::vector<std::uint64_t> m_FreeSwapchains;
-    std::vector<struct GLFWwindow*> m_Windows;
-    std::vector<std::uint64_t> m_FreeWindows;
-    bool m_GlfwInitialized = false;
 };

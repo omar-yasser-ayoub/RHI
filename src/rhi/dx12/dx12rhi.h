@@ -7,7 +7,6 @@
 #include "rhi/resources/pipeline.h"
 #include "rhi/resources/swapchain.h"
 #include "rhi/resources/surface.h"
-#include "rhi/resources/window.h"
 #include "rhi/resources/renderpass.h"
 #include "rhi/resources/commands.h"
 
@@ -47,12 +46,8 @@ public:
     rhi::PipelineLayoutHandle CreatePipelineLayout(const rhi::PipelineLayoutDesc& desc);
     rhi::GraphicsPipelineHandle CreateGraphicsPipeline(const rhi::GraphicsPipelineDesc& desc);
     rhi::ComputePipelineHandle CreateComputePipeline(const rhi::ComputePipelineDesc& desc);
-    rhi::WindowHandle CreateNativeWindow(const rhi::WindowDesc& desc);
     rhi::SurfaceHandle CreateSurface(const rhi::SurfaceDesc& desc);
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
-
-    void PollEvents();
-    bool WindowShouldClose(rhi::WindowHandle handle) const;
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
     ID3D12Resource* GetSwapchainBuffer(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
@@ -105,7 +100,6 @@ public:
     void DestroyPipelineLayout(rhi::PipelineLayoutHandle handle);
     void DestroyPipeline(rhi::GraphicsPipelineHandle handle);
     void DestroyComputePipeline(rhi::ComputePipelineHandle handle);
-    void DestroyNativeWindow(rhi::WindowHandle handle);
     void DestroySurface(rhi::SurfaceHandle handle);
     void DestroySwapchain(rhi::SwapchainHandle handle);
 
@@ -272,9 +266,6 @@ private:
     // DX12 has no surface object, so a surface just borrows the window's HWND
     std::vector<HWND> m_Surfaces;
     std::vector<std::uint64_t> m_FreeSurfaces;
-    std::vector<struct GLFWwindow*> m_Windows;
-    std::vector<std::uint64_t> m_FreeWindows;
-    bool m_GlfwInitialized = false;
 
     struct FrameContext {
         Microsoft::WRL::ComPtr<ID3D12CommandAllocator> allocator;

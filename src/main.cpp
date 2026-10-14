@@ -2,6 +2,14 @@
 
 #include "rhi/rhi.h"
 
+#define GLFW_INCLUDE_NONE
+#include <third_party/glfw/include/GLFW/glfw3.h>
+#if defined(_WIN32)
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <third_party/glfw/include/GLFW/glfw3native.h>
+#include <Windows.h>
+#endif
+
 constexpr std::uint32_t kWidth = 1280;
 constexpr std::uint32_t kHeight = 720;
 
@@ -34,18 +42,29 @@ int main()
         return 1;
     }
 
-    rhi::WindowDesc windowDesc;
-    windowDesc.title = "hello triangle";
-    windowDesc.width = kWidth;
-    windowDesc.height = kHeight;
-    const rhi::WindowHandle window = rhi.CreateNativeWindow(windowDesc);
-    if (window.id == 0xFFFFFFFFFFFFFFFFull) {
+    if (!glfwInit()) {
+        std::cerr << "Failed to initialize GLFW.\n";
+        return 1;
+    }
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    GLFWwindow* window = glfwCreateWindow(
+        static_cast<int>(kWidth), static_cast<int>(kHeight),
+        "hello triangle", nullptr, nullptr);
+    if (window == nullptr) {
         std::cerr << "Failed to create a window.\n";
+        glfwTerminate();
         return 1;
     }
 
     rhi::SurfaceDesc surfaceDesc;
-    surfaceDesc.window = window;
+#if defined(_WIN32)
+    surfaceDesc.window.type = rhi::NativeWindowType::Win32;
+    surfaceDesc.window.handle = glfwGetWin32Window(window);
+    surfaceDesc.window.display = GetModuleHandle(nullptr);
+#else
+    std::cerr << "Native windowing is only implemented for Win32.\n";
+    return 1;
+#endif
     const rhi::SurfaceHandle surface = rhi.CreateSurface(surfaceDesc);
     if (surface.id == 0xFFFFFFFFFFFFFFFFull) {
         std::cerr << "Failed to create a surface.\n";
@@ -77,12 +96,26 @@ int main()
     fsSource.entryPoint = "main";
     const rhi::ShaderModuleHandle fs = rhi.CompileShader(fsSource);
 
-    if (!rhi.GetShaderModule(vs).has_value() || !rhi.GetShaderModule(fs).has_value()) {
+    const auto vsModule = rhi.GetShaderModule(vs);
+    const auto fsModule = rhi.GetShaderModule(fs);
+    if (!vsModule.has_value() || !fsModule.has_value()) {
         std::cerr << "Failed to compile shaders.\n";
         return 1;
     }
 
     rhi::PipelineLayoutDesc layoutDesc;
+    const std::vector<rhi::ShaderReflection> reflections = {
+        vsModule->reflection, fsModule->reflection
+    };
+    for (const auto& bindGroupDesc : rhi::BuildBindGroupLayoutDescs(reflections)) {
+        const rhi::BindGroupLayoutHandle bindGroupLayout =
+            rhi.CreateBindGroupLayout(bindGroupDesc);
+        if (bindGroupLayout.id == 0xFFFFFFFFFFFFFFFFull) {
+            std::cerr << "Failed to create a bind group layout.\n";
+            return 1;
+        }
+        layoutDesc.layouts.push_back(bindGroupLayout);
+    }
     const rhi::PipelineLayoutHandle layout = rhi.CreatePipelineLayout(layoutDesc);
 
     rhi::GraphicsPipelineDesc pipelineDesc;
@@ -108,6 +141,7 @@ int main()
         { { -0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f } },
         { { 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f } },
     };
+
     rhi::BufferDesc vertexDesc;
     vertexDesc.size = sizeof(triangle);
     vertexDesc.memoryUsage = rhi::MemoryUsage::CpuToGpu;
@@ -115,8 +149,8 @@ int main()
     const rhi::BufferHandle vertexBuffer = rhi.CreateBuffer(vertexDesc);
     rhi.WriteBuffer(vertexBuffer, triangle, sizeof(triangle));
 
-    while (!rhi.WindowShouldClose(window)) {
-        rhi.PollEvents();
+    while (!glfwWindowShouldClose(window)) {
+        glfwPollEvents();
 
         const rhi::AcquireResult acquired = rhi.AcquireNextImage(swapchain);
         if (acquired.status == rhi::AcquireStatus::OutOfDate) {
@@ -162,7 +196,8 @@ int main()
     rhi.DestroyShaderModule(fs);
     rhi.DestroySwapchain(swapchain);
     rhi.DestroySurface(surface);
-    rhi.DestroyNativeWindow(window);
+    glfwDestroyWindow(window);
+    glfwTerminate();
     rhi.Shutdown();
     return 0;
 }

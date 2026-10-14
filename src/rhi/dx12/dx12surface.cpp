@@ -1,17 +1,14 @@
 #include "rhi/dx12/dx12rhi.h"
 
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <third_party/glfw/include/GLFW/glfw3.h>
-#include <third_party/glfw/include/GLFW/glfw3native.h>
-
+#include <Windows.h>
 rhi::SurfaceHandle DX12RHI::CreateSurface(const rhi::SurfaceDesc& desc)
 {
-    if (desc.window.id == 0xFFFFFFFFFFFFFFFF || desc.window.id >= m_Windows.size() ||
-        m_Windows[desc.window.id] == nullptr) {
+    if (desc.window.type != rhi::NativeWindowType::Win32 ||
+        desc.window.handle == nullptr) {
         return {};
     }
 
-    HWND hwnd = glfwGetWin32Window(m_Windows[desc.window.id]);
+    HWND hwnd = static_cast<HWND>(desc.window.handle);
     if (hwnd == nullptr) {
         return {};
     }
