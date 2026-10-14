@@ -112,28 +112,21 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
             RHI_WEBGPU
     )
     # Dawn needs its backend DLLs next to the test binary (same as build_webgpu.bat does for RHI.exe).
-    add_custom_command(TARGET rhi_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DAWN_SDK_ROOT}/bin/d3dcompiler_47.dll"
-            "$<TARGET_FILE_DIR:rhi_tests>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DAWN_SDK_ROOT}/bin/vulkan-1.dll"
-            "$<TARGET_FILE_DIR:rhi_tests>"
-    )
+    if(WIN32)
+        add_custom_command(TARGET rhi_tests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${DAWN_SDK_ROOT}/bin/d3dcompiler_47.dll"
+                "$<TARGET_FILE_DIR:rhi_tests>"
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                "${DAWN_SDK_ROOT}/bin/vulkan-1.dll"
+                "$<TARGET_FILE_DIR:rhi_tests>"
+        )
+    endif()
 else()
     message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
 
-if(WIN32)
-    add_custom_command(TARGET rhi_tests POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
-            "$<TARGET_FILE_DIR:rhi_tests>"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            "${DXC_ROOT}/bin/${DXC_ARCH}/dxil.dll"
-            "$<TARGET_FILE_DIR:rhi_tests>"
-    )
-endif()
+copy_dxc_runtime(rhi_tests)
 
 configure_rhi_shaders(rhi_tests)
 

@@ -28,14 +28,23 @@ function(configure_rhi_shaders target)
     set(shader_outputs)
 
     if(RHI_BACKEND STREQUAL "WEBGPU")
-      if(NOT WIN32)
-        message(FATAL_ERROR
-          "WebGPU shader compilation requires Windows DXC and Tint tools")
+      if(WIN32)
+        set(dxc_exe "${DXC_ROOT}/bin/${DXC_ARCH}/dxc.exe")
+        set(tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/tint/tint.exe")
+      elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        set(RHI_TINT_EXE "RHI_TINT_EXE-NOTFOUND" CACHE FILEPATH "Tint executable for shaders (build from Dawn sources)")
+        if(NOT EXISTS "${RHI_TINT_EXE}")
+          message(FATAL_ERROR "WebGPU shader compilation needs Tint at RHI_TINT_EXE=${RHI_TINT_EXE}")
+        endif()
+        file(COPY "${DXC_ROOT}/bin/linux-x64/dxc" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/shader_tools"
+          FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+        set(dxc_exe "${CMAKE_CURRENT_BINARY_DIR}/shader_tools/dxc")
+        set(tint_exe "${RHI_TINT_EXE}")
+      else()
+        message(FATAL_ERROR "WebGPU shader compilation needs DXC and Tint tool paths for this platform")
       endif()
 
       set(shader_tool_dir "${CMAKE_CURRENT_BINARY_DIR}/shader_tools")
-      set(dxc_exe "${DXC_ROOT}/bin/${DXC_ARCH}/dxc.exe")
-      set(tint_exe "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/tint/tint.exe")
 
       foreach(shader IN LISTS RHI_SHADER_SOURCES)
         get_filename_component(shader_filename "${shader}" NAME)
@@ -117,8 +126,8 @@ target_include_directories(${PROJECT_NAME}
         src
 )
 
+set(DXC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/dxc" CACHE PATH "DXC SDK root")
 if(WIN32)
-  set(DXC_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/dxc" CACHE PATH "DXC SDK root")
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(DXC_ARCH x64)
   else()
@@ -131,7 +140,36 @@ if(WIN32)
     IMPORTED_LOCATION "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
     INTERFACE_INCLUDE_DIRECTORIES "${DXC_ROOT}/inc"
   )
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_library(dxc SHARED IMPORTED GLOBAL)
+  set_target_properties(dxc PROPERTIES
+    IMPORTED_LOCATION "${DXC_ROOT}/lib/linux-x64/libdxcompiler.so"
+    INTERFACE_INCLUDE_DIRECTORIES "${DXC_ROOT}/inc"
+  )
 endif()
+
+function(copy_dxc_runtime target)
+  if(WIN32)
+    add_custom_command(TARGET ${target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
+        "$<TARGET_FILE_DIR:${target}>"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DXC_ROOT}/bin/${DXC_ARCH}/dxil.dll"
+        "$<TARGET_FILE_DIR:${target}>"
+    )
+  elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_custom_command(TARGET ${target} POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DXC_ROOT}/lib/linux-x64/libdxcompiler.so"
+        "$<TARGET_FILE_DIR:${target}>"
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${DXC_ROOT}/lib/linux-x64/libdxil.so"
+        "$<TARGET_FILE_DIR:${target}>"
+    )
+    set_target_properties(${target} PROPERTIES BUILD_RPATH "$ORIGIN")
+  endif()
+endfunction()
 
 if(RHI_BACKEND STREQUAL "VULKAN")
   message(STATUS "Configuring RHI for Vulkan")
@@ -225,16 +263,7 @@ target_link_libraries(${PROJECT_NAME}
         glfw
 )
 
-if(WIN32)
-  add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${DXC_ROOT}/bin/${DXC_ARCH}/dxcompiler.dll"
-      "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "${DXC_ROOT}/bin/${DXC_ARCH}/dxil.dll"
-      "$<TARGET_FILE_DIR:${PROJECT_NAME}>"
-  )
-endif()
+copy_dxc_runtime(${PROJECT_NAME})
 
 configure_rhi_shaders(${PROJECT_NAME})
 

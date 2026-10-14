@@ -26,7 +26,9 @@
 #include <optional>
 #include <span>
 #include <vector>
+#if defined(_WIN32)
 #include <Windows.h>
+#endif
 #include <third_party/dxc/inc/dxcapi.h>
 #include <third_party/vma/vk_mem_alloc.h>
 #include <wrl/client.h>

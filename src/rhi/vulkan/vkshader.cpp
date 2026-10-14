@@ -1,14 +1,41 @@
 #include "rhi/resources/shader.h"
 #include "rhi/vulkan/vkrhi.h"
-#include <wrl/client.h>
 #include "third_party/spirv-reflect/spirv_reflect.h"
 
 #include "third_party/dxc/inc/dxcapi.h"
-#include <d3dcommon.h>
+#include <cstdio>
+#include <cstring>
+#include <cwchar>
 #include <iterator>
 #include <fstream>
 #include <string>
-#include <wrl/client.h>
+
+template <typename T>
+struct DxPtr {
+    T* ptr = nullptr;
+    ~DxPtr() { if (ptr != nullptr) ptr->Release(); }
+    DxPtr() = default;
+    DxPtr(const DxPtr&) = delete;
+    DxPtr& operator=(const DxPtr&) = delete;
+    T* Get() const { return ptr; }
+    T** AddressOf() { return &ptr; }
+    T* operator->() const { return ptr; }
+    explicit operator bool() const { return ptr != nullptr; }
+};
+
+std::wstring WidenUtf8(const std::string& text)
+{
+#ifdef _WIN32
+    return std::wstring(text.begin(), text.end());
+#else
+    std::mbstate_t state{};
+    const char* src = text.c_str();
+    const std::size_t length = std::mbsrtowcs(nullptr, &src, 0, &state);
+    std::wstring wide(length, L'\0');
+    std::mbsrtowcs(wide.data(), &src, length + 1, &state);
+    return wide;
+#endif
+}
 
 
 rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
@@ -31,7 +58,7 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     buffer.Size = shadersource.size();
     buffer.Encoding = DXC_CP_UTF8;
 
-    std::wstring entryPoint(source.entryPoint.begin(), source.entryPoint.end());
+    std::wstring entryPoint = WidenUtf8(source.entryPoint);
 
     std::vector<LPCWSTR> args = {
         L"-E",
@@ -53,41 +80,41 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
         args.push_back(L"cs_6_6");
     }
 
-    Microsoft::WRL::ComPtr<IDxcUtils> utils;
+    DxPtr<IDxcUtils> utils;
 
-    HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.ReleaseAndGetAddressOf()));
+    HRESULT hr = DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(utils.AddressOf()));
 
     if (FAILED(hr)) {
         printf("Failed to create DXC utils: 0x%x\n", static_cast<unsigned>(hr));
         return {};
     }
 
-    Microsoft::WRL::ComPtr<IDxcIncludeHandler> includeHandler;
+    DxPtr<IDxcIncludeHandler> includeHandler;
 
-    hr = utils->CreateDefaultIncludeHandler(includeHandler.ReleaseAndGetAddressOf());
+    hr = utils->CreateDefaultIncludeHandler(includeHandler.AddressOf());
 
     if (FAILED(hr)) {
         printf("Failed to create DXC include handler: 0x%x\n", static_cast<unsigned>(hr));
         return {};
     }
 
-    Microsoft::WRL::ComPtr<IDxcCompiler3> compiler3;
+    DxPtr<IDxcCompiler3> compiler3;
 
-    hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler3));
+    hr = DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(compiler3.AddressOf()));
 
     if (FAILED(hr)) {
         printf("Failed to create DXC compiler: 0x%x\n", static_cast<unsigned>(hr));
         return {};
     }
 
-    Microsoft::WRL::ComPtr<IDxcResult> result;
+    DxPtr<IDxcResult> result;
 
     hr = compiler3->Compile(
         &buffer,
         args.data(),
         static_cast<UINT32>(args.size()),
         includeHandler.Get(),
-        IID_PPV_ARGS(&result)
+        IID_PPV_ARGS(result.AddressOf())
     );
 
     if (FAILED(hr) || !result) {
@@ -98,25 +125,25 @@ rhi::ShaderModuleHandle VulkanRHI::CompileShader(rhi::ShaderSource source) {
     result->GetStatus(&hr);
 
     if (FAILED(hr)) {
-        Microsoft::WRL::ComPtr<IDxcBlobUtf8> errors;
-        if (SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr)) &&
+        DxPtr<IDxcBlobUtf8> errors;
+        if (SUCCEEDED(result->GetOutput(DXC_OUT_ERRORS,         IID_PPV_ARGS(errors.AddressOf()), nullptr)) &&
             errors && errors->GetStringLength() > 0) {
             printf("Shader compilation failed:\n%s\n", errors->GetStringPointer());
         }
         return {};
     }
 
-    Microsoft::WRL::ComPtr<IDxcBlobUtf8> errorMsgs;
+    DxPtr<IDxcBlobUtf8> errorMsgs;
 
-    result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errorMsgs), nullptr);
+    result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(errorMsgs.AddressOf()), nullptr);
 
     if (errorMsgs && errorMsgs->GetStringLength()) {
         printf("Shader compilation errors:\n%s\n", errorMsgs->GetStringPointer());
     }
 
-    Microsoft::WRL::ComPtr<IDxcBlob> shaderobj;
+    DxPtr<IDxcBlob> shaderobj;
 
-    hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(&shaderobj), nullptr);
+    hr = result->GetOutput(DXC_OUT_OBJECT, IID_PPV_ARGS(shaderobj.AddressOf()), nullptr);
     if (FAILED(hr) || !shaderobj || shaderobj->GetBufferSize() == 0) {
         printf("Shader compilation produced no object\n");
         return {};
