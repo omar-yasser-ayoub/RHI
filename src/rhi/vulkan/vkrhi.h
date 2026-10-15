@@ -91,14 +91,15 @@ public:
     void Dispatch(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t z);
     void DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset);
 
-    void CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+    void CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
                             std::size_t srcOffset = 0, std::size_t dstOffset = 0);
-    void CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+    void CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+    void CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+    void CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                               const rhi::TextureCopyRegion& region);
+    void FlushTransfers(bool wait = false);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
@@ -216,6 +217,12 @@ private:
     std::array<FrameContext, 2> m_Frames;
     std::uint64_t m_FrameCounter = 0;
     std::uint32_t m_CurrentFrame = 0xFFFFFFFF;
+    VkCommandPool m_TransferPool = VK_NULL_HANDLE;
+    VkCommandBuffer m_UploadBuffer = VK_NULL_HANDLE;
+    bool m_UploadHasWork = false;
+    VkFence m_UploadFence = VK_NULL_HANDLE;
+    bool EnsureUploadReady();
+    void FlushUploads(bool wait);
     enum class CurrentPass {
         None,
         Graphics,
@@ -229,7 +236,6 @@ private:
         CurrentPass pass = CurrentPass::None;
         VkPipelineLayout boundLayout = VK_NULL_HANDLE;
         VkPipelineBindPoint bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        VkImage swapchainImage = VK_NULL_HANDLE;
         std::uint64_t swapchain = 0xFFFFFFFFFFFFFFFFull;
         std::uint32_t swapchainImageIndex = 0xFFFFFFFF;
     };

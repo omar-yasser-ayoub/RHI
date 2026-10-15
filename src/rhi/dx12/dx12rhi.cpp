@@ -154,11 +154,28 @@ bool DX12RHI::CreateFrameContexts()
             return false;
         }
     }
+    if (FAILED(m_Device->CreateCommandAllocator(
+            D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_UploadAllocator)))) {
+        std::cerr << "Failed to create upload command allocator.\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    if (FAILED(m_Device->CreateCommandList(
+            0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_UploadAllocator.Get(),
+            nullptr, IID_PPV_ARGS(&m_UploadList)))) {
+        std::cerr << "Failed to create upload command list.\n";
+        DestroyFrameContexts();
+        return false;
+    }
     return true;
 }
 
 void DX12RHI::DestroyFrameContexts()
 {
+    m_UploadList.Reset();
+    m_UploadAllocator.Reset();
+    m_UploadHasWork = false;
+    m_UploadFenceValue = 0;
     for (FrameContext& frame : m_Frames) {
         frame.allocator.Reset();
         frame.fence.Reset();

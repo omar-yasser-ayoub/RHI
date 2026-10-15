@@ -180,6 +180,7 @@ void WebGPURHI::WaitForIdle()
     if (!m_Device || !m_Instance || !m_Queue) {
         return;
     }
+    FlushUploads(false);
     auto future = m_Queue.OnSubmittedWorkDone(
         wgpu::CallbackMode::WaitAnyOnly,
         [&](wgpu::QueueWorkDoneStatus, wgpu::StringView) {});

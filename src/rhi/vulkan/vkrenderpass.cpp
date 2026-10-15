@@ -140,7 +140,6 @@ void VulkanRHI::BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPas
             TransitionImage(buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                             swapchain.layouts[desc.imageIndex]);
-            list.swapchainImage = image;
             extent = swapchain.extent;
             extentSet = true;
         } else {
@@ -266,18 +265,20 @@ void VulkanRHI::EndPass(rhi::CommandListHandle cmd)
     VulkanCommandList& list = m_CommandLists[cmd.id];
     if (list.pass == CurrentPass::Graphics) {
         vkCmdEndRendering(buffer);
-        if (list.swapchainImage != VK_NULL_HANDLE) {
-            if (list.swapchain != 0xFFFFFFFFFFFFFFFFull &&
-                list.swapchain < m_Swapchains.size() &&
-                list.swapchainImageIndex <
-                    m_Swapchains[list.swapchain].layouts.size()) {
-                TransitionImage(buffer, list.swapchainImage, VK_IMAGE_ASPECT_COLOR_BIT,
-                                VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                m_Swapchains[list.swapchain].layouts[list.swapchainImageIndex]);
-            }
+        if (list.swapchain != 0xFFFFFFFFFFFFFFFFull &&
+            list.swapchain < m_Swapchains.size() &&
+            list.swapchainImageIndex <
+                m_Swapchains[list.swapchain].layouts.size() &&
+            list.swapchainImageIndex <
+                m_Swapchains[list.swapchain].images.size()) {
+            VkImage image = m_Swapchains[list.swapchain].images[list.swapchainImageIndex];
+            TransitionImage(buffer, image, VK_IMAGE_ASPECT_COLOR_BIT,
+                            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                            m_Swapchains[list.swapchain].layouts[list.swapchainImageIndex]);
         }
         list.pass = CurrentPass::None;
-        list.swapchainImage = VK_NULL_HANDLE;
+        list.swapchain = 0xFFFFFFFFFFFFFFFFull;
+        list.swapchainImageIndex = 0xFFFFFFFF;
     } else if (list.pass == CurrentPass::Compute) {
         list.pass = CurrentPass::None;
     }
@@ -508,11 +509,64 @@ void VulkanRHI::DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle p
     vkCmdDispatchIndirect(buffer, m_Buffers[params.id], static_cast<VkDeviceSize>(offset));
 }
 
-void VulkanRHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
-                                    std::size_t srcOffset, std::size_t dstOffset)
+bool VulkanRHI::EnsureUploadReady()
 {
-    VkCommandBuffer buffer = GetVkCommandBuffer(cmd);
-    if (buffer == VK_NULL_HANDLE) {
+    if (m_Device == VK_NULL_HANDLE || m_UploadBuffer == VK_NULL_HANDLE) {
+        return false;
+    }
+    if (m_UploadFence != VK_NULL_HANDLE) {
+        vkWaitForFences(m_Device, 1, &m_UploadFence, VK_TRUE, UINT64_MAX);
+        vkDestroyFence(m_Device, m_UploadFence, nullptr);
+        m_UploadFence = VK_NULL_HANDLE;
+        vkResetCommandBuffer(m_UploadBuffer, 0);
+        VkCommandBufferBeginInfo beginInfo{};
+        beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        if (vkBeginCommandBuffer(m_UploadBuffer, &beginInfo) != VK_SUCCESS) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void VulkanRHI::FlushUploads(bool wait)
+{
+    if (!m_UploadHasWork) {
+        return;
+    }
+    m_UploadHasWork = false;
+    if (vkEndCommandBuffer(m_UploadBuffer) != VK_SUCCESS) {
+        return;
+    }
+    VkSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &m_UploadBuffer;
+    VkFenceCreateInfo fenceInfo{};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    VkFence fence = VK_NULL_HANDLE;
+    if (vkCreateFence(m_Device, &fenceInfo, nullptr, &fence) != VK_SUCCESS) {
+        return;
+    }
+    if (vkQueueSubmit(m_GraphicsQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
+        vkDestroyFence(m_Device, fence, nullptr);
+        return;
+    }
+    m_UploadFence = fence;
+    if (wait) {
+        vkWaitForFences(m_Device, 1, &m_UploadFence, VK_TRUE, UINT64_MAX);
+    }
+}
+
+void VulkanRHI::FlushTransfers(bool wait)
+{
+    FlushUploads(wait);
+}
+
+void VulkanRHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+                                   std::size_t srcOffset, std::size_t dstOffset)
+{
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Buffers.size() || m_Buffers[src.id] == VK_NULL_HANDLE ||
@@ -529,14 +583,14 @@ void VulkanRHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle
     region.srcOffset = static_cast<VkDeviceSize>(srcOffset);
     region.dstOffset = static_cast<VkDeviceSize>(dstOffset);
     region.size = static_cast<VkDeviceSize>(size);
-    vkCmdCopyBuffer(buffer, m_Buffers[src.id], m_Buffers[dst.id], 1, &region);
+    vkCmdCopyBuffer(m_UploadBuffer, m_Buffers[src.id], m_Buffers[dst.id], 1, &region);
+    m_UploadHasWork = true;
 }
 
-void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+void VulkanRHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
-    VkCommandBuffer buffer = GetVkCommandBuffer(cmd);
-    if (buffer == VK_NULL_HANDLE) {
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Buffers.size() || m_Buffers[src.id] == VK_NULL_HANDLE ||
@@ -567,17 +621,17 @@ void VulkanRHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
-    TransitionTexture(buffer, dst, dstAspect,
+    TransitionTexture(m_UploadBuffer, dst, dstAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    vkCmdCopyBufferToImage(buffer, m_Buffers[src.id], m_Textures[dst.id],
+    vkCmdCopyBufferToImage(m_UploadBuffer, m_Buffers[src.id], m_Textures[dst.id],
                            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    m_UploadHasWork = true;
 }
 
-void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+void VulkanRHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
-    VkCommandBuffer buffer = GetVkCommandBuffer(cmd);
-    if (buffer == VK_NULL_HANDLE) {
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Textures.size() || m_Textures[src.id] == VK_NULL_HANDLE ||
@@ -608,18 +662,18 @@ void VulkanRHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
                          static_cast<std::int32_t>(region.y),
                          static_cast<std::int32_t>(region.z) };
     copy.imageExtent = { region.width, region.height, region.depth };
-    TransitionTexture(buffer, src, srcAspect,
+    TransitionTexture(m_UploadBuffer, src, srcAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    vkCmdCopyImageToBuffer(buffer, m_Textures[src.id],
+    vkCmdCopyImageToBuffer(m_UploadBuffer, m_Textures[src.id],
                            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                            m_Buffers[dst.id], 1, &copy);
+    m_UploadHasWork = true;
 }
 
-void VulkanRHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+void VulkanRHI::CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                                      const rhi::TextureCopyRegion& region)
 {
-    VkCommandBuffer buffer = GetVkCommandBuffer(cmd);
-    if (buffer == VK_NULL_HANDLE) {
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Textures.size() || m_Textures[src.id] == VK_NULL_HANDLE ||
@@ -634,9 +688,9 @@ void VulkanRHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
         printf("CopyTextureToTexture: source and destination aspects differ\n");
         return;
     }
-    TransitionTexture(buffer, src, copySrcAspect,
+    TransitionTexture(m_UploadBuffer, src, copySrcAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    TransitionTexture(buffer, dst, copyDstAspect,
+    TransitionTexture(m_UploadBuffer, dst, copyDstAspect,
                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
     VkImageCopy copy{};
@@ -656,8 +710,9 @@ void VulkanRHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
                        static_cast<std::int32_t>(region.dstZ) };
     copy.extent = { region.width, region.height, region.depth };
 
-    vkCmdCopyImage(buffer, m_Textures[src.id], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+    vkCmdCopyImage(m_UploadBuffer, m_Textures[src.id], VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                    m_Textures[dst.id], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    m_UploadHasWork = true;
 }
 
 void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
@@ -665,6 +720,7 @@ void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
     if (m_Device == VK_NULL_HANDLE || cmds.empty() || m_CurrentFrame == 0xFFFFFFFF) {
         return;
     }
+    FlushUploads(false);
     FrameContext& frame = m_Frames[m_CurrentFrame];
 
     std::vector<VkCommandBuffer> buffers;

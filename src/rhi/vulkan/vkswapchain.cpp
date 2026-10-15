@@ -311,6 +311,7 @@ void VulkanRHI::WaitForIdle()
     if (!m_Device) {
         return;
     }
+    FlushUploads(false);
     vkDeviceWaitIdle(m_Device);
 }
 

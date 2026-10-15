@@ -460,6 +460,34 @@ bool VulkanRHI::CreateFrameContexts()
             return false;
         }
     }
+    VkCommandPoolCreateInfo transferPoolInfo{};
+    transferPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    transferPoolInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT |
+                             VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    transferPoolInfo.queueFamilyIndex = m_GraphicsQueueFamily;
+    if (vkCreateCommandPool(m_Device, &transferPoolInfo, nullptr, &m_TransferPool) != VK_SUCCESS) {
+        std::cerr << "Failed to create transfer command pool\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    VkCommandBufferAllocateInfo uploadAlloc{};
+    uploadAlloc.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    uploadAlloc.commandPool = m_TransferPool;
+    uploadAlloc.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    uploadAlloc.commandBufferCount = 1;
+    if (vkAllocateCommandBuffers(m_Device, &uploadAlloc, &m_UploadBuffer) != VK_SUCCESS) {
+        std::cerr << "Failed to allocate upload command buffer\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    VkCommandBufferBeginInfo uploadBegin{};
+    uploadBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    uploadBegin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    if (vkBeginCommandBuffer(m_UploadBuffer, &uploadBegin) != VK_SUCCESS) {
+        std::cerr << "Failed to begin upload command buffer\n";
+        DestroyFrameContexts();
+        return false;
+    }
     return true;
 }
 
@@ -467,6 +495,17 @@ void VulkanRHI::DestroyFrameContexts()
 {
     if (m_Device == VK_NULL_HANDLE) {
         return;
+    }
+    if (m_UploadFence != VK_NULL_HANDLE) {
+        vkWaitForFences(m_Device, 1, &m_UploadFence, VK_TRUE, UINT64_MAX);
+        vkDestroyFence(m_Device, m_UploadFence, nullptr);
+        m_UploadFence = VK_NULL_HANDLE;
+    }
+    m_UploadBuffer = VK_NULL_HANDLE;
+    m_UploadHasWork = false;
+    if (m_TransferPool != VK_NULL_HANDLE) {
+        vkDestroyCommandPool(m_Device, m_TransferPool, nullptr);
+        m_TransferPool = VK_NULL_HANDLE;
     }
     for (FrameContext& frame : m_Frames) {
         for (VkFence fence : frame.pendingFences) {

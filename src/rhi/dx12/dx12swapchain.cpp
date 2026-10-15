@@ -172,6 +172,7 @@ void DX12RHI::WaitForIdle()
     if (!m_Device || !m_CommandQueue || !m_IdleFence || m_IdleEvent == nullptr) {
         return;
     }
+    FlushUploads(false);
     m_CommandQueue->Signal(m_IdleFence.Get(), ++m_IdleValue);
     if (m_IdleFence->GetCompletedValue() < m_IdleValue) {
         m_IdleFence->SetEventOnCompletion(m_IdleValue, m_IdleEvent);

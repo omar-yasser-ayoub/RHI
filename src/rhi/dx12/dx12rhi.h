@@ -78,14 +78,17 @@ public:
     void Dispatch(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t z);
     void DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset);
 
-    void CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+    void CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
                             std::size_t srcOffset = 0, std::size_t dstOffset = 0);
-    void CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+    void CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+    void CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+    void CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                               const rhi::TextureCopyRegion& region);
+    // Submits pending upload work now (init/readback paths with no frame
+    // submit). With wait=true, staging memory may be freed on return.
+    void FlushTransfers(bool wait = false);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
@@ -315,6 +318,15 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Fence> m_IdleFence;
     HANDLE m_IdleEvent = nullptr;
     std::uint64_t m_IdleValue = 0;
+    // Persistent upload list. Copy* appends to it, Submit flushes it ahead
+    // of frame work, FlushTransfers submits it on demand. The fence value is
+    // signaled on m_IdleFence; 0 means no flush is in flight.
+    Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_UploadAllocator;
+    Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_UploadList;
+    bool m_UploadHasWork = false;
+    std::uint64_t m_UploadFenceValue = 0;
+    bool EnsureUploadReady();
+    void FlushUploads(bool wait);
 
     struct CommandSignatureKey {
         D3D12_INDIRECT_ARGUMENT_TYPE type;

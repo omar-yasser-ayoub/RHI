@@ -617,13 +617,56 @@ void DX12RHI::DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle par
                            static_cast<UINT64>(offset), nullptr, 0);
 }
 
-void DX12RHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
-                                  std::size_t srcOffset, std::size_t dstOffset)
+bool DX12RHI::EnsureUploadReady()
 {
-    ID3D12GraphicsCommandList* list = GetCommandList(cmd);
-    if (list == nullptr) {
+    if (!m_Device || !m_UploadList || !m_UploadAllocator) {
+        return false;
+    }
+    if (m_UploadFenceValue != 0) {
+        // Last flush still in flight: wait, then the list is ours again.
+        if (m_IdleFence && m_IdleEvent &&
+            m_IdleFence->GetCompletedValue() < m_UploadFenceValue) {
+            m_IdleFence->SetEventOnCompletion(m_UploadFenceValue, m_IdleEvent);
+            WaitForSingleObject(m_IdleEvent, INFINITE);
+        }
+        m_UploadFenceValue = 0;
+        m_UploadAllocator->Reset();
+        m_UploadList->Reset(m_UploadAllocator.Get(), nullptr);
+    }
+    return true;
+}
+
+void DX12RHI::FlushUploads(bool wait)
+{
+    if (!m_UploadHasWork) {
         return;
     }
+    m_UploadHasWork = false;
+    if (FAILED(m_UploadList->Close())) {
+        return;
+    }
+    ID3D12CommandList* lists[] = { m_UploadList.Get() };
+    m_CommandQueue->ExecuteCommandLists(1, lists);
+    m_CommandQueue->Signal(m_IdleFence.Get(), ++m_IdleValue);
+    m_UploadFenceValue = m_IdleValue;
+    if (wait && m_IdleFence->GetCompletedValue() < m_UploadFenceValue) {
+        m_IdleFence->SetEventOnCompletion(m_UploadFenceValue, m_IdleEvent);
+        WaitForSingleObject(m_IdleEvent, INFINITE);
+    }
+}
+
+void DX12RHI::FlushTransfers(bool wait)
+{
+    FlushUploads(wait);
+}
+
+void DX12RHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+                                  std::size_t srcOffset, std::size_t dstOffset)
+{
+    if (!EnsureUploadReady()) {
+        return;
+    }
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
         dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
         printf("[ERROR] CopyBufferToBuffer: invalid buffer handle\n");
@@ -639,15 +682,16 @@ void DX12RHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle s
     list->CopyBufferRegion(m_Buffers[dst.id].Get(), static_cast<UINT64>(dstOffset),
                            m_Buffers[src.id].Get(), static_cast<UINT64>(srcOffset),
                            static_cast<UINT64>(size));
+    m_UploadHasWork = true;
 }
 
-void DX12RHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+void DX12RHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                                    const rhi::TextureWriteDesc& region)
 {
-    ID3D12GraphicsCommandList* list = GetCommandList(cmd);
-    if (list == nullptr) {
+    if (!EnsureUploadReady()) {
         return;
     }
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
         dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
         printf("[ERROR] CopyBufferToTexture: invalid copy handle\n");
@@ -690,15 +734,16 @@ void DX12RHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle 
 
         list->CopyTextureRegion(&dstLoc, region.x, region.y, region.z, &srcLoc, nullptr);
     }
+    m_UploadHasWork = true;
 }
 
-void DX12RHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+void DX12RHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                                    const rhi::TextureWriteDesc& region)
 {
-    ID3D12GraphicsCommandList* list = GetCommandList(cmd);
-    if (list == nullptr) {
+    if (!EnsureUploadReady()) {
         return;
     }
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
         dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
         printf("[ERROR] CopyTextureToBuffer: invalid copy handle\n");
@@ -748,15 +793,16 @@ void DX12RHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle
         srcBox.back = region.z + region.depth;
         list->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, &srcBox);
     }
+    m_UploadHasWork = true;
 }
 
-void DX12RHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+void DX12RHI::CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                                     const rhi::TextureCopyRegion& region)
 {
-    ID3D12GraphicsCommandList* list = GetCommandList(cmd);
-    if (list == nullptr) {
+    if (!EnsureUploadReady()) {
         return;
     }
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
         dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
         printf("[ERROR] CopyTextureToTexture: invalid texture handle\n");
@@ -799,6 +845,7 @@ void DX12RHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandl
         list->CopyTextureRegion(&dstLoc, region.dstX, region.dstY, region.dstZ,
                                 &srcLoc, &srcBox);
     }
+    m_UploadHasWork = true;
 }
 
 void DX12RHI::Submit(std::span<const rhi::CommandListHandle> cmds)
@@ -806,6 +853,9 @@ void DX12RHI::Submit(std::span<const rhi::CommandListHandle> cmds)
     if (!m_Device || !m_CommandQueue || cmds.empty() || m_CurrentFrame == 0xFFFFFFFF) {
         return;
     }
+    // Uploads recorded since the last flush ride ahead of frame work on the
+    // same queue, so copies are visible to the passes below.
+    FlushUploads(false);
     FrameContext& frame = m_Frames[m_CurrentFrame];
     if (!frame.allocator || !frame.fence) {
         return;

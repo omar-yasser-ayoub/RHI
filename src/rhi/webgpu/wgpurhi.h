@@ -75,14 +75,17 @@ public:
     void Dispatch(rhi::CommandListHandle cmd, std::uint32_t x, std::uint32_t y, std::uint32_t z);
     void DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle params, std::size_t offset);
 
-    void CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+    void CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
                             std::size_t srcOffset = 0, std::size_t dstOffset = 0);
-    void CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+    void CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+    void CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                              const rhi::TextureWriteDesc& region);
-    void CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+    void CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                               const rhi::TextureCopyRegion& region);
+    // Submits pending upload work now (init/readback paths with no frame
+    // submit). With wait=true, staging memory may be freed on return.
+    void FlushTransfers(bool wait = false);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
@@ -160,6 +163,13 @@ private:
     std::vector<WebGPUCommandList> m_CommandLists;
     std::vector<std::uint64_t> m_FreeCommandLists;
     WebGPUCommandList* GetCommandList(rhi::CommandListHandle handle);
+    // Persistent upload encoder. Copy* appends to it, Submit flushes it
+    // ahead of frame work, FlushTransfers submits it on demand. Abandoned
+    // (finished) on every flush; lazily recreated by the next copy.
+    wgpu::CommandEncoder m_UploadEncoder;
+    bool m_UploadHasWork = false;
+    bool EnsureUploadReady();
+    void FlushUploads(bool wait);
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;

@@ -447,15 +447,46 @@ void WebGPURHI::DispatchIndirect(rhi::CommandListHandle cmd, rhi::BufferHandle p
     list->computePass.DispatchWorkgroupsIndirect(m_Buffers[params.id], offset);
 }
 
-void WebGPURHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
-                                    std::size_t srcOffset, std::size_t dstOffset)
+bool WebGPURHI::EnsureUploadReady()
 {
-    WebGPUCommandList* list = GetCommandList(cmd);
-    if (!list) {
+    if (!m_Device || !m_Queue) {
+        return false;
+    }
+    if (!m_UploadEncoder) {
+        m_UploadEncoder = m_Device.CreateCommandEncoder();
+        if (!m_UploadEncoder) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void WebGPURHI::FlushUploads(bool wait)
+{
+    if (!m_UploadHasWork || !m_UploadEncoder) {
         return;
     }
-    if (list->pass != CurrentPass::None) {
-        printf("CopyBufferToBuffer cannot be called inside an open pass\n");
+    m_UploadHasWork = false;
+    wgpu::CommandBuffer commands = m_UploadEncoder.Finish();
+    m_UploadEncoder = nullptr;
+    m_Queue.Submit(1, &commands);
+    if (wait) {
+        auto future = m_Queue.OnSubmittedWorkDone(
+            wgpu::CallbackMode::WaitAnyOnly,
+            [&](wgpu::QueueWorkDoneStatus, wgpu::StringView) {});
+        m_Instance.WaitAny(future, UINT64_MAX);
+    }
+}
+
+void WebGPURHI::FlushTransfers(bool wait)
+{
+    FlushUploads(wait);
+}
+
+void WebGPURHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,
+                                    std::size_t srcOffset, std::size_t dstOffset)
+{
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
@@ -468,19 +499,15 @@ void WebGPURHI::CopyBufferToBuffer(rhi::CommandListHandle cmd, rhi::BufferHandle
         printf("CopyBufferToBuffer range is out of bounds\n");
         return;
     }
-    list->encoder.CopyBufferToBuffer(
+    m_UploadEncoder.CopyBufferToBuffer(
         m_Buffers[src.id], srcOffset, m_Buffers[dst.id], dstOffset, size);
+    m_UploadHasWork = true;
 }
 
-void WebGPURHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandle src, rhi::TextureHandle dst,
+void WebGPURHI::CopyBufferToTexture(rhi::BufferHandle src, rhi::TextureHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
-    WebGPUCommandList* list = GetCommandList(cmd);
-    if (!list) {
-        return;
-    }
-    if (list->pass != CurrentPass::None) {
-        printf("CopyBufferToTexture cannot be called inside an open pass\n");
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Buffers.size() || !m_Buffers[src.id] ||
@@ -512,18 +539,14 @@ void WebGPURHI::CopyBufferToTexture(rhi::CommandListHandle cmd, rhi::BufferHandl
     destination.aspect = wgpu::TextureAspect::All;
 
     wgpu::Extent3D extent{ region.width, region.height, region.depth };
-    list->encoder.CopyBufferToTexture(&source, &destination, &extent);
+    m_UploadEncoder.CopyBufferToTexture(&source, &destination, &extent);
+    m_UploadHasWork = true;
 }
 
-void WebGPURHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::BufferHandle dst,
+void WebGPURHI::CopyTextureToBuffer(rhi::TextureHandle src, rhi::BufferHandle dst,
                                      const rhi::TextureWriteDesc& region)
 {
-    WebGPUCommandList* list = GetCommandList(cmd);
-    if (!list) {
-        return;
-    }
-    if (list->pass != CurrentPass::None) {
-        printf("CopyTextureToBuffer cannot be called inside an open pass\n");
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
@@ -555,18 +578,14 @@ void WebGPURHI::CopyTextureToBuffer(rhi::CommandListHandle cmd, rhi::TextureHand
     destination.layout.rowsPerImage = region.rowsPerImage;
 
     wgpu::Extent3D extent{ region.width, region.height, region.depth };
-    list->encoder.CopyTextureToBuffer(&source, &destination, &extent);
+    m_UploadEncoder.CopyTextureToBuffer(&source, &destination, &extent);
+    m_UploadHasWork = true;
 }
 
-void WebGPURHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHandle src, rhi::TextureHandle dst,
+void WebGPURHI::CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                                      const rhi::TextureCopyRegion& region)
 {
-    WebGPUCommandList* list = GetCommandList(cmd);
-    if (!list) {
-        return;
-    }
-    if (list->pass != CurrentPass::None) {
-        printf("CopyTextureToTexture cannot be called inside an open pass\n");
+    if (!EnsureUploadReady()) {
         return;
     }
     if (src.id >= m_Textures.size() || !m_Textures[src.id] ||
@@ -600,11 +619,14 @@ void WebGPURHI::CopyTextureToTexture(rhi::CommandListHandle cmd, rhi::TextureHan
             return;
         }
     }
-    list->encoder.CopyTextureToTexture(&source, &destination, &copySize);
+    m_UploadEncoder.CopyTextureToTexture(&source, &destination, &copySize);
+    m_UploadHasWork = true;
 }
 
 void WebGPURHI::Submit(std::span<const rhi::CommandListHandle> cmds)
 {
+    // Uploads recorded since the last flush ride ahead of this submit.
+    FlushUploads(false);
     for (rhi::CommandListHandle handle : cmds) {
         WebGPUCommandList* list = GetCommandList(handle);
         if (!list) {
