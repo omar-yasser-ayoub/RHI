@@ -453,9 +453,8 @@ bool VulkanRHI::CreateFrameContexts()
 
         VkSemaphoreCreateInfo semInfo{};
         semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        if (vkCreateSemaphore(m_Device, &semInfo, nullptr, &frame.imageAvailable) != VK_SUCCESS ||
-            vkCreateSemaphore(m_Device, &semInfo, nullptr, &frame.renderFinished) != VK_SUCCESS) {
-            std::cerr << "Failed to create frame semaphores\n";
+        if (vkCreateSemaphore(m_Device, &semInfo, nullptr, &frame.imageAvailable) != VK_SUCCESS) {
+            std::cerr << "Failed to create frame acquire semaphore\n";
             DestroyFrameContexts();
             return false;
         }
@@ -540,10 +539,6 @@ void VulkanRHI::DestroyFrameContexts()
             }
         }
         frame.pendingFences.clear();
-        if (frame.renderFinished != VK_NULL_HANDLE) {
-            vkDestroySemaphore(m_Device, frame.renderFinished, nullptr);
-            frame.renderFinished = VK_NULL_HANDLE;
-        }
         if (frame.imageAvailable != VK_NULL_HANDLE) {
             vkDestroySemaphore(m_Device, frame.imageAvailable, nullptr);
             frame.imageAvailable = VK_NULL_HANDLE;
@@ -553,6 +548,8 @@ void VulkanRHI::DestroyFrameContexts()
             frame.pool = VK_NULL_HANDLE;
         }
         frame.cmds.clear();
+        frame.acquiredSwapchain = 0xFFFFFFFFFFFFFFFFull;
+        frame.acquiredImage = 0xFFFFFFFF;
     }
     m_CommandLists.clear();
     m_FreeCommandLists.clear();

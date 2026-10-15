@@ -183,6 +183,27 @@ rhi::SwapchainHandle VulkanRHI::CreateSwapchain(const rhi::SwapchainDesc& desc)
     data.format = imageFormat;
     data.extent = extent;
 
+    VkSemaphoreCreateInfo semInfo{};
+    semInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    data.renderFinished.resize(data.images.size(), VK_NULL_HANDLE);
+    for (std::size_t i = 0; i < data.images.size(); ++i) {
+        if (vkCreateSemaphore(m_Device, &semInfo, nullptr, &data.renderFinished[i]) != VK_SUCCESS) {
+            printf("[ERROR] Failed to create swapchain semaphores\n");
+            for (VkSemaphore sem : data.renderFinished) {
+                if (sem != VK_NULL_HANDLE) {
+                    vkDestroySemaphore(m_Device, sem, nullptr);
+                }
+            }
+            for (VkImageView view : data.views) {
+                if (view != VK_NULL_HANDLE) {
+                    vkDestroyImageView(m_Device, view, nullptr);
+                }
+            }
+            vkDestroySwapchainKHR(m_Device, swapchain, nullptr);
+            return {};
+        }
+    }
+
     rhi::SwapchainHandle handle;
     handle.desc = desc;
     handle.desc.width = extent.width;
@@ -208,6 +229,11 @@ void VulkanRHI::DestroySwapchain(rhi::SwapchainHandle handle)
     }
     VkSwapchainData& data = m_Swapchains[handle.id];
     vkDeviceWaitIdle(m_Device);
+    for (VkSemaphore sem : data.renderFinished) {
+        if (sem != VK_NULL_HANDLE) {
+            vkDestroySemaphore(m_Device, sem, nullptr);
+        }
+    }
     for (VkImageView view : data.views) {
         if (view != VK_NULL_HANDLE) {
             vkDestroyImageView(m_Device, view, nullptr);
@@ -263,12 +289,16 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         result.imageIndex = imageIndex;
         data.lastImageIndex = imageIndex;
         data.layouts[imageIndex] = VK_IMAGE_LAYOUT_UNDEFINED;
+        frame.acquiredSwapchain = handle.id;
+        frame.acquiredImage = imageIndex;
         break;
     case VK_SUBOPTIMAL_KHR:
         result.status = rhi::AcquireStatus::Suboptimal;
         result.imageIndex = imageIndex;
         data.lastImageIndex = imageIndex;
         data.layouts[imageIndex] = VK_IMAGE_LAYOUT_UNDEFINED;
+        frame.acquiredSwapchain = handle.id;
+        frame.acquiredImage = imageIndex;
         break;
     case VK_TIMEOUT:
     case VK_NOT_READY:
@@ -352,9 +382,10 @@ void VulkanRHI::Present(rhi::SwapchainHandle handle)
 
     VkPresentInfoKHR presentInfo{};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    if (frame.submitted) {
+    if (frame.submitted && data.lastImageIndex < data.renderFinished.size() &&
+        data.renderFinished[data.lastImageIndex] != VK_NULL_HANDLE) {
         presentInfo.waitSemaphoreCount = 1;
-        presentInfo.pWaitSemaphores = &frame.renderFinished;
+        presentInfo.pWaitSemaphores = &data.renderFinished[data.lastImageIndex];
     } else {
         presentInfo.waitSemaphoreCount = 0;
         presentInfo.pWaitSemaphores = nullptr;

@@ -862,16 +862,27 @@ void VulkanRHI::Submit(std::span<const rhi::CommandListHandle> cmds)
     VkSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.waitSemaphoreCount = 1;
+    VkSemaphore* renderFinished = nullptr;
+    if (frame.acquiredSwapchain < m_Swapchains.size()) {
+        VkSwapchainData& swapchain = m_Swapchains[frame.acquiredSwapchain];
+        if (frame.acquiredImage < swapchain.renderFinished.size() &&
+            swapchain.renderFinished[frame.acquiredImage] != VK_NULL_HANDLE) {
+            renderFinished = &swapchain.renderFinished[frame.acquiredImage];
+        }
+    }
+    if (renderFinished == nullptr) {
+        return;
+    }
     if (frame.pendingFences.empty()) {
         submitInfo.pWaitSemaphores = &frame.imageAvailable;
     } else {
-        submitInfo.pWaitSemaphores = &frame.renderFinished;
+        submitInfo.pWaitSemaphores = renderFinished;
     }
     submitInfo.pWaitDstStageMask = &waitStage;
     submitInfo.commandBufferCount = static_cast<std::uint32_t>(buffers.size());
     submitInfo.pCommandBuffers = buffers.data();
     submitInfo.signalSemaphoreCount = 1;
-    submitInfo.pSignalSemaphores = &frame.renderFinished;
+    submitInfo.pSignalSemaphores = renderFinished;
 
     VkFenceCreateInfo fenceInfo{};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;

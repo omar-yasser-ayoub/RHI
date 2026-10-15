@@ -205,6 +205,7 @@ private:
         std::vector<VkImage> images;
         std::vector<VkImageView> views;
         std::vector<VkImageLayout> layouts;
+        std::vector<VkSemaphore> renderFinished;
         std::uint32_t lastImageIndex = 0xFFFFFFFF;
         VkFormat format = VK_FORMAT_UNDEFINED;
         VkExtent2D extent{};
@@ -216,9 +217,10 @@ private:
         VkCommandPool pool = VK_NULL_HANDLE;
         std::vector<VkCommandBuffer> cmds;
         VkSemaphore imageAvailable = VK_NULL_HANDLE;
-        VkSemaphore renderFinished = VK_NULL_HANDLE;
         std::vector<VkFence> pendingFences;
         bool submitted = false;
+        std::uint64_t acquiredSwapchain = 0xFFFFFFFFFFFFFFFFull;
+        std::uint32_t acquiredImage = 0xFFFFFFFF;
     };
     std::array<FrameContext, 2> m_Frames;
     std::uint64_t m_FrameCounter = 0;
