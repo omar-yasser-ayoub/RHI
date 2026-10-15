@@ -65,7 +65,9 @@ rhi::BindGroupLayoutHandle WebGPURHI::CreateBindGroupLayout(const rhi::BindGroup
         case rhi::BindingType::SampledTexture:
             entry.texture.sampleType = shaderBinding.depthSampled
                 ? wgpu::TextureSampleType::Depth
-                : wgpu::TextureSampleType::Float;
+                : (shaderBinding.unfilterableSampled
+                    ? wgpu::TextureSampleType::UnfilterableFloat
+                    : wgpu::TextureSampleType::Float);
             entry.texture.viewDimension = wgpu::TextureViewDimension::e2D;
             entry.texture.multisampled = false;
             break;

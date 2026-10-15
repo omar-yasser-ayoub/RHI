@@ -1,6 +1,8 @@
 #include "rhi/vulkan/vkrhi.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 rhi::CommandListHandle VulkanRHI::BeginCommandList()
@@ -518,6 +520,7 @@ bool VulkanRHI::EnsureUploadReady()
         vkWaitForFences(m_Device, 1, &m_UploadFence, VK_TRUE, UINT64_MAX);
         vkDestroyFence(m_Device, m_UploadFence, nullptr);
         m_UploadFence = VK_NULL_HANDLE;
+        m_StagingHead = 0;
         vkResetCommandBuffer(m_UploadBuffer, 0);
         VkCommandBufferBeginInfo beginInfo{};
         beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -561,6 +564,116 @@ void VulkanRHI::FlushUploads(bool wait)
 void VulkanRHI::FlushTransfers(bool wait)
 {
     FlushUploads(wait);
+}
+
+bool VulkanRHI::AllocStaging(std::size_t size, std::size_t align, std::size_t& outOffset)
+{
+    if (m_StagingMapped == nullptr || size == 0 || size > kStagingRingSize || align == 0) {
+        printf("AllocStaging: bad request (size %zu, ring %zu)\n", size, kStagingRingSize);
+        return false;
+    }
+    std::size_t head = (m_StagingHead + align - 1) & ~(align - 1);
+    if (head + size > kStagingRingSize) {
+        FlushUploads(false);
+        if (m_UploadFence != VK_NULL_HANDLE) {
+            vkWaitForFences(m_Device, 1, &m_UploadFence, VK_TRUE, UINT64_MAX);
+            vkDestroyFence(m_Device, m_UploadFence, nullptr);
+            m_UploadFence = VK_NULL_HANDLE;
+        }
+        vkResetCommandBuffer(m_UploadBuffer, 0);
+        VkCommandBufferBeginInfo wrapBegin{};
+        wrapBegin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+        wrapBegin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        if (vkBeginCommandBuffer(m_UploadBuffer, &wrapBegin) != VK_SUCCESS) {
+            return false;
+        }
+        head = 0;
+    } else if (m_UploadFence != VK_NULL_HANDLE &&
+               vkGetFenceStatus(m_Device, m_UploadFence) == VK_SUCCESS) {
+        // Fast reclaim: prior flush is done, ring is fully reusable.
+        vkDestroyFence(m_Device, m_UploadFence, nullptr);
+        m_UploadFence = VK_NULL_HANDLE;
+        head = 0;
+    }
+    outOffset = head;
+    m_StagingHead = head + size;
+    return true;
+}
+
+void VulkanRHI::UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                             const void* data, std::size_t size)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Buffers.size() || m_Buffers[dst.id] == VK_NULL_HANDLE) {
+        printf("UploadBuffer: invalid buffer handle\n");
+        return;
+    }
+    if (size == 0 || dstOffset > dst.desc.size || size > dst.desc.size - dstOffset) {
+        printf("UploadBuffer range is out of bounds\n");
+        return;
+    }
+    std::size_t stagingOffset = 0;
+    if (!AllocStaging(size, 16, stagingOffset)) {
+        return;
+    }
+    std::memcpy(static_cast<std::byte*>(m_StagingMapped) + stagingOffset, data, size);
+    vmaFlushAllocation(m_Allocator, m_StagingMemory, stagingOffset, size);
+    VkBufferCopy region{};
+    region.srcOffset = static_cast<VkDeviceSize>(stagingOffset);
+    region.dstOffset = static_cast<VkDeviceSize>(dstOffset);
+    region.size = static_cast<VkDeviceSize>(size);
+    vkCmdCopyBuffer(m_UploadBuffer, m_StagingBuffer, m_Buffers[dst.id], 1, &region);
+    m_UploadHasWork = true;
+}
+
+void VulkanRHI::UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                              const void* data, std::uint32_t width, std::uint32_t height)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Textures.size() || m_Textures[dst.id] == VK_NULL_HANDLE) {
+        printf("UploadTexture: invalid texture handle\n");
+        return;
+    }
+    const std::uint32_t texelBytes = TexelBytes(dst.desc.format);
+    if (texelBytes == 0) {
+        printf("UploadTexture: unsupported (block-compressed) format\n");
+        return;
+    }
+    const std::uint32_t mipWidth = (dst.desc.width >> mipLevel) > 1u ? (dst.desc.width >> mipLevel) : 1u;
+    const std::uint32_t mipHeight = (dst.desc.height >> mipLevel) > 1u ? (dst.desc.height >> mipLevel) : 1u;
+    if (width != mipWidth || height != mipHeight) {
+        printf("UploadTexture: extent %ux%u does not match mip %u (%ux%u)\n",
+            width, height, mipLevel, mipWidth, mipHeight);
+        return;
+    }
+    const std::size_t tightBytes =
+        static_cast<std::size_t>(width) * height * texelBytes;
+    std::size_t stagingOffset = 0;
+    if (!AllocStaging(tightBytes, 256, stagingOffset)) {
+        return;
+    }
+    std::memcpy(static_cast<std::byte*>(m_StagingMapped) + stagingOffset, data, tightBytes);
+    vmaFlushAllocation(m_Allocator, m_StagingMemory, stagingOffset, tightBytes);
+    const VkImageAspectFlags aspect = toVkAspect(dst.desc.format);
+    VkBufferImageCopy copy{};
+    copy.bufferOffset = static_cast<VkDeviceSize>(stagingOffset);
+    copy.bufferRowLength = 0; // tightly packed
+    copy.bufferImageHeight = 0;
+    copy.imageSubresource.aspectMask = aspect;
+    copy.imageSubresource.mipLevel = mipLevel;
+    copy.imageSubresource.baseArrayLayer = 0;
+    copy.imageSubresource.layerCount = 1;
+    copy.imageOffset = { 0, 0, 0 };
+    copy.imageExtent = { width, height, 1 };
+    TransitionTexture(m_UploadBuffer, dst, aspect,
+                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vkCmdCopyBufferToImage(m_UploadBuffer, m_StagingBuffer, m_Textures[dst.id],
+                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy);
+    m_UploadHasWork = true;
 }
 
 void VulkanRHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,

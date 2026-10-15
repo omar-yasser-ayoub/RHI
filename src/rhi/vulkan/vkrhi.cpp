@@ -488,6 +488,23 @@ bool VulkanRHI::CreateFrameContexts()
         DestroyFrameContexts();
         return false;
     }
+    VkBufferCreateInfo stagingInfo{};
+    stagingInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    stagingInfo.size = kStagingRingSize;
+    stagingInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    stagingInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VmaAllocationCreateInfo stagingAlloc = ToVmaAllocInfo(rhi::MemoryUsage::CpuToGpu);
+    stagingAlloc.flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    VmaAllocationInfo stagingAllocInfo{};
+    if (vmaCreateBuffer(m_Allocator, &stagingInfo, &stagingAlloc,
+            &m_StagingBuffer, &m_StagingMemory, &stagingAllocInfo) != VK_SUCCESS ||
+        stagingAllocInfo.pMappedData == nullptr) {
+        std::cerr << "Failed to create staging ring buffer\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    m_StagingMapped = stagingAllocInfo.pMappedData;
+    m_StagingHead = 0;
     return true;
 }
 
@@ -503,6 +520,15 @@ void VulkanRHI::DestroyFrameContexts()
     }
     m_UploadBuffer = VK_NULL_HANDLE;
     m_UploadHasWork = false;
+    // Ring is persistently mapped (MAPPED_BIT): VMA unmaps it on free,
+    // explicit vmaUnmapMemory here would underflow the map count.
+    m_StagingMapped = nullptr;
+    if (m_StagingBuffer != VK_NULL_HANDLE && m_StagingMemory != nullptr) {
+        vmaDestroyBuffer(m_Allocator, m_StagingBuffer, m_StagingMemory);
+    }
+    m_StagingBuffer = VK_NULL_HANDLE;
+    m_StagingMemory = nullptr;
+    m_StagingHead = 0;
     if (m_TransferPool != VK_NULL_HANDLE) {
         vkDestroyCommandPool(m_Device, m_TransferPool, nullptr);
         m_TransferPool = VK_NULL_HANDLE;

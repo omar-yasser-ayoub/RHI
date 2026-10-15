@@ -21,6 +21,7 @@
 #include "rhi/resources/commands.h"
 
 #include <vulkan/vulkan.h>
+#include <cstddef>
 #include <cstdint>
 #include <array>
 #include <optional>
@@ -100,6 +101,11 @@ public:
     void CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                               const rhi::TextureCopyRegion& region);
     void FlushTransfers(bool wait = false);
+
+    void UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                      const void* data, std::size_t size);
+    void UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                       const void* data, std::uint32_t width, std::uint32_t height);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
@@ -223,6 +229,12 @@ private:
     VkFence m_UploadFence = VK_NULL_HANDLE;
     bool EnsureUploadReady();
     void FlushUploads(bool wait);
+    static constexpr std::size_t kStagingRingSize = 64 * 1024 * 1024;
+    VkBuffer m_StagingBuffer = VK_NULL_HANDLE;
+    VmaAllocation m_StagingMemory = nullptr;
+    void* m_StagingMapped = nullptr;
+    std::size_t m_StagingHead = 0;
+    bool AllocStaging(std::size_t size, std::size_t align, std::size_t& outOffset);
     enum class CurrentPass {
         None,
         Graphics,

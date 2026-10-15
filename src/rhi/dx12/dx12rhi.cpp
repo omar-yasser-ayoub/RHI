@@ -167,11 +167,45 @@ bool DX12RHI::CreateFrameContexts()
         DestroyFrameContexts();
         return false;
     }
+    D3D12_HEAP_PROPERTIES stagingHeap{};
+    stagingHeap.Type = D3D12_HEAP_TYPE_UPLOAD;
+    stagingHeap.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    stagingHeap.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    D3D12_RESOURCE_DESC stagingDesc{};
+    stagingDesc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    stagingDesc.Width = kUploadRingSize;
+    stagingDesc.Height = 1;
+    stagingDesc.DepthOrArraySize = 1;
+    stagingDesc.MipLevels = 1;
+    stagingDesc.Format = DXGI_FORMAT_UNKNOWN;
+    stagingDesc.SampleDesc.Count = 1;
+    stagingDesc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    if (FAILED(m_Device->CreateCommittedResource(
+            &stagingHeap, D3D12_HEAP_FLAG_NONE, &stagingDesc,
+            D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+            IID_PPV_ARGS(&m_StagingBuffer)))) {
+        std::cerr << "Failed to create staging ring buffer.\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    if (FAILED(m_StagingBuffer->Map(0, nullptr, &m_StagingMapped)) ||
+        m_StagingMapped == nullptr) {
+        std::cerr << "Failed to map staging ring buffer.\n";
+        DestroyFrameContexts();
+        return false;
+    }
+    m_StagingHead = 0;
     return true;
 }
 
 void DX12RHI::DestroyFrameContexts()
 {
+    if (m_StagingBuffer && m_StagingMapped) {
+        m_StagingBuffer->Unmap(0, nullptr);
+    }
+    m_StagingMapped = nullptr;
+    m_StagingBuffer.Reset();
+    m_StagingHead = 0;
     m_UploadList.Reset();
     m_UploadAllocator.Reset();
     m_UploadHasWork = false;

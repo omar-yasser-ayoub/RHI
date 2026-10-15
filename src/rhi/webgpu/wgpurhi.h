@@ -87,6 +87,11 @@ public:
     // submit). With wait=true, staging memory may be freed on return.
     void FlushTransfers(bool wait = false);
 
+    void UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                      const void* data, std::size_t size);
+    void UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                       const void* data, std::uint32_t width, std::uint32_t height);
+
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
 
@@ -138,6 +143,7 @@ private:
     static wgpu::BlendFactor toWebGPU(rhi::BlendFactor factor);
     static wgpu::BlendOperation toWebGPU(rhi::BlendOp op);
     static wgpu::ColorWriteMask toWebGPU(rhi::ColorWriteMask mask);
+    static uint32_t TexelBytes(rhi::TextureFormat format);
     static rhi::ShaderReflection ParseReflection(
         SpvReflectShaderModule* reflection,
         rhi::ShaderStageFlags stage);
@@ -163,13 +169,12 @@ private:
     std::vector<WebGPUCommandList> m_CommandLists;
     std::vector<std::uint64_t> m_FreeCommandLists;
     WebGPUCommandList* GetCommandList(rhi::CommandListHandle handle);
-    // Persistent upload encoder. Copy* appends to it, Submit flushes it
-    // ahead of frame work, FlushTransfers submits it on demand. Abandoned
-    // (finished) on every flush; lazily recreated by the next copy.
     wgpu::CommandEncoder m_UploadEncoder;
     bool m_UploadHasWork = false;
+    std::vector<wgpu::Buffer> m_UploadStaging;
     bool EnsureUploadReady();
     void FlushUploads(bool wait);
+    wgpu::Buffer MakeUploadStaging(std::size_t size, void*& mappedOut);
     std::vector<wgpu::Sampler> m_Samplers;
     std::vector<std::uint64_t> m_FreeSamplers;
     std::vector<wgpu::Buffer> m_Buffers;

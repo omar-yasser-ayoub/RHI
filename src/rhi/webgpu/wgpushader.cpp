@@ -17,8 +17,14 @@ inline void MarkDepthComparisonSampling(
     constexpr std::uint16_t OpLoad = 61;
     constexpr std::uint16_t OpDecorate = 71;
     constexpr std::uint16_t OpSampledImage = 86;
+    constexpr std::uint16_t OpImageSampleImplicit = 87;
+    constexpr std::uint16_t OpImageSampleExplicit = 88;
     constexpr std::uint16_t OpDrefImplicit = 89;
     constexpr std::uint16_t OpDrefExplicit = 90;
+    constexpr std::uint16_t OpImageFetch = 95;
+    constexpr std::uint16_t OpImageGather = 96;
+    constexpr std::uint16_t OpDrefGather = 97;
+    constexpr std::uint16_t OpImageSparseGather = 98;
     constexpr std::uint32_t DecoBinding = 33;
     constexpr std::uint32_t DecoDescriptorSet = 34;
 
@@ -34,6 +40,8 @@ inline void MarkDepthComparisonSampling(
     std::vector<std::uint32_t> sampledImage(bound, Invalid);
     std::vector<std::uint32_t> sampledSampler(bound, Invalid);
     std::vector<std::uint32_t> drefUses;
+    std::vector<std::uint32_t> filterUses;
+    std::vector<std::uint32_t> fetchUses;
 
     for (int pass = 0; pass < 2; ++pass)
     {
@@ -71,18 +79,37 @@ inline void MarkDepthComparisonSampling(
                 {
                     drefUses.push_back(ops[2]);
                 }
+                else if ((op == OpImageSampleImplicit || op == OpImageSampleExplicit ||
+                          op == OpImageGather || op == OpDrefGather ||
+                          op == OpImageSparseGather) &&
+                         n >= 3 && ops[2] < bound)
+                {
+                    if (op == OpDrefGather)
+                        drefUses.push_back(ops[2]);
+                    else
+                        filterUses.push_back(ops[2]);
+                }
+                else if (op == OpImageFetch && n >= 3 && ops[2] < bound)
+                {
+                    fetchUses.push_back(ops[2]);
+                }
             }
             i += count;
         }
     }
 
+    auto resolveImage = [&](std::uint32_t sampledImageId) {
+        std::uint32_t image = Invalid;
+        if (sampledImageId < bound && sampledImage[sampledImageId] != Invalid)
+            image = (loadedFrom[sampledImage[sampledImageId]] != Invalid)
+                ? loadedFrom[sampledImage[sampledImageId]] : sampledImage[sampledImageId];
+        return image;
+    };
+
     for (std::uint32_t use : drefUses)
     {
-        std::uint32_t image = Invalid;
+        std::uint32_t image = resolveImage(use);
         std::uint32_t sampler = Invalid;
-        if (sampledImage[use] != Invalid)
-            image = (loadedFrom[sampledImage[use]] != Invalid)
-                ? loadedFrom[sampledImage[use]] : sampledImage[use];
         if (sampledSampler[use] != Invalid)
             sampler = (loadedFrom[sampledSampler[use]] != Invalid)
                 ? loadedFrom[sampledSampler[use]] : sampledSampler[use];
@@ -100,6 +127,33 @@ inline void MarkDepthComparisonSampling(
                 candidate.type == rhi::BindingType::Sampler)
             {
                 candidate.comparison = true;
+            }
+        }
+    }
+
+    std::vector<bool> imageFiltered(bound, false);
+    for (std::uint32_t use : filterUses)
+    {
+        const std::uint32_t image = resolveImage(use);
+        if (image != Invalid)
+            imageFiltered[image] = true;
+    }
+    for (std::uint32_t use : fetchUses)
+    {
+        if (use >= bound)
+            continue;
+        const std::uint32_t image =
+            (loadedFrom[use] != Invalid) ? loadedFrom[use] : use;
+        if (imageFiltered[image])
+            continue;
+        for (auto& candidate : reflection.bindings)
+        {
+            if (setOf[image] == candidate.set &&
+                bindingOf[image] == candidate.binding &&
+                candidate.type == rhi::BindingType::SampledTexture &&
+                !candidate.depthSampled)
+            {
+                candidate.unfilterableSampled = true;
             }
         }
     }

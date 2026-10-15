@@ -1,5 +1,7 @@
 #include "rhi/webgpu/wgpurhi.h"
 
+#include <algorithm>
+#include <cstring>
 #include <vector>
 
 WebGPURHI::WebGPUCommandList* WebGPURHI::GetCommandList(rhi::CommandListHandle handle)
@@ -470,6 +472,7 @@ void WebGPURHI::FlushUploads(bool wait)
     wgpu::CommandBuffer commands = m_UploadEncoder.Finish();
     m_UploadEncoder = nullptr;
     m_Queue.Submit(1, &commands);
+    m_UploadStaging.clear();
     if (wait) {
         auto future = m_Queue.OnSubmittedWorkDone(
             wgpu::CallbackMode::WaitAnyOnly,
@@ -481,6 +484,129 @@ void WebGPURHI::FlushUploads(bool wait)
 void WebGPURHI::FlushTransfers(bool wait)
 {
     FlushUploads(wait);
+}
+
+wgpu::Buffer WebGPURHI::MakeUploadStaging(std::size_t size, void*& mappedOut)
+{
+    mappedOut = nullptr;
+    wgpu::BufferDescriptor stagingDesc{};
+    stagingDesc.size = size;
+    stagingDesc.usage = wgpu::BufferUsage::MapWrite | wgpu::BufferUsage::CopySrc;
+    wgpu::Buffer staging = m_Device.CreateBuffer(&stagingDesc);
+    if (!staging) {
+        printf("[RHI] Failed to create WebGPU staging buffer\n");
+        return nullptr;
+    }
+    bool success = false;
+    auto future = staging.MapAsync(
+        wgpu::MapMode::Write, 0, size,
+        wgpu::CallbackMode::WaitAnyOnly,
+        [&](wgpu::MapAsyncStatus status, wgpu::StringView message) {
+            if (status != wgpu::MapAsyncStatus::Success) {
+                printf("[RHI] Staging map failed: %.*s\n",
+                       static_cast<int>(message.length),
+                       message.data ? message.data : "");
+                return;
+            }
+            success = true;
+        });
+    m_Instance.WaitAny(future, UINT64_MAX);
+    if (!success) {
+        staging.Destroy();
+        return nullptr;
+    }
+    mappedOut = staging.GetMappedRange(0, size);
+    if (!mappedOut) {
+        printf("[RHI] Failed to get mapped WebGPU staging range\n");
+        staging.Unmap();
+        staging.Destroy();
+        return nullptr;
+    }
+    return staging;
+}
+
+void WebGPURHI::UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                             const void* data, std::size_t size)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
+        printf("[RHI] UploadBuffer: invalid buffer handle\n");
+        return;
+    }
+    if (size == 0 || dstOffset > dst.desc.size || size > dst.desc.size - dstOffset) {
+        printf("[RHI] UploadBuffer range is out of bounds\n");
+        return;
+    }
+    void* mapped = nullptr;
+    wgpu::Buffer staging = MakeUploadStaging(size, mapped);
+    if (!staging || !mapped) {
+        return;
+    }
+    std::memcpy(mapped, data, size);
+    staging.Unmap();
+    m_UploadEncoder.CopyBufferToBuffer(staging, 0, m_Buffers[dst.id], dstOffset, size);
+    m_UploadStaging.push_back(staging);
+    m_UploadHasWork = true;
+}
+
+void WebGPURHI::UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                              const void* data, std::uint32_t width, std::uint32_t height)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
+        printf("[RHI] UploadTexture: invalid texture handle\n");
+        return;
+    }
+    if (dst.desc.dimension != rhi::TextureDimension::Tex2D || dst.desc.arrayLayers != 1) {
+        printf("[RHI] UploadTexture: only plain 2D textures for now\n");
+        return;
+    }
+    const std::uint32_t mipWidth = (dst.desc.width >> mipLevel) > 1u ? (dst.desc.width >> mipLevel) : 1u;
+    const std::uint32_t mipHeight = (dst.desc.height >> mipLevel) > 1u ? (dst.desc.height >> mipLevel) : 1u;
+    if (width != mipWidth || height != mipHeight) {
+        printf("[RHI] UploadTexture: extent %ux%u does not match mip %u (%ux%u)\n",
+               width, height, mipLevel, mipWidth, mipHeight);
+        return;
+    }
+    const std::uint32_t texelBytes = TexelBytes(dst.desc.format);
+    if (texelBytes == 0) {
+        printf("[RHI] UploadTexture: unsupported texture format\n");
+        return;
+    }
+    const std::size_t tightRow = static_cast<std::size_t>(width) * texelBytes;
+    const std::size_t pitch = (tightRow + 255) & ~static_cast<std::size_t>(255);
+    void* mapped = nullptr;
+    wgpu::Buffer staging = MakeUploadStaging(pitch * height, mapped);
+    if (!staging || !mapped) {
+        return;
+    }
+    for (std::uint32_t y = 0; y < height; ++y) {
+        std::memcpy(static_cast<std::uint8_t*>(mapped) + static_cast<std::size_t>(y) * pitch,
+                    static_cast<const std::uint8_t*>(data) + static_cast<std::size_t>(y) * tightRow,
+                    tightRow);
+    }
+    staging.Unmap();
+
+    wgpu::TexelCopyBufferInfo source{};
+    source.buffer = staging;
+    source.layout.offset = 0;
+    source.layout.bytesPerRow = static_cast<std::uint32_t>(pitch);
+    source.layout.rowsPerImage = height;
+
+    wgpu::TexelCopyTextureInfo destination{};
+    destination.texture = m_Textures[dst.id];
+    destination.mipLevel = mipLevel;
+    destination.origin = { 0, 0, 0 };
+    destination.aspect = wgpu::TextureAspect::All;
+
+    wgpu::Extent3D extent{ width, height, 1 };
+    m_UploadEncoder.CopyBufferToTexture(&source, &destination, &extent);
+    m_UploadStaging.push_back(staging);
+    m_UploadHasWork = true;
 }
 
 void WebGPURHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,

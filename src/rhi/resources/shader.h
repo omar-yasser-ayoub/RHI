@@ -53,6 +53,10 @@ namespace rhi {
         ShaderStageFlags stage;
         bool depthSampled = false;
         bool comparison = false;
+        // Image is only ever fetched (OpImageFetch), never filtered.
+        // Lets WebGPU bind depth-as-data (or any texture) without a
+        // filtering sampler requirement. Cleared by any filtering use.
+        bool unfilterableSampled = false;
     };
 
     enum class VertexFormat

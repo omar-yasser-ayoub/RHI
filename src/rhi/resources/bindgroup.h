@@ -48,6 +48,9 @@ namespace rhi {
                         existing.stage = existing.stage | binding.stage;
                         existing.depthSampled = existing.depthSampled || binding.depthSampled;
                         existing.comparison = existing.comparison || binding.comparison;
+                        // Unfilterable only survives if NO stage filters it.
+                        existing.unfilterableSampled =
+                            existing.unfilterableSampled && binding.unfilterableSampled;
                         merged = true;
                         break;
                     }

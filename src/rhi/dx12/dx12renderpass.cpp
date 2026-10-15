@@ -1,6 +1,8 @@
 #include "rhi/dx12/dx12rhi.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 rhi::CommandListHandle DX12RHI::BeginCommandList()
@@ -623,13 +625,13 @@ bool DX12RHI::EnsureUploadReady()
         return false;
     }
     if (m_UploadFenceValue != 0) {
-        // Last flush still in flight: wait, then the list is ours again.
         if (m_IdleFence && m_IdleEvent &&
             m_IdleFence->GetCompletedValue() < m_UploadFenceValue) {
             m_IdleFence->SetEventOnCompletion(m_UploadFenceValue, m_IdleEvent);
             WaitForSingleObject(m_IdleEvent, INFINITE);
         }
         m_UploadFenceValue = 0;
+        m_StagingHead = 0;
         m_UploadAllocator->Reset();
         m_UploadList->Reset(m_UploadAllocator.Get(), nullptr);
     }
@@ -658,6 +660,131 @@ void DX12RHI::FlushUploads(bool wait)
 void DX12RHI::FlushTransfers(bool wait)
 {
     FlushUploads(wait);
+}
+
+static std::size_t AlignUp(std::size_t value, std::size_t align)
+{
+    return (value + align - 1) & ~(align - 1);
+}
+
+bool DX12RHI::AllocStaging(std::size_t size, std::size_t align, std::size_t& outOffset)
+{
+    if (m_StagingMapped == nullptr || size == 0 || size > kUploadRingSize || align == 0) {
+        printf("[ERROR] AllocStaging: bad request (size %zu, ring %zu)\n", size, kUploadRingSize);
+        return false;
+    }
+    std::size_t head = AlignUp(m_StagingHead, align);
+    if (head + size > kUploadRingSize) {
+        FlushUploads(false);
+        if (m_UploadFenceValue != 0) {
+            if (m_IdleFence &&
+                m_IdleFence->GetCompletedValue() < m_UploadFenceValue) {
+                m_IdleFence->SetEventOnCompletion(m_UploadFenceValue, m_IdleEvent);
+                WaitForSingleObject(m_IdleEvent, INFINITE);
+            }
+            m_UploadFenceValue = 0;
+        }
+        m_UploadAllocator->Reset();
+        m_UploadList->Reset(m_UploadAllocator.Get(), nullptr);
+        head = 0;
+    } else if (m_UploadFenceValue != 0 && m_IdleFence &&
+               m_IdleFence->GetCompletedValue() >= m_UploadFenceValue) {
+        m_UploadFenceValue = 0;
+        head = 0;
+    }
+    outOffset = head;
+    m_StagingHead = head + size;
+    return true;
+}
+
+void DX12RHI::UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                           const void* data, std::size_t size)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Buffers.size() || !m_Buffers[dst.id]) {
+        printf("[ERROR] UploadBuffer: invalid buffer handle\n");
+        return;
+    }
+    if (size == 0 || dstOffset > dst.desc.size || size > dst.desc.size - dstOffset) {
+        printf("[ERROR] UploadBuffer range is out of bounds\n");
+        return;
+    }
+    std::size_t stagingOffset = 0;
+    if (!AllocStaging(size, 16, stagingOffset)) {
+        return;
+    }
+    std::memcpy(static_cast<std::uint8_t*>(m_StagingMapped) + stagingOffset, data, size);
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
+    RequireBufferState(list, dst, D3D12_RESOURCE_STATE_COPY_DEST);
+    list->CopyBufferRegion(m_Buffers[dst.id].Get(), static_cast<UINT64>(dstOffset),
+                           m_StagingBuffer.Get(), static_cast<UINT64>(stagingOffset),
+                           static_cast<UINT64>(size));
+    m_UploadHasWork = true;
+}
+
+void DX12RHI::UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                            const void* data, std::uint32_t width, std::uint32_t height)
+{
+    if (!EnsureUploadReady() || data == nullptr) {
+        return;
+    }
+    if (dst.id >= m_Textures.size() || !m_Textures[dst.id]) {
+        printf("[ERROR] UploadTexture: invalid texture handle\n");
+        return;
+    }
+    D3D12_RESOURCE_DESC texDesc = m_Textures[dst.id]->GetDesc();
+    const std::uint64_t mipWidth =
+        (texDesc.Width >> mipLevel) > 1u ? (texDesc.Width >> mipLevel) : 1u;
+    const std::uint32_t mipHeight =
+        (texDesc.Height >> mipLevel) > 1u ? (texDesc.Height >> mipLevel) : 1u;
+    if (static_cast<std::uint64_t>(width) != mipWidth || height != mipHeight) {
+        printf("[ERROR] UploadTexture: extent %ux%u does not match mip %u (%llux%u)\n",
+            width, height, mipLevel, mipWidth, mipHeight);
+        return;
+    }
+    const std::uint32_t texelBytes = TexelBytes(dst.desc.format);
+    if (texelBytes == 0) {
+        printf("[ERROR] UploadTexture: unsupported texture format\n");
+        return;
+    }
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint{};
+    m_Device->GetCopyableFootprints(&texDesc, mipLevel, 1, 0, &footprint,
+                                    nullptr, nullptr, nullptr);
+    const std::size_t pitch = footprint.Footprint.RowPitch;
+    const std::size_t tightRow = static_cast<std::size_t>(width) * texelBytes;
+    std::size_t stagingOffset = 0;
+    if (!AllocStaging(pitch * height, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, stagingOffset)) {
+        return;
+    }
+    for (std::uint32_t y = 0; y < height; ++y) {
+        std::memcpy(static_cast<std::uint8_t*>(m_StagingMapped) + stagingOffset +
+                        static_cast<std::size_t>(y) * pitch,
+                    static_cast<const std::uint8_t*>(data) +
+                        static_cast<std::size_t>(y) * tightRow,
+                    tightRow);
+    }
+    ID3D12GraphicsCommandList* list = m_UploadList.Get();
+    RequireTextureState(list, dst, D3D12_RESOURCE_STATE_COPY_DEST);
+
+    D3D12_TEXTURE_COPY_LOCATION srcLoc{};
+    srcLoc.pResource = m_StagingBuffer.Get();
+    srcLoc.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    srcLoc.PlacedFootprint = footprint;
+    srcLoc.PlacedFootprint.Offset = static_cast<UINT64>(stagingOffset);
+    srcLoc.PlacedFootprint.Footprint.RowPitch =
+        static_cast<UINT>(pitch);
+
+    D3D12_TEXTURE_COPY_LOCATION dstLoc{};
+    dstLoc.pResource = m_Textures[dst.id].Get();
+    dstLoc.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dstLoc.SubresourceIndex = CalcSubresource(
+        mipLevel, 0, 0, texDesc.MipLevels,
+        static_cast<UINT>(texDesc.DepthOrArraySize));
+
+    list->CopyTextureRegion(&dstLoc, 0, 0, 0, &srcLoc, nullptr);
+    m_UploadHasWork = true;
 }
 
 void DX12RHI::CopyBufferToBuffer(rhi::BufferHandle src, rhi::BufferHandle dst, std::size_t size,

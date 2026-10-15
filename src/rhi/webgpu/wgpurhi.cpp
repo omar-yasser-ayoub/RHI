@@ -87,6 +87,7 @@ void WebGPURHI::Shutdown()
     m_FreeCommandLists.clear();
     m_UploadEncoder = nullptr;
     m_UploadHasWork = false;
+    m_UploadStaging.clear();
 
     for (auto& buffer : m_Buffers) {
         if (buffer) {

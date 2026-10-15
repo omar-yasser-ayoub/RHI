@@ -86,9 +86,12 @@ public:
                              const rhi::TextureWriteDesc& region);
     void CopyTextureToTexture(rhi::TextureHandle src, rhi::TextureHandle dst,
                               const rhi::TextureCopyRegion& region);
-    // Submits pending upload work now (init/readback paths with no frame
-    // submit). With wait=true, staging memory may be freed on return.
     void FlushTransfers(bool wait = false);
+
+    void UploadBuffer(rhi::BufferHandle dst, std::size_t dstOffset,
+                      const void* data, std::size_t size);
+    void UploadTexture(rhi::TextureHandle dst, std::uint32_t mipLevel,
+                       const void* data, std::uint32_t width, std::uint32_t height);
 
     rhi::CommandListHandle BeginCommandList();
     void Submit(std::span<const rhi::CommandListHandle> cmds);
@@ -127,6 +130,7 @@ private:
     static uint32_t toD3D12(rhi::SampleCount count);
     static D3D12_RESOURCE_FLAGS toD3D12(rhi::TextureUsage usage);
     static DXGI_FORMAT toD3D12Typeless(rhi::TextureFormat format);
+    static std::uint32_t TexelBytes(rhi::TextureFormat format);
     static DXGI_FORMAT toD3D12DepthSrv(rhi::TextureFormat format);
     static DXGI_FORMAT toD3D12StencilSrv(rhi::TextureFormat format);
     static bool IsDepthFormat(rhi::TextureFormat format);
@@ -318,15 +322,17 @@ private:
     Microsoft::WRL::ComPtr<ID3D12Fence> m_IdleFence;
     HANDLE m_IdleEvent = nullptr;
     std::uint64_t m_IdleValue = 0;
-    // Persistent upload list. Copy* appends to it, Submit flushes it ahead
-    // of frame work, FlushTransfers submits it on demand. The fence value is
-    // signaled on m_IdleFence; 0 means no flush is in flight.
     Microsoft::WRL::ComPtr<ID3D12CommandAllocator> m_UploadAllocator;
     Microsoft::WRL::ComPtr<ID3D12GraphicsCommandList> m_UploadList;
     bool m_UploadHasWork = false;
     std::uint64_t m_UploadFenceValue = 0;
     bool EnsureUploadReady();
     void FlushUploads(bool wait);
+    Microsoft::WRL::ComPtr<ID3D12Resource> m_StagingBuffer;
+    void* m_StagingMapped = nullptr;
+    std::size_t m_StagingHead = 0;
+    static constexpr std::size_t kUploadRingSize = 64 * 1024 * 1024;
+    bool AllocStaging(std::size_t size, std::size_t align, std::size_t& outOffset);
 
     struct CommandSignatureKey {
         D3D12_INDIRECT_ARGUMENT_TYPE type;
