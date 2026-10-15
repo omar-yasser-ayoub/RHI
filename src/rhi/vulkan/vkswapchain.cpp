@@ -242,6 +242,10 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
         vkDestroyFence(m_Device, frame.pendingFences[i], nullptr);
     }
     frame.pendingFences.clear();
+    if (!frame.cmds.empty()) {
+        vkFreeCommandBuffers(m_Device, frame.pool,
+            static_cast<std::uint32_t>(frame.cmds.size()), frame.cmds.data());
+    }
     vkResetCommandPool(m_Device, frame.pool, 0);
     frame.cmds.clear();
     frame.submitted = false;
