@@ -8,111 +8,23 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(googletest)
 
-# Create test executable
+# Create test executable. Backend sources come from the rhi lib;
+# backend defines (RHI_VULKAN/...) propagate via PUBLIC compile defs.
 add_executable(rhi_tests
     test_rhi.cpp
 )
 
-# Link Google Test
 target_link_libraries(rhi_tests
     PRIVATE
+        rhi
         gtest
         gtest_main
-        glfw
 )
 
-# Include directories
-target_include_directories(rhi_tests
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/src
-)
-
-
-
-# Apply same configuration as main executable
-if(RHI_BACKEND STREQUAL "VULKAN")
-    find_package(Vulkan REQUIRED)
-    target_sources(rhi_tests
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkrhi.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkconversions.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkshader.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbindgroup.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkpipeline.cpp
-            ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vktexture.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkbuffer.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksampler.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vksurface.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkswapchain.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/vulkan/vkrenderpass.cpp
-    )
-    target_link_libraries(rhi_tests
-        PRIVATE
-            Vulkan::Vulkan
-            dxc
-    )
-    target_compile_definitions(rhi_tests
-        PRIVATE
-            RHI_VULKAN
-    )
-elseif(RHI_BACKEND STREQUAL "DX12")
-    if(NOT WIN32)
-        message(FATAL_ERROR "DirectX 12 is only supported on Windows.")
-    endif()
-    target_sources(rhi_tests
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12rhi.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12sampler.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12texture.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12buffer.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12conversions.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12shader.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12bindgroup.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12pipeline.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12surface.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12swapchain.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/dx12/dx12renderpass.cpp
-    )
-    target_link_libraries(rhi_tests
-        PRIVATE
-            d3d12
-            dxgi
-            dxc
-    )
-    target_compile_definitions(rhi_tests
-        PRIVATE
-            RHI_DX12
-    )
-elseif(RHI_BACKEND STREQUAL "WEBGPU")
-    set(DAWN_SDK_ROOT "C:/Dawn/SDK" CACHE PATH "Path to Dawn SDK")
-    find_package(Threads REQUIRED)
-    find_package(Dawn REQUIRED PATHS ${DAWN_SDK_ROOT})
-    target_sources(rhi_tests
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpurhi.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpubuffer.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuconversions.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpusampler.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgputexture.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpushader.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpubindgroup.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpupipeline.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpusurface.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpuswapchain.cpp
-            ${CMAKE_SOURCE_DIR}/src/rhi/webgpu/wgpurenderpass.cpp
-            ${CMAKE_SOURCE_DIR}/src/third_party/spirv-reflect/spirv_reflect.cpp
-    )
-    target_link_libraries(rhi_tests
-        PRIVATE
-            dawn::webgpu_dawn
-    )
-    target_compile_definitions(rhi_tests
-        PRIVATE
-            RHI_WEBGPU
-    )
-    # Dawn needs its backend DLLs next to the test binary (same as build_webgpu.bat does for RHI.exe).
+if(RHI_BACKEND STREQUAL "WEBGPU")
+    # Dawn needs its backend DLLs next to the test binary.
     if(WIN32)
+        set(DAWN_SDK_ROOT "C:/Dawn/SDK" CACHE PATH "Path to Dawn SDK")
         add_custom_command(TARGET rhi_tests POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
                 "${DAWN_SDK_ROOT}/bin/d3dcompiler_47.dll"
@@ -122,7 +34,7 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 "$<TARGET_FILE_DIR:rhi_tests>"
         )
     endif()
-else()
+elseif(NOT RHI_BACKEND STREQUAL "VULKAN" AND NOT RHI_BACKEND STREQUAL "DX12")
     message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
 

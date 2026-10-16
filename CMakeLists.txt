@@ -7,24 +7,18 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(RHI_BACKEND "VULKAN" CACHE STRING "RHI backend to use")
 set_property(CACHE RHI_BACKEND PROPERTY STRINGS VULKAN DX12 WEBGPU)
 
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(src/third_party/glfw)
+set(RHI_SHADER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/src/shaders")
 
-set(RHI_SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders")
-set(RHI_SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-file(GLOB RHI_SHADER_SOURCES CONFIGURE_DEPENDS
-    "${RHI_SHADER_SOURCE_DIR}/*.hlsl")
-
-function(configure_rhi_shaders target)
-  if(NOT RHI_SHADER_SOURCES)
-    message(WARNING "No HLSL shaders found in ${RHI_SHADER_SOURCE_DIR}")
+function(rhi_add_shaders target source_dir)
+  set(binary_dir "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+  file(GLOB shader_sources CONFIGURE_DEPENDS "${source_dir}/*.hlsl")
+  if(NOT shader_sources)
+    message(WARNING "No HLSL shaders found in ${source_dir}")
     return()
   endif()
 
-  if(NOT TARGET rhi_shaders)
+  set(copy_target "${target}_shaders")
+  if(NOT TARGET ${copy_target})
     set(shader_outputs)
 
     if(RHI_BACKEND STREQUAL "WEBGPU")
@@ -46,7 +40,7 @@ function(configure_rhi_shaders target)
 
       set(shader_tool_dir "${CMAKE_CURRENT_BINARY_DIR}/shader_tools")
 
-      foreach(shader IN LISTS RHI_SHADER_SOURCES)
+      foreach(shader IN LISTS shader_sources)
         get_filename_component(shader_filename "${shader}" NAME)
 
         if(shader_filename MATCHES "^(.+)\\.vert\\.hlsl$")
@@ -63,15 +57,15 @@ function(configure_rhi_shaders target)
             "Shader '${shader_filename}' must use .vert.hlsl, .frag.hlsl, or .comp.hlsl")
         endif()
 
-        set(hlsl_output "${RHI_SHADER_BINARY_DIR}/${shader_filename}")
+        set(hlsl_output "${binary_dir}/${shader_filename}")
         set(spirv_output "${shader_tool_dir}/${shader_stem}.spv")
-        set(wgsl_output "${RHI_SHADER_BINARY_DIR}/${shader_stem}.wgsl")
-        set(reflection_output "${RHI_SHADER_BINARY_DIR}/${shader_stem}.reflection.txt")
+        set(wgsl_output "${binary_dir}/${shader_stem}.wgsl")
+        set(reflection_output "${binary_dir}/${shader_stem}.reflection.txt")
 
         add_custom_command(
           OUTPUT "${wgsl_output}" "${reflection_output}"
           BYPRODUCTS "${spirv_output}"
-          COMMAND ${CMAKE_COMMAND} -E make_directory "${RHI_SHADER_BINARY_DIR}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${binary_dir}"
           COMMAND ${CMAKE_COMMAND} -E make_directory "${shader_tool_dir}"
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${shader}" "${hlsl_output}"
@@ -89,12 +83,12 @@ function(configure_rhi_shaders target)
         list(APPEND shader_outputs "${wgsl_output}" "${reflection_output}")
       endforeach()
     else()
-      foreach(shader IN LISTS RHI_SHADER_SOURCES)
+      foreach(shader IN LISTS shader_sources)
         get_filename_component(shader_filename "${shader}" NAME)
-        set(hlsl_output "${RHI_SHADER_BINARY_DIR}/${shader_filename}")
+        set(hlsl_output "${binary_dir}/${shader_filename}")
         add_custom_command(
           OUTPUT "${hlsl_output}"
-          COMMAND ${CMAKE_COMMAND} -E make_directory "${RHI_SHADER_BINARY_DIR}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${binary_dir}"
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${shader}" "${hlsl_output}"
           DEPENDS "${shader}"
@@ -104,25 +98,26 @@ function(configure_rhi_shaders target)
       endforeach()
     endif()
 
-    add_custom_target(rhi_shaders DEPENDS ${shader_outputs})
+    add_custom_target(${copy_target} DEPENDS ${shader_outputs})
     if(TARGET rhi_shader_cleanup)
-      add_dependencies(rhi_shaders rhi_shader_cleanup)
+      add_dependencies(${copy_target} rhi_shader_cleanup)
     endif()
   endif()
 
-  add_dependencies(${target} rhi_shaders)
+  add_dependencies(${target} ${copy_target})
   target_compile_definitions(${target}
-    PRIVATE RHI_SHADER_DIR=\"${RHI_SHADER_BINARY_DIR}\")
+    PRIVATE RHI_SHADER_DIR=\"${binary_dir}\")
 endfunction()
 
-set(SOURCE_FILES
-    src/main.cpp
-)
+# Backwards-compatible wrapper for the RHI's own shaders.
+function(configure_rhi_shaders target)
+  rhi_add_shaders(${target} "${RHI_SHADER_SOURCE_DIR}")
+endfunction()
 
-add_executable(${PROJECT_NAME} ${SOURCE_FILES})
+add_library(rhi STATIC)
 
-target_include_directories(${PROJECT_NAME}
-    PRIVATE
+target_include_directories(rhi
+    PUBLIC
         src
 )
 
@@ -174,7 +169,7 @@ endfunction()
 if(RHI_BACKEND STREQUAL "VULKAN")
   message(STATUS "Configuring RHI for Vulkan")
   find_package(Vulkan REQUIRED)
-  target_sources(${PROJECT_NAME}
+  target_sources(rhi
         PRIVATE
             src/rhi/vulkan/vkrhi.cpp
             src/rhi/vulkan/vktexture.cpp
@@ -189,13 +184,13 @@ if(RHI_BACKEND STREQUAL "VULKAN")
             src/rhi/vulkan/vkrenderpass.cpp
             src/third_party/spirv-reflect/spirv_reflect.cpp
     )
-  target_link_libraries(${PROJECT_NAME}
-        PRIVATE
+  target_link_libraries(rhi
+        PUBLIC
             Vulkan::Vulkan
             dxc
     )
-  target_compile_definitions(${PROJECT_NAME}
-        PRIVATE
+  target_compile_definitions(rhi
+        PUBLIC
             RHI_VULKAN
     )
 elseif(RHI_BACKEND STREQUAL "DX12")
@@ -203,7 +198,7 @@ elseif(RHI_BACKEND STREQUAL "DX12")
     message(FATAL_ERROR "DirectX 12 is only supported on Windows.")
   endif()
   message(STATUS "Configuring RHI for DirectX 12")
-  target_sources(${PROJECT_NAME}
+  target_sources(rhi
         PRIVATE
             src/rhi/dx12/dx12rhi.cpp
             src/rhi/dx12/dx12sampler.cpp
@@ -217,21 +212,21 @@ elseif(RHI_BACKEND STREQUAL "DX12")
             src/rhi/dx12/dx12swapchain.cpp
             src/rhi/dx12/dx12renderpass.cpp
     )
-  target_link_libraries(${PROJECT_NAME}
-        PRIVATE
+  target_link_libraries(rhi
+        PUBLIC
             d3d12
             dxgi
             dxc
     )
-  target_compile_definitions(${PROJECT_NAME}
-        PRIVATE
+  target_compile_definitions(rhi
+        PUBLIC
             RHI_DX12
     )
 elseif(RHI_BACKEND STREQUAL "WEBGPU")
   set(DAWN_SDK_ROOT "C:/Dawn/SDK" CACHE PATH "Path to Dawn SDK")
   find_package(Threads REQUIRED)
   find_package(Dawn REQUIRED PATHS ${DAWN_SDK_ROOT})
-  target_sources(${PROJECT_NAME}
+  target_sources(rhi
             PRIVATE
                 src/rhi/webgpu/wgpurhi.cpp
                 src/rhi/webgpu/wgpubuffer.cpp
@@ -246,26 +241,17 @@ elseif(RHI_BACKEND STREQUAL "WEBGPU")
                 src/rhi/webgpu/wgpurenderpass.cpp
                 src/third_party/spirv-reflect/spirv_reflect.cpp
         )
-  target_link_libraries(${PROJECT_NAME}
-            PRIVATE
+  target_link_libraries(rhi
+            PUBLIC
                 dawn::webgpu_dawn
         )
-  target_compile_definitions(${PROJECT_NAME}
-            PRIVATE
+  target_compile_definitions(rhi
+            PUBLIC
                 RHI_WEBGPU
         )
 else()
   message(FATAL_ERROR "Unknown RHI backend: ${RHI_BACKEND}")
 endif()
-
-target_link_libraries(${PROJECT_NAME}
-    PRIVATE
-        glfw
-)
-
-copy_dxc_runtime(${PROJECT_NAME})
-
-configure_rhi_shaders(${PROJECT_NAME})
 
 # Include tests
 add_subdirectory(tests)
