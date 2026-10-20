@@ -172,11 +172,11 @@ rhi::ShaderModuleHandle WebGPURHI::CompileShader(rhi::ShaderSource source)
     }
 
     const std::string stem = filename.substr(0, filename.size() - suffix.size());
-    const std::filesystem::path wgslPath =
-        std::filesystem::path("shaders") / (stem + ".wgsl");
+    const std::filesystem::path dir = source.path.parent_path();
+    const std::filesystem::path wgslPath = dir / (stem + ".wgsl");
 
     const std::filesystem::path spirvPath =
-        std::filesystem::path("shader_tools") / (stem + ".spv");
+        dir.parent_path() / "shader_tools" / (stem + ".spv");
 
     std::ifstream wgslFile(wgslPath, std::ios::binary);
     if (!wgslFile) {
