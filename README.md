@@ -6,6 +6,7 @@ Here are the main features:
 - Resource tracking with returned handles for a ECS-ish style of storing data.
 - Abstractions for allocating buffers, textures, or any other resources
 - Dedicated transfer ring buffer for GPU transfer operations.
+- Reflection helpers for bind groups/descriptor sets/resources that are used in the shaders.
 
 There's also some limitations with this RHI that I want to address in the future:
 - No frame graph: can't efficiently render and apply barriers, currently i just transition in the middle of passes, which isn't allowed by vulkan due to it crashing on mobile GPUs. This is fine for my GPU though, so not a big issue for my use case for now.
