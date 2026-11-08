@@ -167,14 +167,6 @@ rhi::AcquireResult WebGPURHI::AcquireNextImage(rhi::SwapchainHandle handle)
     return result;
 }
 
-wgpu::Texture WebGPURHI::GetSwapchainTexture(rhi::SwapchainHandle handle) const
-{
-    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Swapchains.size()) {
-        return {};
-    }
-    return m_Swapchains[handle.id].currentTexture;
-}
-
 void WebGPURHI::WaitForIdle()
 {
     if (!m_Device || !m_Instance || !m_Queue) {

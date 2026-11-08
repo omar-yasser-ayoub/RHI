@@ -153,20 +153,6 @@ rhi::AcquireResult DX12RHI::AcquireNextImage(rhi::SwapchainHandle handle)
     return result;
 }
 
-ID3D12Resource* DX12RHI::GetSwapchainBuffer(
-    rhi::SwapchainHandle handle,
-    std::uint32_t imageIndex) const
-{
-    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Swapchains.size()) {
-        return nullptr;
-    }
-    const DX12SwapchainData& data = m_Swapchains[handle.id];
-    if (!data.swapchain || imageIndex >= data.buffers.size()) {
-        return nullptr;
-    }
-    return data.buffers[imageIndex].Get();
-}
-
 void DX12RHI::WaitForIdle()
 {
     if (!m_Device || !m_CommandQueue || !m_IdleFence || m_IdleEvent == nullptr) {

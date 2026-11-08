@@ -47,7 +47,6 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
-    wgpu::Texture GetSwapchainTexture(rhi::SwapchainHandle handle) const;
     void Present(rhi::SwapchainHandle handle);
 
     void BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc);

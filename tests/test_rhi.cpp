@@ -2610,7 +2610,6 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
     auto acquired = rhi.AcquireNextImage(swapchain);
     EXPECT_EQ(acquired.status, rhi::AcquireStatus::Success);
     ASSERT_NE(acquired.imageIndex, 0xFFFFFFFFu);
-    EXPECT_NE(rhi.GetSwapchainBuffer(swapchain, acquired.imageIndex), nullptr);
 
     // Should not crash.
     rhi.Present(swapchain);
@@ -2726,7 +2725,6 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
                 acquired.status == rhi::AcquireStatus::Suboptimal)
         << "Acquire status: " << static_cast<int>(acquired.status);
     EXPECT_EQ(acquired.imageIndex, 0u);
-    EXPECT_TRUE(rhi.GetSwapchainTexture(swapchain));
 
     // Should not crash.
     rhi.Present(swapchain);

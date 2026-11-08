@@ -38,7 +38,7 @@ public:
     rhi::SamplerHandle CreateSampler(const rhi::SamplerDesc& desc);
     rhi::TextureHandle CreateTexture(const rhi::TextureDesc& desc);
     rhi::BufferHandle CreateBuffer(const rhi::BufferDesc& desc);
-    rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle handle);
+    rhi::TextureViewHandle CreateTextureView(const rhi::TextureViewDesc& desc, rhi::TextureHandle texture);
     rhi::ShaderModuleHandle CompileShader(rhi::ShaderSource source);
     std::optional<rhi::ShaderModule> GetShaderModule(rhi::ShaderModuleHandle handle) const;
     rhi::BindGroupLayoutHandle CreateBindGroupLayout(const rhi::BindGroupLayoutDesc& desc);
@@ -50,7 +50,6 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
-    ID3D12Resource* GetSwapchainBuffer(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     void Present(rhi::SwapchainHandle handle);
 
     void BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc);
