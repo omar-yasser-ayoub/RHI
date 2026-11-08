@@ -314,32 +314,6 @@ rhi::AcquireResult VulkanRHI::AcquireNextImage(rhi::SwapchainHandle handle)
     return result;
 }
 
-VkImage VulkanRHI::GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const
-{
-    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Swapchains.size()) {
-        return VK_NULL_HANDLE;
-    }
-    const VkSwapchainData& data = m_Swapchains[handle.id];
-    if (data.swapchain == VK_NULL_HANDLE || imageIndex >= data.images.size()) {
-        return VK_NULL_HANDLE;
-    }
-    return data.images[imageIndex];
-}
-
-VkImageView VulkanRHI::GetSwapchainImageView(
-    rhi::SwapchainHandle handle,
-    std::uint32_t imageIndex) const
-{
-    if (handle.id == 0xFFFFFFFFFFFFFFFF || handle.id >= m_Swapchains.size()) {
-        return VK_NULL_HANDLE;
-    }
-    const VkSwapchainData& data = m_Swapchains[handle.id];
-    if (data.swapchain == VK_NULL_HANDLE || imageIndex >= data.views.size()) {
-        return VK_NULL_HANDLE;
-    }
-    return data.views[imageIndex];
-}
-
 void VulkanRHI::WaitForIdle()
 {
     if (!m_Device) {

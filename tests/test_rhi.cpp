@@ -2498,9 +2498,6 @@ TEST_F(RHITest, AcquireAndPresentSwapchainImage)
         << "Acquire status: " << static_cast<int>(acquired.status);
     ASSERT_NE(acquired.imageIndex, 0xFFFFFFFFu);
 
-    EXPECT_NE(rhi.GetSwapchainImage(swapchain, acquired.imageIndex), VK_NULL_HANDLE);
-    EXPECT_NE(rhi.GetSwapchainImageView(swapchain, acquired.imageIndex), VK_NULL_HANDLE);
-
     // Should not crash.
     rhi.Present(swapchain);
 

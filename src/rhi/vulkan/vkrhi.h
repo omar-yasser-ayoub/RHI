@@ -63,8 +63,6 @@ public:
     rhi::SwapchainHandle CreateSwapchain(const rhi::SwapchainDesc& desc);
 
     rhi::AcquireResult AcquireNextImage(rhi::SwapchainHandle handle);
-    VkImage GetSwapchainImage(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
-    VkImageView GetSwapchainImageView(rhi::SwapchainHandle handle, std::uint32_t imageIndex) const;
     void Present(rhi::SwapchainHandle handle);
 
     void BeginRenderPass(rhi::CommandListHandle cmd, const rhi::RenderPassDesc& desc);
