@@ -11,7 +11,8 @@ set(RHI_SHADER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/src/shaders")
 
 function(rhi_add_shaders target source_dir)
   set(binary_dir "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-  file(GLOB shader_sources CONFIGURE_DEPENDS "${source_dir}/*.hlsl")
+  get_filename_component(source_dir_abs "${source_dir}" ABSOLUTE)
+  file(GLOB_RECURSE shader_sources CONFIGURE_DEPENDS "${source_dir_abs}/*.hlsl")
   if(NOT shader_sources)
     message(WARNING "No HLSL shaders found in ${source_dir}")
     return()
@@ -38,10 +39,15 @@ function(rhi_add_shaders target source_dir)
         message(FATAL_ERROR "WebGPU shader compilation needs DXC and Tint tool paths for this platform")
       endif()
 
-      set(shader_tool_dir "${CMAKE_CURRENT_BINARY_DIR}/shader_tools")
-
       foreach(shader IN LISTS shader_sources)
         get_filename_component(shader_filename "${shader}" NAME)
+        get_filename_component(shader_source_dir "${shader}" DIRECTORY)
+        file(RELATIVE_PATH shader_rel_dir "${source_dir_abs}" "${shader_source_dir}")
+        if(shader_rel_dir STREQUAL "" OR shader_rel_dir STREQUAL ".")
+          set(shader_out_dir "${binary_dir}")
+        else()
+          set(shader_out_dir "${binary_dir}/${shader_rel_dir}")
+        endif()
 
         if(shader_filename MATCHES "^(.+)\\.vert\\.hlsl$")
           set(shader_stem "${CMAKE_MATCH_1}.vert")
@@ -57,16 +63,15 @@ function(rhi_add_shaders target source_dir)
             "Shader '${shader_filename}' must use .vert.hlsl, .frag.hlsl, or .comp.hlsl")
         endif()
 
-        set(hlsl_output "${binary_dir}/${shader_filename}")
-        set(spirv_output "${shader_tool_dir}/${shader_stem}.spv")
-        set(wgsl_output "${binary_dir}/${shader_stem}.wgsl")
-        set(reflection_output "${binary_dir}/${shader_stem}.reflection.txt")
+        set(hlsl_output "${shader_out_dir}/${shader_filename}")
+        set(spirv_output "${shader_out_dir}/${shader_stem}.spv")
+        set(wgsl_output "${shader_out_dir}/${shader_stem}.wgsl")
+        set(reflection_output "${shader_out_dir}/${shader_stem}.reflection.txt")
 
         add_custom_command(
           OUTPUT "${wgsl_output}" "${reflection_output}"
           BYPRODUCTS "${spirv_output}"
-          COMMAND ${CMAKE_COMMAND} -E make_directory "${binary_dir}"
-          COMMAND ${CMAKE_COMMAND} -E make_directory "${shader_tool_dir}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${shader_out_dir}"
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${shader}" "${hlsl_output}"
           COMMAND "${dxc_exe}"
@@ -85,10 +90,18 @@ function(rhi_add_shaders target source_dir)
     else()
       foreach(shader IN LISTS shader_sources)
         get_filename_component(shader_filename "${shader}" NAME)
-        set(hlsl_output "${binary_dir}/${shader_filename}")
+        get_filename_component(shader_source_dir "${shader}" DIRECTORY)
+        file(RELATIVE_PATH shader_rel_dir "${source_dir_abs}" "${shader_source_dir}")
+        if(shader_rel_dir STREQUAL "" OR shader_rel_dir STREQUAL ".")
+          set(shader_out_dir "${binary_dir}")
+        else()
+          set(shader_out_dir "${binary_dir}/${shader_rel_dir}")
+        endif()
+
+        set(hlsl_output "${shader_out_dir}/${shader_filename}")
         add_custom_command(
           OUTPUT "${hlsl_output}"
-          COMMAND ${CMAKE_COMMAND} -E make_directory "${binary_dir}"
+          COMMAND ${CMAKE_COMMAND} -E make_directory "${shader_out_dir}"
           COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${shader}" "${hlsl_output}"
           DEPENDS "${shader}"
